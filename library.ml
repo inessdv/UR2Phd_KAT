@@ -31,13 +31,37 @@ let rec epsilon (r: 'a kleene): bool = match r with
 let rec deriv p r = match r with
   | Zero -> Zero
   | One -> Zero
-  | if p' == p then One else
-  | if p' != p then Zero else One
+  | Value(p') -> if p' == p then One else Zero
   | Union(a, b) -> Union(deriv p a, deriv p b)
   | Conc(a,b) -> 
-      if (epsilon(a) = 1) then Union(Conc(deriv p a, b), deriv p b)
+      if (epsilon(a) = true) then Union(Conc(deriv p a, b), deriv p b)
       else Conc(deriv p a, deriv p b)
   | Star(a) -> Conc(deriv p a, Star(a))
+
+
+let string_to_list str =
+  let rec convert_to_list index acc =
+    if index < 0 then acc
+    else convert_to_list (index - 1)(str.[index]::acc)
+  in
+  convert_to_list(String.length str - 1) []
+
+
+
+let rec reverse_list (lst: char list):char list = 
+  match lst with
+  | [] -> []
+  | hd :: tl -> (reverse_list tl) @ [hd]
+  
+
+let rec deriv_word_list w r =
+  match w with
+  | [] -> r (**base case**)
+  | p::rest -> deriv p (deriv_word_list rest r)
+
+let rec deriv_w w r = 
+  let  w_rev = reverse_list (string_to_list(w)) in 
+  deriv_word_list w_rev r
 
 
 
