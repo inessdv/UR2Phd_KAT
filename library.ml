@@ -65,5 +65,12 @@ let rec deriv_w w r =
 
 
 
-
+let rec tos s = match s with
+  | Zero -> "ZERO "
+  | One -> "ONE "
+  | Value(a) -> String.make 1 a
+  | Union(a, b) -> "(" ^ tos(a) ^ "+" ^ tos(b) ^ ")"
+  | Conc(a, b) -> "(" ^ tos(a) ^ "^" ^ tos(b) ^")"
+  | Star (Value(a)) ->"(" ^ String.make 1 a ^ ")" ^"*"
+  | Star r -> "(" ^ tos r ^ ")" ^ "*"
 
