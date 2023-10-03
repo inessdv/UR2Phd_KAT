@@ -12,7 +12,7 @@ let example1 = Union(Conc(Conc(One,Value('a')),Value('b')), Value('a'))
 
 let example2 = Star(Conc(Star(Conc(Value('a'),Value('b'))),Value('c')))
 
-let example3= Conc(Value 1, Value 8)
+let example3= Conc(Value '1', Value '8')
 
 (**helper funtion to change string to a kleene and kleene to string!**)
 
@@ -35,10 +35,24 @@ let rec deriv p r = match r with
   | Union(a, b) -> Union(deriv p a, deriv p b)
   | Conc(a,b) -> 
       if (epsilon(a) = true) then Union(Conc(deriv p a, b), deriv p b)
-      else Conc(deriv p a, deriv p b)
+      else Conc(deriv p a, b)
   | Star(a) -> Conc(deriv p a, Star(a))
 
-
+let rec optimize r= match r  with
+| Zero -> Zero
+| One -> One
+| Value p -> Value p
+| Union (Zero, b) -> optimize b
+| Union (b,Zero) -> optimize b
+| Union (a,b) -> Union(optimize a, optimize b) (*let optimize a, b*)
+| Conc(Zero,b) -> Zero
+| Conc(b,Zero) -> Zero
+| Conc(One,b) -> optimize b
+| Conc (b,One) -> optimize b
+| Conc (a,b) -> Conc(optimize a, optimize b)
+| Star(One) -> One
+| Star (Zero) -> One
+| Star (b) -> Star (optimize b)
 let string_to_list str =
   let rec convert_to_list index acc =
     if index < 0 then acc
