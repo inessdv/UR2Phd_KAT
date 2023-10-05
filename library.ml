@@ -14,6 +14,8 @@ let example2 = Star(Conc(Star(Conc(Value('a'),Value('b'))),Value('c')))
 
 let example3= Conc(Value '1', Value '8')
 
+let example4 = Union((Conc(Value 'a',Star(Zero))),One)
+let example5= Union(Value 'c',Union(Conc(One, Conc(Union(Zero,Value 'a'), Value 'b')), Star(One)))
 (**helper funtion to change string to a kleene and kleene to string!**)
 
 
@@ -38,21 +40,40 @@ let rec deriv p r = match r with
       else Conc(deriv p a, b)
   | Star(a) -> Conc(deriv p a, Star(a))
 
-let rec optimize r= match r  with
+
+
+let rec optimize r = match r  with
 | Zero -> Zero
 | One -> One
 | Value p -> Value p
-| Union (Zero, b) -> optimize b
-| Union (b,Zero) -> optimize b
-| Union (a,b) -> Union(optimize a, optimize b) (*let optimize a, b*)
-| Conc(Zero,b) -> Zero
-| Conc(b,Zero) -> Zero
-| Conc(One,b) -> optimize b
-| Conc (b,One) -> optimize b
-| Conc (a,b) -> Conc(optimize a, optimize b)
+| Union (Zero, r2) -> optimize r2
+| Union (r1,Zero) -> optimize r1
+| Union (r1,r2) -> let r1= optimize r1 in let r2= optimize r2 in 
+  (match r1,r2 with 
+  | Zero,r2 -> r2
+  | r1,Zero -> r1
+  |r1,r2 -> Union(r1,r2) )
+| Conc(Zero,r2) -> Zero
+| Conc(r1,Zero) -> Zero
+| Conc(One,r2) -> optimize r2
+| Conc (r1,One) -> optimize r1
+| Conc (r1,r2) -> let r1= optimize r1 in let r2= optimize r2 in 
+  (match (r1,r2) with 
+  | Zero,r2 -> Zero
+  | r1,Zero -> Zero
+  | One , r2 -> r2
+  | r1, One -> r1
+  | r1,r2 -> Conc(r1,r2) )
 | Star(One) -> One
 | Star (Zero) -> One
-| Star (b) -> Star (optimize b)
+| Star (r1) -> let r1=optimize r1 in 
+match r1 with
+| One -> One
+|Zero -> Zero
+| r1 -> Star(r1)
+
+
+
 let string_to_list str =
   let rec convert_to_list index acc =
     if index < 0 then acc
@@ -80,8 +101,8 @@ let rec deriv_w w r =
 
 
 let rec tos s = match s with
-  | Zero -> "ZERO "
-  | One -> "ONE "
+  | Zero -> "0"
+  | One -> "1"
   | Value(a) -> String.make 1 a
   | Union(a, b) -> "(" ^ tos(a) ^ "+" ^ tos(b) ^ ")"
   | Conc(a, b) -> "(" ^ tos(a) ^ "^" ^ tos(b) ^")"
