@@ -24,9 +24,9 @@ let rec epsilon (r: 'a kleene): bool = match r with
   | One -> true
   | Zero -> false
   | Value p -> false
-  | Union(a, b) -> epsilon a || epsilon b
-  | Conc(a,b) -> epsilon a && epsilon b
-  | Star(a) -> true
+  | Union(r1,r2) -> epsilon r1 || epsilon r2
+  | Conc(r1,r2) -> epsilon r1 && epsilon r2
+  | Star(r1) -> true
 
 
 (** Brzozowski's derivative of regular expression r respect to a symbol p **)
@@ -34,11 +34,11 @@ let rec deriv p r = match r with
   | Zero -> Zero
   | One -> Zero
   | Value(p') -> if p' == p then One else Zero
-  | Union(a, b) -> Union(deriv p a, deriv p b)
-  | Conc(a,b) -> 
-      if (epsilon(a) = true) then Union(Conc(deriv p a, b), deriv p b)
-      else Conc(deriv p a, b)
-  | Star(a) -> Conc(deriv p a, Star(a))
+  | Union(r1,r2) -> Union(deriv p r1, deriv p r2)
+  | Conc(r1,r2) -> 
+      if (epsilon(r1) = true) then Union(Conc(deriv p r1, r2), deriv p r2)
+      else Conc(deriv p r1, r2)
+  | Star(r1) -> Conc(deriv p r1, Star(r1))
 
 
 
@@ -52,7 +52,7 @@ let rec optimize r = match r  with
   (match r1,r2 with 
   | Zero,r2 -> r2
   | r1,Zero -> r1
-  |r1,r2 -> Union(r1,r2) )
+  | r1,r2 -> if r1 == r2 then r1 else Union(r1,r2) )
 | Conc(Zero,r2) -> Zero
 | Conc(r1,Zero) -> Zero
 | Conc(One,r2) -> optimize r2
@@ -63,13 +63,13 @@ let rec optimize r = match r  with
   | r1,Zero -> Zero
   | One , r2 -> r2
   | r1, One -> r1
-  | r1,r2 -> Conc(r1,r2) )
+  | r1, r2 -> if r1 == Star(r1) && r2 == Star(r1) then Star(r1) else Conc(r1,r2) ) (**checking for r*r*->r* **)
 | Star(One) -> One
 | Star (Zero) -> One
 | Star (r1) -> let r1=optimize r1 in 
 match r1 with
 | One -> One
-|Zero -> Zero
+| Zero -> Zero
 | r1 -> Star(r1)
 
 
@@ -103,9 +103,9 @@ let rec deriv_w w r =
 let rec tos s = match s with
   | Zero -> "0"
   | One -> "1"
-  | Value(a) -> String.make 1 a
-  | Union(a, b) -> "(" ^ tos(a) ^ "+" ^ tos(b) ^ ")"
-  | Conc(a, b) -> "(" ^ tos(a) ^ "^" ^ tos(b) ^")"
-  | Star (Value(a)) ->"(" ^ String.make 1 a ^ ")" ^"*"
-  | Star r -> "(" ^ tos r ^ ")" ^ "*"
+  | Value(r1) -> String.make 1 r1
+  | Union(r1,r2) -> "(" ^ tos(r1) ^ "+" ^ tos(r2) ^ ")"
+  | Conc(r1, r2) -> "(" ^ tos(r1) ^ "^" ^ tos(r2) ^")"
+  | Star (Value(r1)) ->"(" ^ String.make 1 r1 ^ ")" ^"*"
+  | Star r1 -> "(" ^ tos r1 ^ ")" ^ "*"
 
