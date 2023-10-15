@@ -77,9 +77,9 @@ let rec partialDeriv re p =match re with
   | Value(p') -> if p' == p then [One] else []
   | Union(r1,r2) -> listDuplicateChecker((partialDeriv r1 p)  (partialDeriv r2 p))
   | Conc(r1,r2) -> 
-      if (epsilon(r1) = true) then listDuplicateChecker(Conc(partialDeriv p r1, r2), partialDeriv p r2)
-      else Conc(deriv p r1, r2)
-  | Star(r1) -> Conc(deriv p r1, Star(r1))
+      if (epsilon(r1) = true) then listDuplicateChecker(Conc(partialDeriv r1 p, r2), partialDeriv r2 p)
+      else Conc(partialDeriv r1 p, r2)
+  | Star(r1) -> Conc(partialDeriv r1 p, Star(r1))
 
 let rec optimize r = match r  with
 | Zero -> Zero
