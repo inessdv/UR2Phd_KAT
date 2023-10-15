@@ -40,7 +40,25 @@ let rec deriv p r = match r with
       else Conc(deriv p r1, r2)
   | Star(r1) -> Conc(deriv p r1, Star(r1))
 
+let rec duplicateChecker list value= match list with
+ |[] -> true
+ |x1::xs -> if (x1==value) then false 
+  else duplicateChecker xs value
 
+let rec listDuplicateChecker alist blist= match blist with
+|[] -> true
+|x1::xs -> if (duplicateChecker alist x1) then listDuplicateChecker alist xs
+else false
+
+(* let rec partialDeriv re p =match re with
+  | Zero -> []
+  | One -> []
+  | Value(p') -> if p' == p then [One] else []
+  | Union(r1,r2) -> Union(deriv p r1, deriv p r2)
+  | Conc(r1,r2) -> 
+      if (epsilon(r1) = true) then Union(Conc(deriv p r1, r2), deriv p r2)
+      else Conc(deriv p r1, r2)
+  | Star(r1) -> Conc(deriv p r1, Star(r1)) *)
 
 let rec optimize r = match r  with
 | Zero -> Zero
