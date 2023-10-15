@@ -39,26 +39,47 @@ let rec deriv p r = match r with
       if (epsilon(r1) = true) then Union(Conc(deriv p r1, r2), deriv p r2)
       else Conc(deriv p r1, r2)
   | Star(r1) -> Conc(deriv p r1, Star(r1))
-
+(** Check if there is duplicate when adding an element or adding a list, true if nothing duplicate, false if duplicate **)
 let rec duplicateChecker list value= match list with
  |[] -> true
  |x1::xs -> if (x1==value) then false 
   else duplicateChecker xs value
 
-let rec listDuplicateChecker alist blist= match blist with
-|[] -> true
-|x1::xs -> if (duplicateChecker alist x1) then listDuplicateChecker alist xs
-else false
+(*Add element which is not duuplicate into alist*)
+let rec listDuplicateChecker alist blist= 
+match blist with
+|[] -> alist
+|x1::xs -> 
+match x1 with
+| Zero -> 
+  if (duplicateChecker alist Zero) then listDuplicateChecker (alist@[Zero]) xs
+else listDuplicateChecker alist xs
+| One -> 
+  if (duplicateChecker alist One) then listDuplicateChecker (alist@[One]) xs
+else listDuplicateChecker alist xs
+| Value(p) -> 
+  if (duplicateChecker alist (Value(p))) then listDuplicateChecker (alist@[Value(p)]) xs
+else listDuplicateChecker alist xs
+| Union(r1,r2) -> 
+  if (duplicateChecker alist (Union(r1,r2))) then listDuplicateChecker (alist@[Union(r1,r2)]) xs
+else listDuplicateChecker alist xs
+| Conc(r1,r2) -> 
+  if (duplicateChecker alist (Conc(r1,r2))) then listDuplicateChecker (alist@[Conc(r1,r2)]) xs
+  else listDuplicateChecker alist xs
+| Star(r1) -> 
+  if (duplicateChecker alist (Star(r1))) then listDuplicateChecker (alist@[Star(r1)]) xs
+else listDuplicateChecker alist xs
+  
 
-(* let rec partialDeriv re p =match re with
+let rec partialDeriv re p =match re with
   | Zero -> []
   | One -> []
   | Value(p') -> if p' == p then [One] else []
-  | Union(r1,r2) -> Union(deriv p r1, deriv p r2)
+  | Union(r1,r2) -> listDuplicateChecker((partialDeriv r1 p)  (partialDeriv r2 p))
   | Conc(r1,r2) -> 
-      if (epsilon(r1) = true) then Union(Conc(deriv p r1, r2), deriv p r2)
+      if (epsilon(r1) = true) then listDuplicateChecker(Conc(partialDeriv p r1, r2), partialDeriv p r2)
       else Conc(deriv p r1, r2)
-  | Star(r1) -> Conc(deriv p r1, Star(r1)) *)
+  | Star(r1) -> Conc(deriv p r1, Star(r1))
 
 let rec optimize r = match r  with
 | Zero -> Zero
