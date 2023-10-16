@@ -28,6 +28,36 @@ let rec epsilon (r: 'a kleene): bool = match r with
   | Conc(r1,r2) -> epsilon r1 && epsilon r2
   | Star(r1) -> true
 
+  let rec optimize r = match r  with
+  | Zero -> Zero
+  | One -> One
+  | Value p -> Value p
+  | Union (Zero, r2) -> optimize r2
+  | Union (r1,Zero) -> optimize r1
+  | Union (r1,r2) -> let r1 = optimize r1 in let r2 = optimize r2 in 
+    (match r1,r2 with 
+    | Zero,r2 -> r2
+    | r1,Zero -> r1
+    | r1,r2 -> if r1 == r2 then r1 else Union(r1,r2) )
+  | Conc(Zero,r2) -> Zero
+  | Conc(r1,Zero) -> Zero
+  | Conc(One,r2) -> optimize r2
+  | Conc (r1,One) -> optimize r1
+  | Conc (r1,r2) -> let r1= optimize r1 in let r2= optimize r2 in 
+    (match (r1,r2) with 
+    | Zero,r2 -> Zero
+    | r1,Zero -> Zero
+    | One , r2 -> r2
+    | r1, One -> r1
+    | r1, r2 -> if r1 == Star(r1) && r2 == Star(r1) then Star(r1) else Conc(r1,r2) ) (**checking for r*r*->r* **)
+  | Star(One) -> One
+  | Star (Zero) -> One
+  | Star (r1) -> let r1=optimize r1 in 
+  match r1 with
+  | One -> One
+  | Zero -> Zero
+  | r1 -> Star(r1)
+
 
 (** Brzozowski's derivative of regular expression r respect to a symbol p **)
 let rec deriv p r = match r with
@@ -39,6 +69,32 @@ let rec deriv p r = match r with
       if (epsilon(r1) = true) then Union(Conc(deriv p r1, r2), deriv p r2)
       else Conc(deriv p r1, r2)
   | Star(r1) -> Conc(deriv p r1, Star(r1))
+
+  let string_to_list str =
+    let rec convert_to_list index acc =
+      if index < 0 then acc
+      else convert_to_list (index - 1)(str.[index]::acc)
+    in
+    convert_to_list(String.length str - 1) []
+  
+  
+  
+  let rec reverse_list (lst: char list):char list = 
+    match lst with
+    | [] -> []
+    | hd :: tl -> (reverse_list tl) @ [hd]
+    
+  
+  let rec deriv_word_list w r =
+    match w with
+    | [] -> r (**base case**)
+    | p::rest -> deriv p (deriv_word_list rest r)
+  
+  let rec deriv_w w r = 
+    let  w_rev = reverse_list (string_to_list(w)) in 
+    deriv_word_list w_rev r
+
+
 (** Check if there is duplicate when adding an element or adding a list, true if nothing duplicate, false if duplicate **)
 let rec duplicateChecker list value= match list with
  |[] -> true
@@ -46,7 +102,7 @@ let rec duplicateChecker list value= match list with
   else duplicateChecker xs value
 
 (*Add element which is not duuplicate into alist*)
-let rec listDuplicateChecker alist blist= 
+let rec listDuplicateChecker alist blist = 
 match blist with
 |[] -> alist
 |x1::xs -> 
@@ -71,71 +127,44 @@ else listDuplicateChecker alist xs
 else listDuplicateChecker alist xs
   
 
-let rec partialDeriv re p =match re with
+(*partial derivative function*)
+(**
+let rec partialDeriv re p = match re with
   | Zero -> []
   | One -> []
   | Value(p') -> if p' == p then [One] else []
-  | Union(r1,r2) -> listDuplicateChecker((partialDeriv r1 p)  (partialDeriv r2 p))
+  | Union(r1,r2) -> listDuplicateChecker((partialDeriv r1 p)(partialDeriv r2 p))
   | Conc(r1,r2) -> 
       if (epsilon(r1) = true) then listDuplicateChecker(Conc(partialDeriv r1 p, r2), partialDeriv r2 p)
-      else Conc(partialDeriv r1 p, r2)
+      else Conc(partialDeriv r1 p, [r2])
   | Star(r1) -> Conc(partialDeriv r1 p, Star(r1))
+**)
 
-let rec optimize r = match r  with
-| Zero -> Zero
-| One -> One
-| Value p -> Value p
-| Union (Zero, r2) -> optimize r2
-| Union (r1,Zero) -> optimize r1
-| Union (r1,r2) -> let r1= optimize r1 in let r2= optimize r2 in 
-  (match r1,r2 with 
-  | Zero,r2 -> r2
-  | r1,Zero -> r1
-  | r1,r2 -> if r1 == r2 then r1 else Union(r1,r2) )
-| Conc(Zero,r2) -> Zero
-| Conc(r1,Zero) -> Zero
-| Conc(One,r2) -> optimize r2
-| Conc (r1,One) -> optimize r1
-| Conc (r1,r2) -> let r1= optimize r1 in let r2= optimize r2 in 
-  (match (r1,r2) with 
-  | Zero,r2 -> Zero
-  | r1,Zero -> Zero
-  | One , r2 -> r2
-  | r1, One -> r1
-  | r1, r2 -> if r1 == Star(r1) && r2 == Star(r1) then Star(r1) else Conc(r1,r2) ) (**checking for r*r*->r* **)
-| Star(One) -> One
-| Star (Zero) -> One
-| Star (r1) -> let r1=optimize r1 in 
-match r1 with
-| One -> One
-| Zero -> Zero
-| r1 -> Star(r1)
+let rec conc_list lista listb = 
+let res_list=[]
+in
+match lista with
+|[]->res_list
+|x1::xs->
+match listb with
+|[]->
+|y1::ys->res_list@[optimize(Conc(x1,y1))]
 
-
-
-let string_to_list str =
-  let rec convert_to_list index acc =
-    if index < 0 then acc
-    else convert_to_list (index - 1)(str.[index]::acc)
-  in
-  convert_to_list(String.length str - 1) []
-
-
-
-let rec reverse_list (lst: char list):char list = 
-  match lst with
-  | [] -> []
-  | hd :: tl -> (reverse_list tl) @ [hd]
   
+(**
+let rec partialDeriv re p = match re with
+  | Zero -> []
+  | One -> []
+  | Value(p') -> if p' == p then [One] else []
+  | Union(r1,r2) -> 
+    let d1 = partialDeriv r1 p in let d2= partialDeriv r2 p in listDuplicateChecker d1 d2 
+  | Conc(r1,r2) -> 
+      if (epsilon(r1) = true) then listDuplicateChecker(conc_list(partialDeriv r1 p, r2), partialDeriv r2 p)
+      else 
+        conc_list(partialDeriv r1 p, [r2])
+  | Star(r1) -> conc_list(partialDeriv r1 p, Star(r1))
 
-let rec deriv_word_list w r =
-  match w with
-  | [] -> r (**base case**)
-  | p::rest -> deriv p (deriv_word_list rest r)
-
-let rec deriv_w w r = 
-  let  w_rev = reverse_list (string_to_list(w)) in 
-  deriv_word_list w_rev r
+**)
 
 
 
