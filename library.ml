@@ -127,28 +127,24 @@ else listDuplicateChecker alist xs
 else listDuplicateChecker alist xs
   
 
+
+let rec conc_list (list_r1: 'a kleene list ) (r2: 'a kleene): 'a kleene list= 
+match list_r1 with
+|[] -> []
+|r1::rs -> (Conc(r1,r2))::(conc_list rs r2)
+
 (*partial derivative function*)
-(**
-let rec partialDeriv re p = match re with
+
+let rec partialDeriv (re: 'a kleene ) (p: 'a): 'a kleene list = match re with
   | Zero -> []
   | One -> []
   | Value(p') -> if p' == p then [One] else []
-  | Union(r1,r2) -> listDuplicateChecker((partialDeriv r1 p)(partialDeriv r2 p))
+  | Union(r1,r2) -> listDuplicateChecker (partialDeriv r1 p) (partialDeriv r2 p)
   | Conc(r1,r2) -> 
-      if (epsilon(r1) = true) then listDuplicateChecker(Conc(partialDeriv r1 p, r2), partialDeriv r2 p)
-      else Conc(partialDeriv r1 p, [r2])
-  | Star(r1) -> Conc(partialDeriv r1 p, Star(r1))
-**)
-
-let rec conc_list lista listb = 
-let res_list=[]
-in
-match lista with
-|[]->res_list
-|x1::xs->
-match listb with
-|[]->
-|y1::ys->res_list@[optimize(Conc(x1,y1))]
+      if (epsilon r1 = true) then listDuplicateChecker (conc_list (partialDeriv r1 p) r2) (partialDeriv r2 p)
+      else
+     conc_list (partialDeriv r1 p) r2 
+  | Star(r1) -> conc_list (partialDeriv r1 p) (Star r1)
 
   
 (**
