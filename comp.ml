@@ -151,35 +151,59 @@ module KATerm = struct
 
   type t =
     | Val of char
+    | One 
+    | Zero
     | Union of t * t
-    | Seq of t * t
+    | Conc of t * t
     | Star of t
 
   let symbol_parser : t parser =
-    let*  s = satisfy (fun c -> is_alpha c ) in
+    let* s = satisfy (fun c -> is_alpha c ) in
     pure (Val s) << ws
+  
+  let one_parser : t parser = 
+    let* _ = keyword "1" in 
+    pure One
 
-  let rec term_parser0 () =
+  let zero_parser : t parser = 
+    let* _ = keyword "0" in 
+    pure Zero
+
+  let rec min_term_parser () =
     let* _ = pure () in
     choice
       [ symbol_parser
-        ; keyword "(" >> term_parser_star () << keyword ")^*"
+      ; one_parser
+      ; zero_parser
       ; keyword "(" >> term_parser () << keyword ")"
       ]
 
-  and seq_parser () =
-    let* e = term_parser0 () in
-    let opr () = (let* _ = keyword "@" in
-           let* e = term_parser0 () in
-           pure ((fun e1 e2 -> Seq (e1, e2)), e))
+  and star_parser () = 
+    let* e = min_term_parser () in
+    let* _ = keyword "*" <|> keyword "^*" in
+    pure (Star e)
+
+  and min_term_star_pareser () = star_parser () <|> min_term_parser () 
+    
+  and conc_parser () : t parser = 
+    let* e = min_term_star_pareser () in
+    let opr () = 
+          (*conc explicitly using "@" symbol*)
+          (let* _ = keyword "@" in
+          let* e = min_term_star_pareser () in
+          pure ((fun e1 e2 -> Conc (e1, e2)), e)) 
+          <|>
+          (*conc implicitly without using any operators*)
+          (let* e = min_term_star_pareser () in
+          pure ((fun e1 e2 -> Conc (e1, e2)), e)) 
     in
     let* es = many (opr ()) in
     pure (List.fold_left (fun acc (f, e) -> f acc e) e es)
 
   and union_parser () =
-    let* e = seq_parser () in
+    let* e = conc_parser () in
     let opr () = (let* _ = keyword "+" in
-           let* e = seq_parser () in
+           let* e = conc_parser () in
            pure ((fun e1 e2 -> Union (e1, e2)), e))
     in
     let* es = many (opr ()) in
@@ -189,11 +213,7 @@ module KATerm = struct
     let* _ = pure () in
     union_parser ()
 
-  and term_parser_star () =
-    let* e = union_parser () in
-    pure (Star e)
-       
-  let parse_prog (s : string) : t  option =
+  let parse_reg (s : string) : t option =
     match parse (ws >> term_parser ()) s with
     |Some (r,[]) -> Some r
     |_ -> None
