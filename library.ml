@@ -28,35 +28,49 @@ let rec epsilon (r: 'a kleene): bool = match r with
   | Conc(r1,r2) -> epsilon r1 && epsilon r2
   | Star(r1) -> true
 
-  let rec optimize r = match r  with
+let rec optimize r = match r  with
   | Zero -> Zero
   | One -> One
   | Value p -> Value p
-  | Union (Zero, r2) -> optimize r2
-  | Union (r1,Zero) -> optimize r1
+
   | Union (r1,r2) -> let r1 = optimize r1 in let r2 = optimize r2 in 
     (match r1,r2 with 
+    (*r1 + (r3 + r4) => (r1 + r3) + r4*)
+    | r1, Union (r3, r4) -> 
+        Union (Union (optimize r1, optimize r3), optimize r4)
+    (*0 + r => r *)
     | Zero,r2 -> r2
+    (*r + 0 => r *)
     | r1,Zero -> r1
+    (*r + r => r *)
     | r1,r2 -> if r1 == r2 then r1 else Union(r1,r2) )
-  | Conc(Zero,r2) -> Zero
-  | Conc(r1,Zero) -> Zero
-  | Conc(One,r2) -> optimize r2
-  | Conc (r1,One) -> optimize r1
+
   | Conc (r1,r2) -> let r1= optimize r1 in let r2= optimize r2 in 
     (match (r1,r2) with 
+    (*r1 . (r3 . r4) => (r1 . r3) . r4 *)
+    | r1, Conc (r3, r4) -> 
+      Conc (Conc (optimize r1, optimize r3), optimize r4)
+    (*0 . r => r *)
     | Zero,r2 -> Zero
+    (*r . 0 => r *)
     | r1,Zero -> Zero
+    (*1 . r => r *)
     | One , r2 -> r2
+    (*r . 1 => r *)
     | r1, One -> r1
-    | r1, r2 -> if r1 == Star(r1) && r2 == Star(r1) then Star(r1) else Conc(r1,r2) ) (**checking for r*r*->r* **)
-  | Star(One) -> One
-  | Star (Zero) -> One
+    (* r* r* => r* *)
+    | Star(r1), Star(r2) -> if r1 = r2 then Star(r1) else Conc(r1,r2)
+    (* no optimization *)
+    | r1, r2 -> Conc(r1,r2) )
+
   | Star (r1) -> let r1=optimize r1 in 
-  match r1 with
-  | One -> One
-  | Zero -> Zero
-  | r1 -> Star(r1)
+    (match r1 with
+    (* 1* => 1 *)
+    | One -> One
+    (* 0* => 0 *)
+    | Zero -> Zero
+    (* no optimization *)
+    | r1 -> Star(r1))
 
 
 (** Brzozowski's derivative of regular expression r respect to a symbol p **)
@@ -199,4 +213,5 @@ let rec tos s = match s with
     in
     let (str, _) = helper exp in str 
 
-
+  (* pretty printing with equational theory *)
+  let eqpprint (exp: char kleene) = pprint (optimize exp)
