@@ -7,10 +7,6 @@ module Parser = struct
 
   let is_alpha c = is_lower_case c || is_upper_case c
 
-  let is_digit c = '0' <= c && c <= '9'
-
-  let is_alphanum c = is_lower_case c || is_upper_case c || is_digit c
-
   let is_blank c = String.contains " \012\n\r\t" c
 
   let explode s = List.of_seq (String.to_seq s)
@@ -120,33 +116,6 @@ module Parser = struct
       | None -> Some ([ x ], ls))
     | None -> Some ([], ls)
 
-  let rec many1 (p : 'a parser) : 'a list parser =
-   fun ls ->
-    match p ls with
-    | Some (x, ls) -> (
-      match many p ls with
-      | Some (xs, ls) -> Some (x :: xs, ls)
-      | None -> Some ([ x ], ls))
-    | None -> None
-
-  let rec many' (p : unit -> 'a parser) : 'a list parser =
-   fun ls ->
-    match p () ls with
-    | Some (x, ls) -> (
-      match many' p ls with
-      | Some (xs, ls) -> Some (x :: xs, ls)
-      | None -> Some ([ x ], ls))
-    | None -> Some ([], ls)
-
-  let rec many1' (p : unit -> 'a parser) : 'a list parser =
-   fun ls ->
-    match p () ls with
-    | Some (x, ls) -> (
-      match many' p ls with
-      | Some (xs, ls) -> Some (x :: xs, ls)
-      | None -> Some ([ x ], ls))
-    | None -> None
-
   let whitespace : unit parser =
    fun ls ->
     match ls with
@@ -158,16 +127,6 @@ module Parser = struct
     | _ -> None
 
   let ws : unit parser = many whitespace >| ()
-
-  let ws1 : unit parser = many1 whitespace >| ()
-
-  let digit : char parser = satisfy is_digit
-
-  let natural : int parser =
-   fun ls ->
-    match many1 digit ls with
-    | Some (xs, ls) -> Some (int_of_string (implode xs), ls)
-    | _ -> None
 
   let literal (s : string) : unit parser =
    fun ls ->
@@ -186,288 +145,56 @@ module Parser = struct
 
   let keyword (s : string) : unit parser = literal s >> ws >| ()
 end
-(** above parser combinators **)
-module Term = struct
+
+module KATerm = struct
   open Parser
 
   type t =
-    | Var of string
-    | Fun of string * string * t
-    | App of t * t
-    | If of t * t * t
+    | Val of char
+    | Union of t * t
+    | Seq of t * t
+    | Star of t
 
-    | Let of string * t * t
-    | Match of t * (int * t) list
-    | Try of t * t
-    | Print of t list
-    | Unit
-    | Bool of bool
-    | Int of int
-    | Add of t * t
-    | Sub of t * t
-    | Mul of t * t
-    | Div of t * t
-    | Mod of t * t
-    | And of t * t
-    | Or of t * t
-    | Not of t
-    | Equal of t * t
-    | Lt of t * t
-    | Lte of t * t
-    | Gt of t * t
-    | Gte of t * t
-
-  let reserved =
-    [ "fun"
-    ; "if"
-    ; "then"
-    ; "else"
-    ; "let"
-    ; "rec"
-    ; "in"
-    ; "print"
-    ; "match"
-    ; "try"
-    ; "with"
-    ; "mod"
-    ; "not"
-    ; "true"
-    ; "false"
-    ; "exn"
-    ]
-
-  let name : string parser =
-    let* xs1 = many1 (satisfy (fun c -> is_alpha c || c = '_')) in
-    let* xs2 = many (satisfy (fun c -> is_alphanum c || c = '_' || c = '\'')) in
-    let s = implode xs1 ^ implode xs2 in
-    if List.exists (fun x -> x = s) reserved then
-      fail
-    else
-      pure ("v" ^ s) << ws
-
-  let name_parser () =
-    let* n = name in
-    if n = "v_" then
-      fail
-    else
-      pure (Var n)
-
-  let unit_parser () =
-    let* _ = keyword "()" in
-    pure Unit
-
-  let integer_parser () =
-    (let* _ = keyword "-" in
-     let* n = natural in
-     pure (-n))
-    <|> (let* n = natural in
-         pure n)
-    << ws
-
-  let int_parser () =
-    let* n = natural in
-    pure (Int n) << ws
-
-  let bool_parser () =
-    keyword "true" >| Bool true <|> (keyword "false" >| Bool false)
+  let symbol_parser : t parser =
+    let*  s = satisfy (fun c -> is_alpha c ) in
+    pure (Val s) << ws
 
   let rec term_parser0 () =
     let* _ = pure () in
     choice
-      [ name_parser ()
-      ; unit_parser ()
-      ; int_parser ()
-      ; bool_parser ()
+      [ symbol_parser
+        ; keyword "(" >> term_parser_star () << keyword ")^*"
       ; keyword "(" >> term_parser () << keyword ")"
       ]
 
-  and term_parser1 () =
-    let* es = many1 (term_parser0 ()) in
-    match es with
-    | e :: es -> pure (List.fold_left (fun acc e -> App (acc, e)) e es)
-    | _ -> fail
-
-  and term_parser2 () =
-    choice
-      [ (let* _ = keyword "-" in
-         let* e = term_parser1 () in
-         pure (Sub (Int 0, e)))
-      ; (let* e = term_parser1 () in
-         pure e)
-      ]
-
-  and term_parser3 () =
-    let* e = term_parser2 () in
-    let opr () =
-      choice
-        [ (let* _ = keyword "*" in
-           let* e = term_parser2 () in
-           pure ((fun e1 e2 -> Mul (e1, e2)), e))
-        ; (let* _ = keyword "/" in
-           let* e = term_parser2 () in
-           pure ((fun e1 e2 -> Div (e1, e2)), e))
-        ; (let* _ = keyword "mod" in
-           let* e = term_parser2 () in
-           pure ((fun e1 e2 -> Mod (e1, e2)), e))
-        ]
+  and seq_parser () =
+    let* e = term_parser0 () in
+    let opr () = (let* _ = keyword "@" in
+           let* e = term_parser0 () in
+           pure ((fun e1 e2 -> Seq (e1, e2)), e))
     in
     let* es = many (opr ()) in
     pure (List.fold_left (fun acc (f, e) -> f acc e) e es)
 
-  and term_parser4 () =
-    let* e = term_parser3 () in
-    let opr () =
-      choice
-        [ (let* _ = keyword "+" in
-           let* e = term_parser3 () in
-           pure ((fun e1 e2 -> Add (e1, e2)), e))
-        ; (let* _ = keyword "-" in
-           let* e = term_parser3 () in
-           pure ((fun e1 e2 -> Sub (e1, e2)), e))
-        ]
-    in
-    let* es = many (opr ()) in
-    pure (List.fold_left (fun acc (f, e) -> f acc e) e es)
-
-  and term_parser5 () =
-    let* e = term_parser4 () in
-    let opr () =
-      choice
-        [ (let* _ = keyword "=" in
-           let* e = term_parser4 () in
-           pure ((fun e1 e2 -> Equal (e1, e2)), e))
-        ; (let* _ = keyword "<" in
-           let* e = term_parser4 () in
-           pure ((fun e1 e2 -> Lt (e1, e2)), e))
-        ; (let* _ = keyword "<=" in
-           let* e = term_parser4 () in
-           pure ((fun e1 e2 -> Lte (e1, e2)), e))
-        ; (let* _ = keyword ">" in
-           let* e = term_parser4 () in
-           pure ((fun e1 e2 -> Gt (e1, e2)), e))
-        ; (let* _ = keyword ">=" in
-           let* e = term_parser4 () in
-           pure ((fun e1 e2 -> Gte (e1, e2)), e))
-        ]
-    in
-    let* es = many (opr ()) in
-    pure (List.fold_left (fun acc (f, e) -> f acc e) e es)
-
-  and term_parser6 () =
-    (let* _ = keyword "not" in
-     let* m = term_parser5 () in
-     pure (Not m))
-    <|> term_parser5 ()
-
-  and term_parser7 () =
-    let* e = term_parser6 () in
-    let opr () =
-      let* _ = keyword "&&" in
-      let* e = term_parser6 () in
-      pure ((fun e1 e2 -> And (e1, e2)), e)
-    in
-    let* es = many (opr ()) in
-    pure (List.fold_left (fun acc (f, e) -> f acc e) e es)
-
-  and term_parser8 () =
-    let* e = term_parser7 () in
-    let opr () =
-      let* _ = keyword "||" in
-      let* e = term_parser7 () in
-      pure ((fun e1 e2 -> Or (e1, e2)), e)
+  and union_parser () =
+    let* e = seq_parser () in
+    let opr () = (let* _ = keyword "+" in
+           let* e = seq_parser () in
+           pure ((fun e1 e2 -> Union (e1, e2)), e))
     in
     let* es = many (opr ()) in
     pure (List.fold_left (fun acc (f, e) -> f acc e) e es)
 
   and term_parser () =
     let* _ = pure () in
-    choice
-      [ term_parser8 ()
-      ; fun_parser ()
-      ; if_parser ()
-      ; letrec_parser ()
-      ; let_parser ()
-      ; match_parser ()
-      ; try_parser ()
-      ; trace_parser ()
-      ]
+    union_parser ()
 
-  and trace_parser () =
-    let* _ = keyword "print" in
-    let* ms = many1' term_parser0 in
-    pure (Print ms)
-
-  and fun_parser () =
-    let* _ = keyword "fun" in
-    let* xs = many1 name in
-    let* _ = keyword "->" in
-    let* e = term_parser () in
-    let m = List.fold_right (fun x acc -> Fun ("fun", x, acc)) xs e in
-    pure m
-
-  and if_parser () =
-    let* _ = keyword "if" in
-    let* cond = term_parser () in
-    let* _ = keyword "then" in
-    let* e1 = term_parser () in
-    let* _ = keyword "else" in
-    let* e2 = term_parser () in
-    pure (If (cond, e1, e2))
-
-  and let_parser () =
-    let* _ = keyword "let" in
-    let* n = name in
-    let* _ = keyword "=" in
-    let* e1 = term_parser () in
-    let* _ = keyword "in" in
-    let* e2 = term_parser () in
-    pure (Let (n, e1, e2))
-
-  and letrec_parser () =
-    let* _ = keyword "let" in
-    let* _ = keyword "rec" in
-    let* n = name in
-    let* args = many1 name in
-    let* _ = keyword "=" in
-    let* e1 = term_parser () in
-    let e1, _ =
-      List.fold_right
-        (fun arg (acc, len) ->
-          let fn =
-            if len = 1 then
-              n
-            else
-              "fun"
-          in
-          (Fun (fn, arg, acc), len - 1))
-        args
-        (e1, List.length args)
-    in
-    let* _ = keyword "in" in
-    let* e2 = term_parser () in
-    pure (Let (n, e1, e2))
-
-  and match_parser () =
-    let* _ = keyword "match" in
-    let* e1 = term_parser () in
-    let* _ = keyword "with" in
-    let* cls = many' clause_parser in
-    pure (Match (e1, cls))
-
-  and try_parser () =
-    let* _ = keyword "try" in
-    let* e1 = term_parser () in
-    let* _ = keyword "with" in
-    let* e2 = term_parser () in
-    pure (Try (e1, e2))
-
-  and clause_parser () =
-    let* _ = keyword "|" in
-    let* i = integer_parser () in
-    let* _ = keyword "->" in
-    let* m = term_parser () in
-    pure (i, m)
-
-  let parse_prog (s : string) : (t * char list) option =
-    parse (ws >> term_parser ()) s
+  and term_parser_star () =
+    let* e = union_parser () in
+    pure (Star e)
+       
+  let parse_prog (s : string) : t  option =
+    match parse (ws >> term_parser ()) s with
+    |Some (r,[]) -> Some r
+    |_ -> None
 end
