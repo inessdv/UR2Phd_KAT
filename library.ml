@@ -173,3 +173,30 @@ let rec tos s = match s with
   | Star (Value(r1)) ->"(" ^ String.make 1 r1 ^ ")" ^"*"
   | Star r1 -> "(" ^ tos r1 ^ ")" ^ "*"
 
+  let pprint (exp: char kleene) = 
+    (*helper method, takes a expression, output the string, 
+       and **the precedence of the outer most expression** *)
+    let rec helper (exp: char kleene): string * int = 
+      match exp with
+      | One -> ("1", 0)
+      | Zero -> ("0", 0)
+      | Value(c) -> (String.make 1 c, 0)
+      | Star(r) -> 
+        let (str, precedence) = helper r in 
+        if precedence <= 0 then (str^"*", 0) else ("("^str^")*", 0)
+      | Conc(r1, r2) ->
+        let (str1, precedence1) = helper r1 in 
+        let (str2, precedence2) = helper r2 in 
+        let str1' = if precedence1 <= 1 then str1 else "("^str1^")" in 
+        let str2' = if precedence2 <= 1 then str2 else "("^str2^")" in 
+        (str1' ^ " " ^ str2', 1)
+      | Union(r1, r2) ->
+        let (str1, precedence1) = helper r1 in 
+        let (str2, precedence2) = helper r2 in 
+        let str1' = if precedence1 <= 2 then str1 else "("^str1^")" in 
+        let str2' = if precedence2 <= 2 then str2 else "("^str2^")" in 
+        (str1' ^ " + " ^ str2', 2) 
+    in
+    let (str, _) = helper exp in str 
+
+
