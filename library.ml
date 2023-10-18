@@ -188,13 +188,13 @@ let rec tos s = match s with
         let (str1, precedence1) = helper r1 in 
         let (str2, precedence2) = helper r2 in 
         let str1' = if precedence1 <= 1 then str1 else "("^str1^")" in 
-        let str2' = if precedence2 <= 1 then str2 else "("^str2^")" in 
+        let str2' = if precedence2 < 1 then str2 else "("^str2^")" in 
         (str1' ^ " " ^ str2', 1)
       | Union(r1, r2) ->
         let (str1, precedence1) = helper r1 in 
         let (str2, precedence2) = helper r2 in 
         let str1' = if precedence1 <= 2 then str1 else "("^str1^")" in 
-        let str2' = if precedence2 <= 2 then str2 else "("^str2^")" in 
+        let str2' = if precedence2 < 2 then str2 else "("^str2^")" in 
         (str1' ^ " + " ^ str2', 2) 
     in
     let (str, _) = helper exp in str 
