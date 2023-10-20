@@ -110,35 +110,35 @@ let rec deriv p r = match r with
 
 
 (** Check if there is duplicate when adding an element or adding a list, true if nothing duplicate, false if duplicate **)
-let rec duplicateChecker list value= match list with
+let rec duplicateChecker list value = match list with
  |[] -> true
  |x1::xs -> if (x1==value) then false 
   else duplicateChecker xs value
 
 (*Add element which is not duuplicate into alist*)
-let rec listDuplicateChecker alist blist = 
-match blist with
-|[] -> alist
+let rec union_list (r1_list: 'a kleene list) (r2_list: 'a kleene list): 'a kleene list = 
+match r2_list with
+|[] -> r1_list
 |x1::xs -> 
 match x1 with
 | Zero -> 
-  if (duplicateChecker alist Zero) then listDuplicateChecker (alist@[Zero]) xs
-else listDuplicateChecker alist xs
+  if (duplicateChecker r1_list Zero) then union_list (r1_list@[Zero]) xs
+else union_list r1_list xs
 | One -> 
-  if (duplicateChecker alist One) then listDuplicateChecker (alist@[One]) xs
-else listDuplicateChecker alist xs
-| Value(p) -> 
-  if (duplicateChecker alist (Value(p))) then listDuplicateChecker (alist@[Value(p)]) xs
-else listDuplicateChecker alist xs
+  if (duplicateChecker r1_list One) then union_list (r1_list@[One]) xs
+else union_list r1_list xs
+| Value p -> 
+  if (duplicateChecker r1_list (Value p)) then union_list (r1_list@[Value p ]) xs
+else union_list r1_list xs
 | Union(r1,r2) -> 
-  if (duplicateChecker alist (Union(r1,r2))) then listDuplicateChecker (alist@[Union(r1,r2)]) xs
-else listDuplicateChecker alist xs
+  if (duplicateChecker r1_list (Union(r1,r2))) then union_list (r1_list@[Union(r1,r2)]) xs
+else union_list r1_list xs
 | Conc(r1,r2) -> 
-  if (duplicateChecker alist (Conc(r1,r2))) then listDuplicateChecker (alist@[Conc(r1,r2)]) xs
-  else listDuplicateChecker alist xs
+  if (duplicateChecker r1_list (Conc(r1,r2))) then union_list (r1_list@[Conc(r1,r2)]) xs
+  else union_list r1_list xs
 | Star(r1) -> 
-  if (duplicateChecker alist (Star(r1))) then listDuplicateChecker (alist@[Star(r1)]) xs
-else listDuplicateChecker alist xs
+  if (duplicateChecker r1_list (Star(r1))) then union_list (r1_list@[Star(r1)]) xs
+else union_list r1_list xs
   
 
 
@@ -153,30 +153,59 @@ let rec partialDeriv (re: 'a kleene ) (p: 'a): 'a kleene list = match re with
   | Zero -> []
   | One -> []
   | Value(p') -> if p' == p then [One] else []
-  | Union(r1,r2) -> listDuplicateChecker (partialDeriv r1 p) (partialDeriv r2 p)
+  | Union(r1,r2) -> union_list (partialDeriv r1 p) (partialDeriv r2 p)
   | Conc(r1,r2) -> 
-      if (epsilon r1 = true) then listDuplicateChecker (conc_list (partialDeriv r1 p) r2) (partialDeriv r2 p)
+      if (epsilon r1 = true) then union_list (conc_list (partialDeriv r1 p) r2) (partialDeriv r2 p)
       else
      conc_list (partialDeriv r1 p) r2 
   | Star(r1) -> conc_list (partialDeriv r1 p) (Star r1)
 
-  
-(**
-let rec partialDeriv re p = match re with
-  | Zero -> []
+
+let rec partialDeriv_word (u: 'a list) (r: 'a kleene list ): 'a kleene list = match u with
+        | [] -> [] (** ?  **) (** u = 1? unsure **)
+        | p::rest -> union_list (partialDeriv_word rest r) (partialDeriv p r)
+
+
+let rec unionList_tuple (r1_linear: ('a * 'a kleene) list) (r2_linear: ('a * 'a kleene) list): ('a * 'a kleene) list  = 
+match r2_linear with
+|[] -> r1_linear
+|(p,r)::rs -> 
+match r with
+| Zero -> 
+  if (duplicateChecker r1_linear (p,Zero)) then unionList_tuple (r1_linear@[(p,Zero)]) rs
+else unionList_tuple r1_linear rs
+| One -> 
+  if (duplicateChecker r1_linear (p,One)) then unionList_tuple (r1_linear@[(p,One)]) rs
+else unionList_tuple r1_linear rs
+| Value(p') -> 
+  if (duplicateChecker r1_linear ((Value(p'),r))) then unionList_tuple (r1_linear@[(Value(p'),r)]) rs
+else unionList_tuple r1_linear rs
+| Union(r1,r2) -> 
+  if (duplicateChecker r1_linear ((p,Union(r1,r2)))) then unionList_tuple (r1_linear@[(p,Union(r1,r2))]) rs
+else unionList_tuple r1_linear rs
+| Conc(r1,r2) -> 
+  if (duplicateChecker r1_linear ((p,Conc(r1,r2)))) then unionList_tuple (r1_tuple@[(p,Conc(r1,r2))]) rs
+  else unionList_tuple r1_linear rs
+| Star(r1) -> 
+  if (duplicateChecker r1_linear ((p,Star(r1)))) then unionList_linear (r1_linear@[(p,Star(r1))]) rs
+else unionList_tuple r1_linear rs
+
+let concList_tuple (r_linear: 'a * 'a list) (r: 'a kleene): 'a * 'a kleene list = 
+  match r_linear with
+  | (_,[])-> [(r_linear,[])]
+  |r1::rs -> (Conc(r1,r2))::(conc_list rs r2)
+
+(** do i need a helper function to find head p for r?**)
+(**linearization function returning a list of tuples of the head p of regular expression r1 (p,r1)**)
+let rec linearization (p: 'a) (r: 'a kleene): ('a * 'a kleene) list = match r with
+  | Zero-> []
   | One -> []
-  | Value(p') -> if p' == p then [One] else []
-  | Union(r1,r2) -> 
-    let d1 = partialDeriv r1 p in let d2= partialDeriv r2 p in listDuplicateChecker d1 d2 
-  | Conc(r1,r2) -> 
-      if (epsilon(r1) = true) then listDuplicateChecker(conc_list(partialDeriv r1 p, r2), partialDeriv r2 p)
-      else 
-        conc_list(partialDeriv r1 p, [r2])
-  | Star(r1) -> conc_list(partialDeriv r1 p, Star(r1))
-
-**)
-
-
+  | Value(p) -> [(p,One)]
+  | Union(r1,r2) -> unionList_tuple((linearization p r1),(linearization p r2)) (** how do i find the head p**)
+  | Conc(p,r) -> [(p,r)]
+  | Conc((Star(r1)),r2) ->  unionList_tuple (concList_tuple (concList_tuple (linearization p r1) (Star(r1)) ) r2) (linearization p r2)
+  | Conc((Union(r1,r2)),r3) -> unionList_tuple (linearization p (Conc(r1,r2))) (linearization p (Conc(r2,r3))) 
+  | Star(r) -> concList_tuple (linearization p r) (Star(r))
 
 let rec tos s = match s with
   | Zero -> "0"
