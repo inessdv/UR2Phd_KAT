@@ -115,7 +115,7 @@ let rec duplicateChecker list value = match list with
  |x1::xs -> if (x1==value) then false 
   else duplicateChecker xs value
 
-(*Add element which is not duuplicate into alist*)
+(*Add element which is not duuplicate into alist*) (** optimize function! check membership function List.mem, library**)
 let rec union_list (r1_list: 'a kleene list) (r2_list: 'a kleene list): 'a kleene list = 
 match r2_list with
 |[] -> r1_list
@@ -161,18 +161,17 @@ let rec partialDeriv (re: 'a kleene ) (p: 'a): 'a kleene list = match re with
   | Star(r1) -> conc_list (partialDeriv r1 p) (Star r1)
 
 (**partial derivatives extension to words**)
-(**
-let rec partialDeriv_word_list (u: 'char list) (r: 'a kleene list ): 'a kleene list = 
+
+let rec partialDeriv_word_list (u: 'a list) (r: 'a kleene): 'a kleene list = 
   match u with
-        | [] -> [] (** ?  **) (** u = 1? unsure **)
-        | p::rest -> union_list (partialDeriv_word rest r) (partialDeriv p r)
-
-let rec partialDeriv_word (u: string) (r: 'a kleene list ): 'a kleene list = 
-  let u1 = string_to_list(u) in partialDeriv_word_list u1 r
-**)
+        | [] -> [r]
+        | p::rest -> let l = partialDeriv_word_list rest r in
+          let l' = List.map (fun x -> partialDeriv x  p ) l in
+            List.fold_right union_list l' []
 
 
-(**
+
+
 (** checking for duplicates and creating union of a set of linear regular expressions**)
 let rec unionList_tuple (r1_linear: ('a * 'a kleene) list) (r2_linear: ('a * 'a kleene) list): ('a * 'a kleene) list  = 
 match r2_linear with
@@ -197,7 +196,7 @@ else unionList_tuple r1_linear rs
 | Star(r1) -> 
   if (duplicateChecker r1_linear ((p,Star(r1)))) then unionList_linear (r1_linear@[(p,Star(r1))]) rs
 else unionList_tuple r1_linear rs
-**)
+
 
 (**
 let concList_tuple (r_linear: 'a * 'a list) (r: 'a kleene): 'a * 'a kleene list = 
@@ -207,20 +206,23 @@ let concList_tuple (r_linear: 'a * 'a list) (r: 'a kleene): 'a * 'a kleene list 
 **)
 
 
-(**
+
 (** do i need a helper function to find head p for r?**)
 (**linearization function returning a list of tuples of the head p of regular expression r1 (p,r1)**)
-let rec linearization (p: 'a) (r: 'a kleene): ('a * 'a kleene) list = match r with
+let rec linearization (r: 'a kleene): ('a * 'a kleene) list = match r with
   | Zero-> []
   | One -> []
   | Value p -> [(p,One)]
-  | Union(r1,r2) -> unionList_tuple((linearization p r1),(linearization p r2)) (** how do i find the head p**)
-  (** three concatnation cases**)
-  | Conc(p,r) -> [(p,r)]
-  | Conc((Star(r1)),r2) ->  unionList_tuple (concList_tuple (concList_tuple (linearization p r1) (Star(r1)) ) r2) (linearization p r2)
-  | Conc((Union(r1,r2)),r3) -> unionList_tuple (linearization p (Conc(r1,r2))) (linearization p (Conc(r2,r3))) 
-  | Star(r) -> concList_tuple (linearization p r) (Star(r))
-**)
+  | Union(r1,r2) -> unionList_tuple((linearization r1),(linearization r2)) (** how do i find the head p**)
+  (** four concatnation cases**)
+  | Conc(Value p,r') -> [(p,r')]
+  | Conc((Star(r1)),r2) ->  unionList_tuple (concList_tuple (concList_tuple (linearization r1) (Star(r1)) ) r2) (linearization r2)
+  | Conc((Union(r1,r2)),r3) -> unionList_tuple (linearization (Conc(r1,r2))) (linearization (Conc(r2,r3))) 
+  | Conc(Conc(r1,r2),r3) -> linearization (Conc(r1,Conc(r2,r3)))
+  | Conc(One,r') -> linearization r'
+  | Conc(Zero,r') -> []
+  | Star(r') -> concList_tuple (linearization r') (Star(r'))
+
 (** **)
 
 
