@@ -122,22 +122,22 @@ match r2_list with
 |x1::xs -> 
 match x1 with
 | Zero -> 
-  if (duplicateChecker r1_list Zero) then union_list (r1_list@[Zero]) xs
+  if (List.mem Zero r1_list ) then union_list (r1_list@[Zero]) xs
 else union_list r1_list xs
 | One -> 
-  if (duplicateChecker r1_list One) then union_list (r1_list@[One]) xs
+  if (List.mem One r1_list ) then union_list (r1_list@[One]) xs
 else union_list r1_list xs
 | Value p -> 
-  if (duplicateChecker r1_list (Value p)) then union_list (r1_list@[Value p ]) xs
+  if (List.mem (Value p) r1_list ) then union_list (r1_list@[Value p ]) xs
 else union_list r1_list xs
 | Union(r1,r2) -> 
-  if (duplicateChecker r1_list (Union(r1,r2))) then union_list (r1_list@[Union(r1,r2)]) xs
+  if (List.mem (Union(r1,r2)) r1_list ) then union_list (r1_list@[Union(r1,r2)]) xs
 else union_list r1_list xs
 | Conc(r1,r2) -> 
-  if (duplicateChecker r1_list (Conc(r1,r2))) then union_list (r1_list@[Conc(r1,r2)]) xs
+  if (List.mem (Conc(r1,r2)) r1_list ) then union_list (r1_list@[Conc(r1,r2)]) xs
   else union_list r1_list xs
 | Star(r1) -> 
-  if (duplicateChecker r1_list (Star(r1))) then union_list (r1_list@[Star(r1)]) xs
+  if (List.mem (Star(r1)) r1_list ) then union_list (r1_list@[Star(r1)]) xs
 else union_list r1_list xs
   
 
@@ -173,50 +173,31 @@ let rec partialDeriv_word_list (u: 'a list) (r: 'a kleene): 'a kleene list =
 
 
 (** checking for duplicates and creating union of a set of linear regular expressions**)
-let rec unionList_tuple (r1_linear: ('a * 'a kleene) list) (r2_linear: ('a * 'a kleene) list): ('a * 'a kleene) list  = 
+
+
+let rec unionList_tuple (r1_linear: ('a * 'b kleene) list) (r2_linear: ('a * 'b kleene) list): ('a * 'b kleene) list  = 
 match r2_linear with
 |[] -> r1_linear
 |(p,r)::rs -> 
-match r with
-| Zero -> 
-  if (duplicateChecker r1_linear (p,Zero)) then unionList_tuple (r1_linear@[(p,Zero)]) rs
-else unionList_tuple r1_linear rs
-| One -> 
-  if (duplicateChecker r1_linear (p,One)) then unionList_tuple (r1_linear@[(p,One)]) rs
-else unionList_tuple r1_linear rs
-| Value(p') -> 
-  if (duplicateChecker r1_linear ((Value(p'),r))) then unionList_tuple (r1_linear@[(Value(p'),r)]) rs
-else unionList_tuple r1_linear rs
-| Union(r1,r2) -> 
-  if (duplicateChecker r1_linear ((p,Union(r1,r2)))) then unionList_tuple (r1_linear@[(p,Union(r1,r2))]) rs
-else unionList_tuple r1_linear rs
-| Conc(r1,r2) -> 
-  if (duplicateChecker r1_linear ((p,Conc(r1,r2)))) then unionList_tuple (r1_tuple@[(p,Conc(r1,r2))]) rs
-  else unionList_tuple r1_linear rs
-| Star(r1) -> 
-  if (duplicateChecker r1_linear ((p,Star(r1)))) then unionList_linear (r1_linear@[(p,Star(r1))]) rs
-else unionList_tuple r1_linear rs
+if (List.mem (p,r) r1_linear == false ) then unionList_tuple (r1_linear@[(p,r)]) rs else unionList_tuple r1_linear rs
 
-
-(**
-let concList_tuple (r_linear: 'a * 'a list) (r: 'a kleene): 'a * 'a kleene list = 
+let rec concList_tuple (r_linear: ('a kleene * 'b kleene) list) (r: 'a kleene): ('a kleene * 'b kleene) list = 
   match r_linear with
-  | (_,[])-> [(r_linear,[])]
-  |r1::rs -> (Conc(r1,r2))::(conc_list rs r2)
-**)
+  | []->[]
+  |(r1,r2)::rs -> (Conc(r1,r),Conc(r2,r))::concList_tuple rs r
 
 
 
 (** do i need a helper function to find head p for r?**)
 (**linearization function returning a list of tuples of the head p of regular expression r1 (p,r1)**)
-let rec linearization (r: 'a kleene): ('a * 'a kleene) list = match r with
+let rec linearization (r: 'a kleene): ('a kleene* 'b kleene) list = match r with
   | Zero-> []
   | One -> []
-  | Value p -> [(p,One)]
-  | Union(r1,r2) -> unionList_tuple((linearization r1),(linearization r2)) (** how do i find the head p**)
+  | Value p -> [(Value p,One)]
+  | Union(r1,r2) -> unionList_tuple (linearization r1) (linearization r2) (** how do i find the head p**)
   (** four concatnation cases**)
-  | Conc(Value p,r') -> [(p,r')]
-  | Conc((Star(r1)),r2) ->  unionList_tuple (concList_tuple (concList_tuple (linearization r1) (Star(r1)) ) r2) (linearization r2)
+  | Conc(Value p,r') -> [(Value p,r')]
+  | Conc((Star(r1)),r2) -> unionList_tuple (concList_tuple(concList_tuple (linearization r1) (Star(r1))) (r2)) (linearization r2)
   | Conc((Union(r1,r2)),r3) -> unionList_tuple (linearization (Conc(r1,r2))) (linearization (Conc(r2,r3))) 
   | Conc(Conc(r1,r2),r3) -> linearization (Conc(r1,Conc(r2,r3)))
   | Conc(One,r') -> linearization r'
