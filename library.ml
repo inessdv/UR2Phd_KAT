@@ -19,6 +19,223 @@ let example5= Union(Value 'c',Union(Conc(One, Conc(Union(Zero,Value 'a'), Value 
 (**helper funtion to change string to a kleene and kleene to string!**)
 
 
+
+open Format
+
+module Parser = struct
+  let is_lower_case c = 'a' <= c && c <= 'z'
+
+  let is_upper_case c = 'A' <= c && c <= 'Z'
+
+  let is_alpha c = is_lower_case c || is_upper_case c
+
+  let is_blank c = String.contains " \012\n\r\t" c
+
+  let explode s = List.of_seq (String.to_seq s)
+
+  let implode ls = String.of_seq (List.to_seq ls)
+
+  let readlines (file : string) : string =
+    let fp = open_in file in
+    let rec loop () =
+      match input_line fp with
+      | s -> s ^ "\n" ^ loop ()
+      | exception End_of_file -> ""
+    in
+    let res = loop () in
+    let () = close_in fp in
+    res
+
+  (* end of util functions *)
+
+  (* parser combinators *)
+
+  type 'a parser = char list -> ('a * char list) option
+
+  let parse (p : 'a parser) (s : string) : ('a * char list) option =
+    p (explode s)
+
+  let pure (x : 'a) : 'a parser = fun ls -> Some (x, ls)
+
+  let fail : 'a parser = fun ls -> None
+
+  let bind (p : 'a parser) (q : 'a -> 'b parser) : 'b parser =
+   fun ls ->
+    match p ls with
+    | Some (a, ls) -> q a ls
+    | None -> None
+
+  let ( >>= ) = bind
+
+  let ( let* ) = bind
+
+  let read : char parser =
+   fun ls ->
+    match ls with
+    | x :: ls -> Some (x, ls)
+    | _ -> None
+
+  let satisfy (f : char -> bool) : char parser =
+   fun ls ->
+    match ls with
+    | x :: ls ->
+      if f x then
+        Some (x, ls)
+      else
+        None
+    | _ -> None
+
+  let char (c : char) : char parser = satisfy (fun x -> x = c)
+
+  let seq (p1 : 'a parser) (p2 : 'b parser) : 'b parser =
+   fun ls ->
+    match p1 ls with
+    | Some (_, ls) -> p2 ls
+    | None -> None
+
+  let ( >> ) = seq
+
+  let seq' (p1 : 'a parser) (p2 : 'b parser) : 'a parser =
+   fun ls ->
+    match p1 ls with
+    | Some (x, ls) -> (
+      match p2 ls with
+      | Some (_, ls) -> Some (x, ls)
+      | None -> None)
+    | None -> None
+
+  let ( << ) = seq'
+
+  let alt (p1 : 'a parser) (p2 : 'a parser) : 'a parser =
+   fun ls ->
+    match p1 ls with
+    | Some (x, ls) -> Some (x, ls)
+    | None -> p2 ls
+
+  let ( <|> ) = alt
+
+  let choice (ps : 'a parser list) : 'a parser =
+    match ps with
+    | p :: ps -> List.fold_left (fun acc p -> acc <|> p) p ps
+    | _ -> fail
+
+  let map (p : 'a parser) (f : 'a -> 'b) : 'b parser =
+   fun ls ->
+    match p ls with
+    | Some (a, ls) -> Some (f a, ls)
+    | None -> None
+
+  let ( >|= ) = map
+
+  let ( >| ) p c = map p (fun _ -> c)
+
+  let rec many (p : 'a parser) : 'a list parser =
+   fun ls ->
+    match p ls with
+    | Some (x, ls) -> (
+      match many p ls with
+      | Some (xs, ls) -> Some (x :: xs, ls)
+      | None -> Some ([ x ], ls))
+    | None -> Some ([], ls)
+
+  let whitespace : unit parser =
+   fun ls ->
+    match ls with
+    | c :: ls ->
+      if String.contains " \012\n\r\t" c then
+        Some ((), ls)
+      else
+        None
+    | _ -> None
+
+  let ws : unit parser = many whitespace >| ()
+
+  let literal (s : string) : unit parser =
+   fun ls ->
+    let cs = explode s in
+    let rec loop cs ls =
+      match (cs, ls) with
+      | [], _ -> Some ((), ls)
+      | c :: cs, x :: xs ->
+        if x = c then
+          loop cs xs
+        else
+          None
+      | _ -> None
+    in
+    loop cs ls
+
+  let keyword (s : string) : unit parser = literal s >> ws >| ()
+end
+
+module KATerm = struct
+  open Parser
+
+  let symbol_parser : char kleene parser =
+    let* s = satisfy (fun c -> is_alpha c ) in
+    pure (Value s) << ws
+  
+  let one_parser : char kleene parser = 
+    let* _ = keyword "1" in 
+    pure One
+
+  let zero_parser : char kleene parser = 
+    let* _ = keyword "0" in 
+    pure Zero
+
+  let rec min_term_parser () =
+    let* _ = pure () in
+    choice
+      [ symbol_parser
+      ; one_parser
+      ; zero_parser
+      ; keyword "(" >> term_parser () << keyword ")"
+      ]
+
+  and star_parser () = 
+    let* e = min_term_parser () in
+    let* _ = keyword "*" <|> keyword "^*" in
+    pure (Star e)
+
+  and min_term_star_pareser () = star_parser () <|> min_term_parser () 
+    
+  and conc_parser () : char kleene parser = 
+    let* e = min_term_star_pareser () in
+    let opr () = 
+          (*conc explicitly using "@" symbol*)
+          (let* _ = keyword "@" in
+          let* e = min_term_star_pareser () in
+          pure ((fun e1 e2 -> Conc (e1, e2)), e)) 
+          <|>
+          (*conc implicitly without using any operators*)
+          (let* e = min_term_star_pareser () in
+          pure ((fun e1 e2 -> Conc (e1, e2)), e)) 
+    in
+    let* es = many (opr ()) in
+    pure (List.fold_left (fun acc (f, e) -> f acc e) e es)
+
+  and union_parser () =
+    let* e = conc_parser () in
+    let opr () = (let* _ = keyword "+" in
+           let* e = conc_parser () in
+           pure ((fun e1 e2 -> Union (e1, e2)), e))
+    in
+    let* es = many (opr ()) in
+    pure (List.fold_left (fun acc (f, e) -> f acc e) e es)
+
+  and term_parser () =
+    let* _ = pure () in
+    union_parser ()
+
+  let parse_reg (s : string) : char kleene option =
+    match parse (ws >> term_parser ()) s with
+    |Some (r,[]) -> Some r
+    |_ -> None
+end
+
+(** end of parser**)
+
+
 (** epsilon funtion to capture whether the regular expression r contains the empty word**)
 let rec epsilon (r: 'a kleene): bool = match r with
   | One -> true
@@ -114,31 +331,18 @@ let rec duplicateChecker list value = match list with
  |[] -> true
  |x1::xs -> if (x1==value) then false 
   else duplicateChecker xs value
-
+  
+let rec unique (list: 'a list): 'a list =
+  match list with
+  | [] -> []
+  | x::xs -> let u = unique xs in
+    if not (List.mem x u) then x::u
+    else x::u
+    
 (*Add element which is not duuplicate into alist*) (** optimize function! check membership function List.mem, library**)
-let rec union_list (r1_list: 'a kleene list) (r2_list: 'a kleene list): 'a kleene list = 
-match r2_list with
-|[] -> r1_list
-|x1::xs -> 
-match x1 with
-| Zero -> 
-  if (List.mem Zero r1_list ) then union_list (r1_list@[Zero]) xs
-else union_list r1_list xs
-| One -> 
-  if (List.mem One r1_list ) then union_list (r1_list@[One]) xs
-else union_list r1_list xs
-| Value p -> 
-  if (List.mem (Value p) r1_list ) then union_list (r1_list@[Value p ]) xs
-else union_list r1_list xs
-| Union(r1,r2) -> 
-  if (List.mem (Union(r1,r2)) r1_list ) then union_list (r1_list@[Union(r1,r2)]) xs
-else union_list r1_list xs
-| Conc(r1,r2) -> 
-  if (List.mem (Conc(r1,r2)) r1_list ) then union_list (r1_list@[Conc(r1,r2)]) xs
-  else union_list r1_list xs
-| Star(r1) -> 
-  if (List.mem (Star(r1)) r1_list ) then union_list (r1_list@[Star(r1)]) xs
-else union_list r1_list xs
+let rec union_list (lst1: 'a list) (lst2: 'a list): 'a list = 
+unique lst1@lst2
+
   
 
 
@@ -169,36 +373,23 @@ let rec partialDeriv_word_list (u: 'a list) (r: 'a kleene): 'a kleene list =
           let l' = List.map (fun x -> partialDeriv x  p ) l in
             List.fold_right union_list l' []
 
-
-
-
-(** checking for duplicates and creating union of a set of linear regular expressions**)
-
-
-let rec unionList_tuple (r1_linear: ('a * 'b kleene) list) (r2_linear: ('a * 'b kleene) list): ('a * 'b kleene) list  = 
-match r2_linear with
-|[] -> r1_linear
-|(p,r)::rs -> 
-if (List.mem (p,r) r1_linear == false ) then unionList_tuple (r1_linear@[(p,r)]) rs else unionList_tuple r1_linear rs
-
-let rec concList_tuple (r_linear: ('a kleene * 'b kleene) list) (r: 'a kleene): ('a kleene * 'b kleene) list = 
+let rec concList_tuple (r_linear: ('a * 'a kleene) list) (r: 'a kleene): ('a * 'a kleene) list = 
   match r_linear with
   | []->[]
-  |(r1,r2)::rs -> (Conc(r1,r),Conc(r2,r))::concList_tuple rs r
-
+  |(p,r2)::rs -> (p,Conc(r2,r))::concList_tuple rs r
 
 
 (** do i need a helper function to find head p for r?**)
 (**linearization function returning a list of tuples of the head p of regular expression r1 (p,r1)**)
-let rec linearization (r: 'a kleene): ('a kleene* 'b kleene) list = match r with
+let rec linearization (r: 'a kleene): ('a * 'a kleene) list = match r with
   | Zero-> []
   | One -> []
-  | Value p -> [(Value p,One)]
-  | Union(r1,r2) -> unionList_tuple (linearization r1) (linearization r2) (** how do i find the head p**)
+  | Value p -> [(p,One)]
+  | Union(r1,r2) -> union_list (linearization r1) (linearization r2) (** how do i find the head p**)
   (** four concatnation cases**)
-  | Conc(Value p,r') -> [(Value p,r')]
-  | Conc((Star(r1)),r2) -> unionList_tuple (concList_tuple(concList_tuple (linearization r1) (Star(r1))) (r2)) (linearization r2)
-  | Conc((Union(r1,r2)),r3) -> unionList_tuple (linearization (Conc(r1,r2))) (linearization (Conc(r2,r3))) 
+  | Conc(Value p,r') -> [(p,r')]
+  | Conc((Star(r1)),r2) -> union_list (concList_tuple(concList_tuple (linearization r1) (Star(r1))) (r2)) (linearization r2)
+  | Conc((Union(r1,r2)),r3) -> union_list (linearization (Conc(r1,r2))) (linearization (Conc(r2,r3))) 
   | Conc(Conc(r1,r2),r3) -> linearization (Conc(r1,Conc(r2,r3)))
   | Conc(One,r') -> linearization r'
   | Conc(Zero,r') -> []
