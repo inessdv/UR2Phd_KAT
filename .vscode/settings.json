@@ -1,0 +1,6 @@
+{
+    "diffEditor.codeLens": true,
+    "ocaml.sandbox": {
+        "kind": "global"
+    }
+}
