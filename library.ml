@@ -395,8 +395,31 @@ let rec linearization (r: 'a kleene): ('a * 'a kleene) list = match r with
   | Conc(Zero,r') -> []
   | Star(r') -> concList_tuple (linearization r') (Star(r'))
 
-(** **)
 
+(** The following functions wil help define the decision procedure
+    hd(RE) , der_p(RE) , der_pL(P(RE)), ep(RE) , derivatives(R1,R2)
+**)
+(** Function hd(r)to find head**)
+
+let rec hd (r: 'a kleene): 'a =
+  let s = linearization(r) in
+    List.fold_left (fun x y -> fst(x)::y) [] s
+
+(** Function der_p(RE) -> P(RE) to find **)
+let rec der_p (r: 'a kleene): 'b list= 
+  let s = linearization(r) in
+    unique (List.map (fun x -> snd(x)) s ) (** list of unique r' from f(r)**)
+
+
+(** Function der_pL(P(RE))  **)
+
+
+(** Function eps(P(RE)) extended version of der_p**)
+
+
+(**
+    PRINTING METHODS
+**)
 
 let rec tos s = match s with
   | Zero -> "0"
