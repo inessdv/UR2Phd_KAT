@@ -237,7 +237,7 @@ end
 
 
 (** epsilon funtion to capture whether the regular expression r contains the empty word**)
-let rec epsilon (r: 'a kleene): bool = match r with
+let rec epsilon (r: 'a kleene): 'a = match r with
   | One -> true
   | Zero -> false
   | Value p -> false
@@ -401,20 +401,23 @@ let rec linearization (r: 'a kleene): ('a * 'a kleene) list = match r with
 **)
 (** Function hd(r)to find head**)
 
-let rec hd (r: 'a kleene): 'a =
+let rec hd (r: 'a kleene): 'a list =
   let s = linearization(r) in
-    List.fold_left (fun x y -> fst(x)::y) [] s
+    unique (List.map fst s) (** list of hd's of f(r)**)
 
 (** Function der_p(RE) -> P(RE) to find **)
-let rec der_p (r: 'a kleene): 'b list= 
+let rec der_p (r: 'a kleene): 'a kleene list= 
   let s = linearization(r) in
-    unique (List.map (fun x -> snd(x)) s ) (** list of unique r' from f(r)**)
+    unique (List.map snd s) (** list of unique r' from f(r)**)
 
+
+(** Function eps(P(RE)) checking for empty word**)
+let rec eps (rlist: 'a kleene list): 'a kleene =
+  let e = List.filter (fun x -> x == true) (List.map epsilon rlist) in
+    if e == [] then One else Zero
 
 (** Function der_pL(P(RE))  **)
 
-
-(** Function eps(P(RE)) extended version of der_p**)
 
 
 (**
