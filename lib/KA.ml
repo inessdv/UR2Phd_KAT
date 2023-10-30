@@ -87,7 +87,7 @@ end
 
 
 (** epsilon funtion to capture whether the regular expression r contains the empty word**)
-let rec epsilon (r: 'a kleene): 'a = match r with
+let rec epsilon (r: 'a kleene): bool = match r with
   | One -> true
   | Zero -> false
   | Value _ -> false
