@@ -1,6 +1,4 @@
-open Format
-
-module Parser = struct
+module Combinators = struct
   let is_lower_case c = 'a' <= c && c <= 'z'
 
   let is_upper_case c = 'A' <= c && c <= 'Z'
@@ -35,7 +33,7 @@ module Parser = struct
 
   let pure (x : 'a) : 'a parser = fun ls -> Some (x, ls)
 
-  let fail : 'a parser = fun ls -> None
+  let fail : 'a parser = fun _ -> None
 
   let bind (p : 'a parser) (q : 'a -> 'b parser) : 'b parser =
    fun ls ->
@@ -144,77 +142,4 @@ module Parser = struct
     loop cs ls
 
   let keyword (s : string) : unit parser = literal s >> ws >| ()
-end
-
-module KATerm = struct
-  open Parser
-
-  type t =
-    | Val of char
-    | One 
-    | Zero
-    | Union of t * t
-    | Conc of t * t
-    | Star of t
-
-  let symbol_parser : t parser =
-    let* s = satisfy (fun c -> is_alpha c ) in
-    pure (Val s) << ws
-  
-  let one_parser : t parser = 
-    let* _ = keyword "1" in 
-    pure One
-
-  let zero_parser : t parser = 
-    let* _ = keyword "0" in 
-    pure Zero
-
-  let rec min_term_parser () =
-    let* _ = pure () in
-    choice
-      [ symbol_parser
-      ; one_parser
-      ; zero_parser
-      ; keyword "(" >> term_parser () << keyword ")"
-      ]
-
-  and star_parser () = 
-    let* e = min_term_parser () in
-    let* _ = keyword "*" <|> keyword "^*" in
-    pure (Star e)
-
-  and min_term_star_pareser () = star_parser () <|> min_term_parser () 
-    
-  and conc_parser () : t parser = 
-    let* e = min_term_star_pareser () in
-    let opr () = 
-          (*conc explicitly using "@" symbol*)
-          (let* _ = keyword "@" in
-          let* e = min_term_star_pareser () in
-          pure ((fun e1 e2 -> Conc (e1, e2)), e)) 
-          <|>
-          (*conc implicitly without using any operators*)
-          (let* e = min_term_star_pareser () in
-          pure ((fun e1 e2 -> Conc (e1, e2)), e)) 
-    in
-    let* es = many (opr ()) in
-    pure (List.fold_left (fun acc (f, e) -> f acc e) e es)
-
-  and union_parser () =
-    let* e = conc_parser () in
-    let opr () = (let* _ = keyword "+" in
-           let* e = conc_parser () in
-           pure ((fun e1 e2 -> Union (e1, e2)), e))
-    in
-    let* es = many (opr ()) in
-    pure (List.fold_left (fun acc (f, e) -> f acc e) e es)
-
-  and term_parser () =
-    let* _ = pure () in
-    union_parser ()
-
-  let parse_reg (s : string) : t option =
-    match parse (ws >> term_parser ()) s with
-    |Some (r,[]) -> Some r
-    |_ -> None
 end
