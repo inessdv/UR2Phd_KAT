@@ -114,6 +114,11 @@ module Combinators = struct
       | None -> Some ([ x ], ls))
     | None -> Some ([], ls)
 
+  let many1 (p: 'a parser): 'a list parser = 
+    let* head = p in
+    let* rest = many p in
+    pure (head :: rest)
+
   let whitespace : unit parser =
    fun ls ->
     match ls with
