@@ -250,18 +250,18 @@ let rec linearization (r: 'a kleene): ('a * 'a kleene) list = match r with
 **)
 (** Function hd(r)to find head**)
 
-let rec hd (r: 'a kleene): 'a list =
+let hd (r: 'a kleene): 'a list =
   let s = linearization(r) in
     unique (List.map fst s) (** list of hd's (p) of f(r)**)
 
 (** Function der_p(RE) -> P(RE) to find **)
-let rec der_p (r: 'a kleene): 'a kleene list = 
+let der_p (r: 'a kleene): 'a kleene list = 
   let s = linearization(r) in
     unique (List.map snd s) (** list of unique r' from f(r)**)
 
 
 (** Function eps(P(RE)) checking for empty word**)
-let rec eps (rlist: 'a kleene list): 'a kleene =
+let eps (rlist: 'a kleene list): 'a kleene =
   let e = List.filter (fun x -> x == true) (List.map epsilon rlist) in
     if e == [] then One else Zero
 
