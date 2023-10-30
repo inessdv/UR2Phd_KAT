@@ -87,7 +87,7 @@ end
 
 
 (** epsilon funtion to capture whether the regular expression r contains the empty word**)
-let rec epsilon (r: 'a kleene): bool = match r with
+let rec epsilon (r: 'a kleene): 'a = match r with
   | One -> true
   | Zero -> false
   | Value _ -> false
@@ -166,14 +166,14 @@ let rec deriv p r = match r with
     | hd :: tl -> (reverse_list tl) @ [hd]
     
   
-  let rec deriv_word_list w r =
+  (* let rec deriv_word_list w r =
     match w with
     | [] -> r (*** base case**)
     | p::rest -> deriv p (deriv_word_list rest r)
   
   let deriv_w w r = 
     let  w_rev = reverse_list (string_to_list(w)) in 
-    deriv_word_list w_rev r
+    deriv_word_list w_rev r *)
 
 
 (** Check if there is duplicate when adding an element or adding a list, true if nothing duplicate, false if duplicate **)
@@ -245,8 +245,41 @@ let rec linearization (r: 'a kleene): ('a * 'a kleene) list = match r with
   | Conc(Zero, _) -> []
   | Star(r') -> concList_tuple (linearization r') (Star(r'))
 
-(*** **)
+(** The following functions wil help define the decision procedure
+    hd(RE) , der_p(RE) , der_ext(P(RE)), ep(RE) , derivatives(R1,R2)
+**)
+(** Function hd(r)to find head**)
 
+let rec hd (r: 'a kleene): 'a list =
+  let s = linearization(r) in
+    unique (List.map fst s) (** list of hd's (p) of f(r)**)
+
+(** Function der_p(RE) -> P(RE) to find **)
+let rec der_p (r: 'a kleene): 'a kleene list = 
+  let s = linearization(r) in
+    unique (List.map snd s) (** list of unique r' from f(r)**)
+
+
+(** Function eps(P(RE)) checking for empty word**)
+let rec eps (rlist: 'a kleene list): 'a kleene =
+  let e = List.filter (fun x -> x == true) (List.map epsilon rlist) in
+    if e == [] then One else Zero
+
+
+
+(** Function der_ext(P(RE)) ????**)
+let der_ext (p: 'a )(rlist: 'a kleene list): 'a kleene list =
+  let s = unique (List.flatten(List.map linearization rlist)) in
+    let t = (fun x -> fst x == p) in
+      unique (List.map snd (List.filter t (s)))
+
+(** Function hd_ext, extension of hd to lists of RE**)
+let hd_ext (rlist: 'a kleene list): 'a list =
+  unique (List.map fst (List.flatten (List.map linearization rlist)))
+  
+(**
+    PRINTING METHODS
+**)
 
 let rec tos s = match s with
   | Zero -> "0"
