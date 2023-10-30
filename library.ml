@@ -397,16 +397,16 @@ let rec linearization (r: 'a kleene): ('a * 'a kleene) list = match r with
 
 
 (** The following functions wil help define the decision procedure
-    hd(RE) , der_p(RE) , der_pL(P(RE)), ep(RE) , derivatives(R1,R2)
+    hd(RE) , der_p(RE) , der_ext(P(RE)), ep(RE) , derivatives(R1,R2)
 **)
 (** Function hd(r)to find head**)
 
 let rec hd (r: 'a kleene): 'a list =
   let s = linearization(r) in
-    unique (List.map fst s) (** list of hd's of f(r)**)
+    unique (List.map fst s) (** list of hd's (p) of f(r)**)
 
 (** Function der_p(RE) -> P(RE) to find **)
-let rec der_p (r: 'a kleene): 'a kleene list= 
+let rec der_p (r: 'a kleene): 'a kleene list = 
   let s = linearization(r) in
     unique (List.map snd s) (** list of unique r' from f(r)**)
 
@@ -416,10 +416,18 @@ let rec eps (rlist: 'a kleene list): 'a kleene =
   let e = List.filter (fun x -> x == true) (List.map epsilon rlist) in
     if e == [] then One else Zero
 
-(** Function der_pL(P(RE))  **)
 
 
+(** Function der_ext(P(RE)) ????**)
+let der_ext (p: 'a )(rlist: 'a kleene list): 'a kleene list =
+  let s = unique (List.flatten(List.map linearization rlist)) in
+    let t = (fun x -> fst x == p) in
+      unique (List.map snd (List.filter t (s)))
 
+(** Function hd_ext, extension of hd to lists of RE**)
+let hd_ext (rlist: 'a kleene list): 'a list =
+  unique (List.map fst (List.flatten (List.map linearization rlist)))
+  
 (**
     PRINTING METHODS
 **)
