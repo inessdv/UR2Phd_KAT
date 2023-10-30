@@ -8,8 +8,7 @@ let epsilon_tests = "epslion test" >:::[
   "ϵ(a*) = 1" >:: (fun _ ->
     assert_equal true (epsilon (fromStr "a*")));
   "ϵ(a) = 0" >:: (fun _ -> 
-    assert_equal false (epsilon (fromStr "a"))
-  )
+    assert_equal false (epsilon (fromStr "a")));
 ]
 
 let deriv_test = "deriv test" >::: [
