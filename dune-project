@@ -1,4 +1,4 @@
-(lang dune 3.11)
+(lang dune 3.10)
 
 (name KA_equiv)
 
@@ -19,7 +19,7 @@
  (name KA_equiv)
  (synopsis "A short synopsis")
  (description "A longer description")
- (depends ocaml dune)
+ (depends (ocaml (>= 5.1)) dune)
  (tags
   (topics "to describe" your project)))
 

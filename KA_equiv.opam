@@ -10,7 +10,7 @@ homepage: "https://github.com/inessdv/UR2Phd_KAT"
 doc: "https://url/to/documentation"
 bug-reports: "https://github.com/inessdv/UR2Phd_KAT/issues"
 depends: [
-  "ocaml"
+  "ocaml" {>= "5.1"}
   "dune" {>= "3.11"}
   "odoc" {with-doc}
 ]
