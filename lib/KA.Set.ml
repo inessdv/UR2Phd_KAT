@@ -214,7 +214,7 @@ module Equiv = struct
   let hd (r: string kleene): StringSet.t =
     let lin_r = linearization r in 
     (*convert the keys into set*)
-    StringSet.of_list (List.map fst (StringMap.to_list (lin_r)))
+    StringSet.of_list (List.map fst (StringMap.to_list lin_r))
 
   (** Function der_p(RE) -> P(RE) to find **)
   let deriv (p: string) (r: string kleene): KASet.t = 
@@ -225,6 +225,9 @@ module Equiv = struct
   let eps (sum: KASet.t): bool =
     KASet.exists (fun r -> epsilon r) sum
 
+  (* Python Notation
+    deriv_sum(p, sum) = {der for der in deriv(p, r) for r in sum} 
+  *)
   (** Function der_ext(P(RE)) ????**)
   let deriv_sum (p: string)(sum: KASet.t): KASet.t =
     let* r = sum in 
