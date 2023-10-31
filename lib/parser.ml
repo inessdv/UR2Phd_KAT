@@ -107,14 +107,11 @@ module Combinators = struct
 
   let rec many (p : 'a parser) : 'a list parser =
    fun ls ->
-    match p ls with
-    | Some (x, ls) -> (
-      match many p ls with
-      | Some (xs, ls) -> Some (x :: xs, ls)
-      | None -> Some ([ x ], ls))
+    match many1 p ls with
     | None -> Some ([], ls)
+    | res -> res
 
-  let many1 (p: 'a parser): 'a list parser = 
+  and many1 (p: 'a parser): 'a list parser = 
     let* head = p in
     let* rest = many p in
     pure (head :: rest)
