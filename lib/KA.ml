@@ -326,11 +326,11 @@ else checkEmpty rs
 let rec equiv (re:((('a kleene list * 'a kleene list)list)list) * ((('a kleene list * 'a kleene list)list)list)):bool=
 match re with
 |([],_)-> true
-|(r1,r2)->let r1=List.concat r1 in 
-if !(checkEmpty r1) then false
+|(r1,r2)->let regex=List.concat r1 in 
+if checkEmpty regex==false then false
 else 
-let der=derivative r1 in
-let r2= unique (der@r2 )in
+let der=derivative regex in
+let r2= unique (r1@r2)in
 equiv (der,r2)
 
 
