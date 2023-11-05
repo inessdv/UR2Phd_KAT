@@ -350,3 +350,8 @@ let rec tos s = match s with
 
   (* pretty printing with equational theory *)
   let eqpprint (exp: char kleene) = pprint (optimize exp)
+
+
+let derivativeTest1=Conc(Star(Value('a')),Value('a'))
+let derivativeTest2=Conc(Star(Value('a')),Value('b'))
+let ex1= [([derivativeTest1],[derivativeTest2])]
