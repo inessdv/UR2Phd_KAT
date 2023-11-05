@@ -277,9 +277,41 @@ let der_ext (p: 'a )(rlist: 'a kleene list): 'a kleene list =
 let hd_ext (rlist: 'a kleene list): 'a list =
   unique (List.map fst (List.flatten (List.map linearization rlist)))
   
+(*Helper function allHead, derOfList for derivative*)
+let rec allHead(re:('a kleene list * 'a kleene list)list):'a list=
+  match re with
+  |[]->[]
+  |(r1,r2)::rest-> (hd_ext r1 @ hd_ext r2)@allHead rest 
+  
+let rec derOfList (re: 'a kleene list)(p:'a list): 'a kleene list=
+match p with
+|[]->[]
+|x1::xs-> der_ext x1 re @ derOfList re xs
+
+
+(* let rec derivativeHelper (re:('a kleene list * 'a kleene list)list) (heads:'a list):'a kleene list=
+  match re with
+  |[]->[]
+  |(r1,r2)::rest-> (derOfList r1 heads @ derOfList r2 heads)@ derivativeHelper rest heads *)
+let rec derivativeHelper (re:('a kleene list * 'a kleene list)list) (heads:'a):('a kleene list * 'a kleene list)list= 
+  match re with
+  |[]-> []
+  |(r1,r2)::rs->(der_ext heads r1, der_ext heads r2)::derivativeHelper rs heads
+
+let rec derHelper  (re:('a kleene list * 'a kleene list)list) (heads:'a list):(('a kleene list * 'a kleene list)list)list= 
+  match heads with
+  |[]-> []
+  |x1::xs-> derivativeHelper re x1 :: derHelper re xs
+
+let derivative (re:('a kleene list * 'a kleene list)list):(('a kleene list * 'a kleene list)list)list=
+  let heads=unique (allHead re) in  unique (derHelper re heads)
+
 (**
     PRINTING METHODS
 **)
+
+(* let rec equiv (re:((('a kleene list * 'a kleene list)list)list) * ((('a kleene list * 'a kleene list)list)list)):bool= *)
+
 
 let rec tos s = match s with
   | Zero -> "0"
