@@ -187,7 +187,7 @@ let rec unique (list: 'a list): 'a list =
   | [] -> []
   | x::xs -> let u = unique xs in
     if not (List.mem x u) then x::u
-    else x::u
+    else u
     
 (*Add element which is not duuplicate into alist*) (** optimize function! check membership function List.mem, library**)
 let union_list (lst1: 'a list) (lst2: 'a list): 'a list = 
@@ -309,8 +309,30 @@ let derivative (re:('a kleene list * 'a kleene list)list):(('a kleene list * 'a 
 (**
     PRINTING METHODS
 **)
+let rec checkEmptyHelper (re:'a kleene list):bool=
+match re with 
+|[]->false 
+|r1::rs-> if epsilon r1 then true
+else checkEmptyHelper rs
 
-(* let rec equiv (re:((('a kleene list * 'a kleene list)list)list) * ((('a kleene list * 'a kleene list)list)list)):bool= *)
+
+let rec checkEmpty (re:('a kleene list * 'a kleene list)list):bool=
+match re with
+|[]->true
+|(r1,r2)::rs-> if checkEmptyHelper r1 != checkEmptyHelper r2 then false
+else checkEmpty rs
+
+
+let rec equiv (re:((('a kleene list * 'a kleene list)list)list) * ((('a kleene list * 'a kleene list)list)list)):bool=
+match re with
+|([],_)-> true
+|(r1,r2)->let r1=List.concat r1 in 
+if !(checkEmpty r1) then false
+else 
+let der=derivative r1 in
+let r2= unique (der@r2 )in
+equiv (der,r2)
+
 
 
 let rec tos s = match s with
@@ -321,8 +343,9 @@ let rec tos s = match s with
   | Conc(r1, r2) -> "(" ^ tos(r1) ^ "^" ^ tos(r2) ^")"
   | Star (Value(r1)) ->"(" ^ String.make 1 r1 ^ ")" ^"*"
   | Star r1 -> "(" ^ tos r1 ^ ")" ^ "*"
-
-  let pprint (exp: char kleene) = 
+  
+  
+let pprint (exp: char kleene) = 
   (*helper method, takes a expression, output the string, 
       and **the precedence of the outer most expression** *)
   let rec helper (exp: char kleene): string * int = 
@@ -349,7 +372,7 @@ let rec tos s = match s with
   let (str, _) = helper exp in str 
 
   (* pretty printing with equational theory *)
-  let eqpprint (exp: char kleene) = pprint (optimize exp)
+let eqpprint (exp: char kleene) = pprint (optimize exp)
 
 
 let derivativeTest1=Conc(Star(Value('a')),Value('a'))
