@@ -152,6 +152,12 @@ module Equiv = struct
     let compare = compare
   end)
 
+  module PDerivPairSet = Set.Make (struct
+    (* set of pairs of partical derivitives*)
+    type t = KASet.t * KASet.t
+    let compare = compare
+  end) 
+
   (** Set of string*)
   module StringSet = Set.Make(String)
 
