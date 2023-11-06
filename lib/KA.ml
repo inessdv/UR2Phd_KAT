@@ -255,9 +255,10 @@ let hd (r: 'a kleene): 'a list =
     unique (List.map fst s) (** list of hd's (p) of f(r)**)
 
 (** Function der_p(RE) -> P(RE) to find **)
-let der_p (r: 'a kleene): 'a kleene list = 
+let der_p (p: 'a)(r: 'a kleene): 'a kleene list = 
   let s = linearization(r) in
-    unique (List.map snd s) (** list of unique r' from f(r)**)
+    let t = (fun x -> fst x == p) in
+    unique (List.map snd (List.filter t (s))) (** list of unique r' from f(r)**)
 
 
 (** Function eps(P(RE)) checking for empty word**)
