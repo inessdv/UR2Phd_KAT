@@ -304,8 +304,18 @@ let rec derHelper  (re:('a kleene list * 'a kleene list)list) (heads:'a list):((
   |[]-> []
   |x1::xs-> derivativeHelper re x1 :: derHelper re xs
 
+(** INPUT: 'a kleene list * 'a kleene list
+     listOUTPUT TYPE? ('a kleene list x a' kleene list) list**)
 let derivative (re:('a kleene list * 'a kleene list)list):(('a kleene list * 'a kleene list)list)list=
   let heads=unique (allHead re) in  unique (derHelper re heads)
+
+let derivatives (re_pair: 'a kleene list * 'a kleene list): ('a kleene list * 'a kleene list) list =
+  match re_pair with
+  | (r1_set,r2_set) -> let heads = union_list (hd_ext r1_set) (hd_ext r2_set) in
+                        List.map (fun x -> (List.map der_ext x r1_set) * (List.map der_ext x r1_set)) heads
+
+
+
 
 (**
     PRINTING METHODS
