@@ -277,6 +277,15 @@ let der_ext (p: 'a )(rlist: 'a kleene list): 'a kleene list =
 (** Function hd_ext, extension of hd to lists of RE**)
 let hd_ext (rlist: 'a kleene list): 'a list =
   unique (List.map fst (List.flatten (List.map linearization rlist)))
+
+(** Function der_ext taking in linearization form**)
+let der_ext_l (p: 'a )(linear_r:('a * 'a kleene) list): 'a kleene list =
+    let t = (fun x -> fst x == p) in
+      unique (List.map snd (List.filter t linear_r))
+
+(** Function hd_ext, extension of hd to lists of RE**)
+let hd_ext_l (linear_r:('a * 'a kleene) list): 'a list =
+  unique (List.map fst linear_r)
   
 (*Helper function allHead, derOfList for derivative*)
 let rec allHead(re:('a kleene list * 'a kleene list)list):'a list=
@@ -310,10 +319,17 @@ let derivative (re:('a kleene list * 'a kleene list)list):(('a kleene list * 'a 
   let heads=unique (allHead re) in  unique (derHelper re heads)
 
 
+(** function derivatives finds ...**)
 let derivatives (re_pair: 'a kleene list * 'a kleene list): ('a kleene list * 'a kleene list) list =
   match re_pair with
-  | (r1_set,r2_set) -> let heads = union_list (hd_ext r1_set) (hd_ext r2_set) in
-                        unique (List.map (fun x -> (der_ext x r1_set, der_ext x r2_set)) heads)
+  | (r1_set,r2_set) -> let linear_1 = List.flatten(List.map linearization r1_set) and linear_2 = List.flatten(List.map linearization r2_set) in
+                          let heads = union_list (unique (hd_ext_l linear_1)) (unique (hd_ext_l linear_2)) in
+                          unique (List.map (fun x -> (der_ext_l x linear_1, der_ext_l x linear_2)) heads)
+
+(*equivalence function*)
+
+let equiv (regex: (('a kleene list * 'a kleene list) list) * (('a kleene list * 'a kleene list) list)): bool =
+
 
 
 (**
@@ -388,3 +404,6 @@ let eqpprint (exp: char kleene) = pprint (optimize exp)
 let derivativeTest1=Conc(Star(Value('a')),Value('a'))
 let derivativeTest2=Conc(Star(Value('a')),Value('b'))
 let ex1= ([derivativeTest1],[derivativeTest2])
+let ex2= ([One], [Zero])
+
+let ex3 = ex1,ex2
