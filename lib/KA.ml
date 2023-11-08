@@ -326,11 +326,6 @@ let derivatives (re_pair: 'a kleene list * 'a kleene list): ('a kleene list * 'a
                           let heads = union_list (unique (hd_ext_l linear_1)) (unique (hd_ext_l linear_2)) in
                           unique (List.map (fun x -> (der_ext_l x linear_1, der_ext_l x linear_2)) heads)
 
-(*equivalence function*)
-
-let equiv (regex: (('a kleene list * 'a kleene list) list) * (('a kleene list * 'a kleene list) list)): bool =
-
-
 
 (**
     PRINTING METHODS
@@ -347,19 +342,6 @@ match re with
 |[]->true
 |(r1,r2)::rs-> if checkEmptyHelper r1 != checkEmptyHelper r2 then false
 else checkEmpty rs
-
-
-let rec equiv (re:((('a kleene list * 'a kleene list)list)list) * ((('a kleene list * 'a kleene list)list)list)):bool=
-match re with
-|([],_)-> true
-|(r1,r2)->let regex=List.concat r1 in 
-if checkEmpty regex==false then false
-else 
-let der=derivative regex in
-let r2= unique (r1@r2)in
-equiv (der,r2)
-
-
 
 let rec tos s = match s with
   | Zero -> "0"
@@ -400,10 +382,34 @@ let pprint (exp: char kleene) =
   (* pretty printing with equational theory *)
 let eqpprint (exp: char kleene) = pprint (optimize exp)
 
+let rec equiv (re:(('a kleene list * 'a kleene list) list)* (('a kleene list * 'a kleene list) list) ): bool=
+match re with
+|([], _) -> true
+|(r_set,h_set)->
+  match r_set with
+    | [] -> true
+    |r_pair::xs -> 
+      match r_pair with
+      | (r1,r2) -> 
+        if eps (r1) != eps (r2) then false else 
+      let h' = (union_list [(r1,r2)] h_set) in
+        let s' = List.fold_left (fun acc x -> if (List.mem x h') == false then x::acc else acc) [] (derivatives (r1,r2)) in
+          equiv (( union_list xs s'), h')
 
+(** testing purposes
+let s (r: 'a kleene list * 'a kleene list): ('a kleene list * 'a kleene list)list =
+  let h' = [r] in 
+    match r with
+    | (r1,r2) -> List.fold_left (fun acc x -> if (List.mem x h') == false then x::acc else acc) [] (derivatives (r1,r2))
+**)
 let derivativeTest1=Conc(Star(Value('a')),Value('a'))
 let derivativeTest2=Conc(Star(Value('a')),Value('b'))
 let ex1= ([derivativeTest1],[derivativeTest2])
-let ex2= ([One], [Zero])
+let ex2 = ([ex1], [])
+let ex3 = ([derivativeTest1],[derivativeTest1])
+let ex4 = ([ex3], [])
 
-let ex3 = ex1,ex2
+let test1 = [Conc(Star(Value('a')),Value('a'))]
+let test2 = [Conc(Star(Value('a')),Value('b'))]
+let test3 = [Star(Union(Value('a'), Star(Value('b'))))]
+let test4 = [Star(Union(Value('a'), Value('b')))]
