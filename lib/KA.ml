@@ -405,11 +405,26 @@ let s (r: 'a kleene list * 'a kleene list): ('a kleene list * 'a kleene list)lis
 let derivativeTest1=Conc(Star(Value('a')),Value('a'))
 let derivativeTest2=Conc(Star(Value('a')),Value('b'))
 let ex1= ([derivativeTest1],[derivativeTest2])
-let ex2 = ([ex1], [])
-let ex3 = ([derivativeTest1],[derivativeTest1])
-let ex4 = ([ex3], [])
+let ex2 = ([ex1], []) (* output should be false *)
+let testing = ([derivativeTest1],[derivativeTest1])
+let ex3 = ([testing], [])  (* output should be true*)
 
 let test1 = [Conc(Star(Value('a')),Value('a'))]
 let test2 = [Conc(Star(Value('a')),Value('b'))]
 let test3 = [Star(Union(Value('a'), Star(Value('b'))))]
 let test4 = [Star(Union(Value('a'), Value('b')))]
+let test5 = [Union (Union (One, Conc (Conc (Zero, Star Zero), One)),
+              Conc
+              (Conc (Union (One, Conc (Conc (Zero, Star Zero), One)),
+                Star (Union (Zero, Conc (Conc (One, Star Zero), One)))),
+              Union (Zero, Conc (One, Star Zero))))]
+let test6 = [Conc (Conc (Star Zero, One),
+Star (Union (Zero, Conc (Conc (One, Star Zero), One))))]
+
+(*should be false*)
+let ex5 = ([(test1,test2)],[])
+(*should be true*)
+let ex6 = ([(test3,test4)],[])
+(*should be true*)
+let ex7 = ([(test5,test6)],[])
+
