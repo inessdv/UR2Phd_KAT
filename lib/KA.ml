@@ -388,10 +388,7 @@ match re with
 |(r_set,h_set)->
   match r_set with
     | [] -> true
-    |r_pair::xs -> 
-      match r_pair with
-      | (r1,r2) -> 
-        if eps (r1) != eps (r2) then false else 
+    |(r1,r2)::xs -> if eps (r1) != eps (r2) then false else 
       let h' = (union_list [(r1,r2)] h_set) in
         let s' = List.fold_left (fun acc x -> if (List.mem x h') == false then x::acc else acc) [] (derivatives (r1,r2)) in
           equiv (( union_list xs s'), h')
