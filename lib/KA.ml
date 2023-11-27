@@ -81,7 +81,13 @@ module KAParser = struct
     match parse (ws >> term_parser ()) s with
     |Some (r,[]) -> Some r
     |_ -> None
+
+  let to_string (s) : 'a kleene=
+   match s with 
+  |Some(a)->a 
+    |None -> Zero
 end
+
 
 (** end of parser**)
 
