@@ -217,7 +217,7 @@ module Equiv = struct
     | Conc(Zero, _) -> StringMap.empty
     | Star(r') -> concLinearForm (linearization r') (Star(r'))
 
-  (*** The following functions wil help define the decision procedure
+  (*** The following functions will help define the decision procedure
       hd(RE) , der_p(RE) , der_ext(P(RE)), ep(RE) , derivatives(R1,R2)
   **)
   (** Function hd(r) to find head**)
@@ -249,7 +249,34 @@ module Equiv = struct
     let sumList = KASet.to_list sum in 
     (* union each head of term in the sum*)
     List.fold_left StringSet.union StringSet.empty (List.map hd sumList)
+
+  (** Function derivatives(R1,R2), findes derivatives of a pair of kleene sets**)
+  let derivatives (re_pair: KASet.t * KASet.t): PDerivPairSet.t =
+    match re_pair with
+    |(r1_set,r2_set)-> let heads = StringSet.union (hd_sum r1_set) (hd_sum r2_set) in
+      Set.map (fun x -> (deriv_sum x r1_set, deriv_sum x r2_set)) heads
+
+  (* find and remove from set if given re pair exists*)
+  (*
   
+  let removal (derv_set: PDerivPairSet.t)(h_set: PDerivPairSet.t): PDerivPairSet.t =
+    let* r = derv_set in
+    let* s' = check for member
+  *)
+
+(*Equiv function*)
+  let equiv (r: PDerivPairSet.t * PDerivPairSet.t): bool =
+    match r with
+    |(pair_1,pair_2) -> (*pair 1 holds P(RE) and pair 2 holds  the pairs already tested*)
+      if PDerivPairSet.is_empty pair_1 then true else
+        let r = PDerivPairSet.choose pair_1 in
+          match r with
+          |(r1,r2) -> if eps(r1) != eps(r2) then false else
+            let h' = PDerivPairSet.add r pair_2 in
+              let dervs = derivatives(r1,r2) in
+              let s' = removal dervs h' in
+              let s = PDerivPairSet.remove r pair_1 in
+              equiv((PDerivPairSet.union s s'),h') (*Still need to get deriavtives and removal fucntion**)
 end
   
 (**
