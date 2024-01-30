@@ -250,22 +250,17 @@ module Equiv = struct
     (* union each head of term in the sum*)
     List.fold_left StringSet.union StringSet.empty (List.map hd sumList)
 
+
+
   (** Function derivatives(R1,R2), findes derivatives of a pair of kleene sets**)
   let derivatives (re_pair: KASet.t * KASet.t): PDerivPairSet.t =
     match re_pair with
     |(r1_set,r2_set)-> let heads = StringSet.union (hd_sum r1_set) (hd_sum r2_set) in
-      Set.map (fun x -> (deriv_sum x r1_set, deriv_sum x r2_set)) heads
-
-  (* find and remove from set if given re pair exists*)
-  (*
-  
-  let removal (derv_set: PDerivPairSet.t)(h_set: PDerivPairSet.t): PDerivPairSet.t =
-    let* r = derv_set in
-    let* s' = check for member
-  *)
+      StringSet.fold (fun x acc -> PDerivPairSet.add (deriv_sum x r1_set, deriv_sum x r2_set) acc) heads
+      PDerivPairSet.empty
 
 (*Equiv function*)
-  let equiv (r: PDerivPairSet.t * PDerivPairSet.t): bool =
+  let rec equiv (r: PDerivPairSet.t * PDerivPairSet.t): bool =
     match r with
     |(pair_1,pair_2) -> (*pair 1 holds P(RE) and pair 2 holds  the pairs already tested*)
       if PDerivPairSet.is_empty pair_1 then true else
@@ -274,9 +269,9 @@ module Equiv = struct
           |(r1,r2) -> if eps(r1) != eps(r2) then false else
             let h' = PDerivPairSet.add r pair_2 in
               let dervs = derivatives(r1,r2) in
-              let s' = removal dervs h' in
+              let s' = PDerivPairSet.diff dervs h' in
               let s = PDerivPairSet.remove r pair_1 in
-              equiv((PDerivPairSet.union s s'),h') (*Still need to get deriavtives and removal fucntion**)
+              equiv((PDerivPairSet.union s s'),h')
 end
   
 (**
