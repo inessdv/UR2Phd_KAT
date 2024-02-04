@@ -78,7 +78,8 @@ all the outgoing transition is disjoint: for all state `s`,
 - given two distinct state `s₁` and `s₂`
     if `s` transition to `s₁` via `ϕ₁` and `s` transition to `s₂` via `ϕ₂`,
     then `ϕ₁ ∧ ϕ₂ ≡ ⊥`  in boolean algebra
-**The deterministic property is not enforced by type, but the algorithm only works when this property is satisfied**
+**The deterministic property is not enforced by type,** 
+**but the algorithm only works when this property is satisfied**
 
 PsedoCode for the algorithm, we use 
 `ŝ` to denote start state, `S` to denote set of all state, 
@@ -126,5 +127,6 @@ Given two automata (S₁, δ₁, ŝ₁) and (S₂, δ₂, ŝ₂):
     # finished all the elements in todo
     return true
 ```
-Note that this function is long and monolithic, probably want to split it into several functions,
+Note that this function is long and monolithic, 
+probably want to split it into several functions,
 to keep the function size small.
