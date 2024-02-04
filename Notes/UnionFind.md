@@ -51,8 +51,6 @@ We say that `s` *accepts* `ψ`
 and `s` will *transition* to `s'` with `ϕ` while executing `p`.
 
 ```ocaml
-type trans_res = (state -> b_exp * p_action) * b_exp
-
 type symb_gkat_automaton = {
     states: StateSet.t;
     start: state;
@@ -66,7 +64,7 @@ their reachable state, but this complicates the Thompson's construction.
 type symb_gkat_automaton = {
     reachablity_map: StateSet.t StateMap.t;
     start: state;
-    tran: state -> state -> (b_exp, p_action)
+    tran: state -> ((state -> (b_exp * p_action)) * b_exp)
 }
 ```
 where instead of recording all the states, we record all the reachability in a map,
