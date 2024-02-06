@@ -3,12 +3,14 @@ mkShell {
   buildInputs = [
     opam
     dune_3
-    ocamlPackages.ocaml-lsp
     ocaml
+    ocamlPackages.ocaml-lsp
+    ocamlPackages.utop
+    ocamlPackages.ounit2
     ocamlPackages.ocamlformat
   ];
   shellHook =
   ''
-    dune build @install
+    dune build @install --profile=release
   '';
 }
