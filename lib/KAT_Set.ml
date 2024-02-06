@@ -259,3 +259,38 @@ module Parser = struct
   let parse_kat_unsafe (s: string) : kat =
     Option.get (parse_kat s)
 end
+
+
+module Print = struct
+
+  let pprint (exp: kat) = 
+  (*helper method, takes a expression, output the string, 
+      and **the precedence of the outer most expression** *)
+  let rec helper (exp: kat): string * int = 
+    match exp with
+    | One -> ("1", 0)
+    | Zero -> ("0", 0)
+    | PAct(c) -> (c, 0)
+    | PBool(c) -> (c, 0)
+    | Star(r) -> 
+      let (str, precedence) = helper r in 
+      if precedence <= 0 then (str^"*", 0) else ("("^str^")*", 0)
+    | Not (r) -> 
+      let (str, precedence) = helper r in 
+      if precedence <= 1 then ("~"^str, 1) else ("~("^str^")", 1)
+    | Conc(r1, r2) ->
+      let (str1, precedence1) = helper r1 in 
+      let (str2, precedence2) = helper r2 in 
+      let str1' = if precedence1 <= 2 then str1 else "("^str1^")" in 
+      let str2' = if precedence2 < 2 then str2 else "("^str2^")" in 
+      (str1' ^ " " ^ str2', 2)
+    | Union(r1, r2) ->
+      let (str1, precedence1) = helper r1 in 
+      let (str2, precedence2) = helper r2 in 
+      let str1' = if precedence1 <= 3 then str1 else "("^str1^")" in 
+      let str2' = if precedence2 < 3 then str2 else "("^str2^")" in 
+      (str1' ^ " + " ^ str2', 3) 
+  in
+  let (str, _) = helper exp in str 
+
+end
