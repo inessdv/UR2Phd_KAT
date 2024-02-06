@@ -59,10 +59,10 @@ type kat =
   | Not of kat
 
 type katI= kat * bool  (*True when expression is boolean, false when expression is KAT*)
-let pAct = _
-let pBool = _ 
-let one = _
-let zero = (Zero,true) (*is this a constructor?*)
+let pAct p= p,false
+let pBool b = b,true
+let one = One,true 
+let zero = (Zero,true) 
 
 let union(e1:katI) (e2: katI):katI=
     match (e1,e2) with
@@ -88,7 +88,7 @@ let not ((exp, expIsBExp): kat * bool) =
     if expIsBExp then (Not exp, true) else raise (Invalid_argument "negation only takes boolean expressions")
 
 let star((exp, expIsBExp): kat * bool)=
-if expIsBExp==false then (Star(exp), false) else raise (Invalid_argument "star only takes KAT expressions")
+if expIsBExp==false then (Star(exp), false) else One,true
 
 module KATSet = Set.Make(struct
 type t = kat (**would this be katI???**)
@@ -140,7 +140,7 @@ let atOf(primitive_boolset:StringSet.t):SStringSet.t =
 
 
 (**similar question to pBool**)
-let rec epsilon ((exp, expIsBExp): kat * bool): bool = 
+let rec epsilon (atom:StringSet.t) (exp: kat) : bool = 
 if (expIsBExp== false) then 
 match exp with
 | Zero -> false
