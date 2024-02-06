@@ -58,12 +58,8 @@ type kat =
   | Star of kat
   | Not of kat
 
-type katSort =
-  |BExp
-  |NBExp     (*Not a boolean expression*)
-
 type katI= kat * bool  (*True when expression is boolean, false when expression is KAT*)
-let zero:katI = Zero,true
+let zero = (Zero,true) (*is this a constructor?*)
 
 let union(e1:katI) (e2: katI):katI=
     match (e1,e2) with
@@ -72,7 +68,7 @@ let union(e1:katI) (e2: katI):katI=
     | (k1,true),(k2,true) -> Union(k1,k2),true
     |(k1,_),(k2,_)-> Union(k1,k2),false
 
-let conc(e1:katI) (e2:katI):katI=
+let conc(e1:katI) (e2:katI):katI= (** would it be better to use (kat*bool) pairs as input???**)
   match (e1,e2) with
     |(Zero,true),_-> Zero,true
     |_,(Zero,true)-> Zero,true
@@ -91,11 +87,14 @@ let not ((exp, expIsBExp): kat * bool) =
 let star((exp, expIsBExp): kat * bool)=
 if expIsBExp==false then (Star(exp), false) else raise (Invalid_argument "star only takes KAT expressions")
 
- 
+module KATSet = Set.Make(struct
+type t = kat (**would this be katI???**)
+let compare = compare
+end)
   
 (**examples to type check /tests**)
 module StringSet = Set.Make(String)
-let rec pBoolOf(bexp:kat):StringSet.t=
+let rec pBoolOf(bexp:kat):StringSet.t =
   match bexp with           (*At*)
   |One -> StringSet.empty          
   |PBool b-> StringSet.singleton b
@@ -103,17 +102,52 @@ let rec pBoolOf(bexp:kat):StringSet.t=
   |Union(a,b)-> StringSet.union (pBoolOf a) (pBoolOf b)           
   |Not(b) -> pBoolOf b
   (*TODO: Just to surpress the warning for now, remove when finished*)
-  | _ -> failwith "We want boolean expressions but KAT expression is given"
+  | _ -> failwith "We want boolean expressions but KA expression is given"
 
 
+(** QUESTION! when we call pBool we call Bexp or we should check?
+
+let rec pBoolOf(exp:katI):StringSet.t =
+  match exp with           (*At*)
+  |(bExp,false) -> StringSet.empty
+  |(bExp,true)-> 
+    match bExp with
+    |One -> StringSet.empty          
+    |PBool b-> StringSet.singleton b
+    |Conc(a,b)-> StringSet.union (pBoolOf a) (pBoolOf b)     
+    |Union(a,b)-> StringSet.union (pBoolOf a) (pBoolOf b)           
+    |Not(b) -> pBoolOf b
+**)
+
+(** new type of set, set of string set to be produce power sets**)
 module SStringSet=Set.Make(StringSet)
 
+(** function to get the atoms of the primitive bools through power set**)
+let atOf(primitive_boolset:StringSet.t):SStringSet.t =
+  StringSet.fold (fun x ps -> SStringSet.fold 
+    (fun ss-> SStringSet.add (StringSet.add x ss)) ps ps) primitive_boolset 
+    (SStringSet.singleton StringSet.empty)
+
+
+
+(**similar question to pBool**)
+let rec epsilon (r: kat): bool = match r with
+| Zero -> false
+| One -> true
+| Value _ -> false
+| Union(a,b) -> epsilon a || epsilon b
+| Conc(a,b) -> epsilon a && epsilon b
+| Star _ -> true
+| _ -> raise (Invalid_argument "epsilon only takes KA expressions")
+
+(** empty word for KAT expressions**)
+let eps (sum: KATSet.t): bool =
+  KATSet.exists (fun r -> epsilon r) sum
+
+
+(*examples*)
+
 let example1=StringSet.of_list ["b";"c";"d"]
-let superset xs= StringSet.fold (fun x ps -> SStringSet.fold (fun ss-> SStringSet.add (StringSet.add x ss)) ps ps) xs 
-(SStringSet.singleton StringSet.empty) 
-
-let atOf(primitive_boolset:StringSet.t):SStringSet.t= superset primitive_boolset
-
 let example1= atOf example1 
 
 let example2=SStringSet.to_list
