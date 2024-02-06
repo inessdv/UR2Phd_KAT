@@ -51,7 +51,7 @@ let rec pBoolOf(k:katI):StringSet.t=
 type kat =
   | Zero
   | One
-  | Value of string
+  | PAct of string
   | PBool of string
   | Union of kat *  kat
   | Conc of  kat * kat
@@ -59,6 +59,9 @@ type kat =
   | Not of kat
 
 type katI= kat * bool  (*True when expression is boolean, false when expression is KAT*)
+let pAct = _
+let pBool = _ 
+let one = _
 let zero = (Zero,true) (*is this a constructor?*)
 
 let union(e1:katI) (e2: katI):katI=
@@ -142,7 +145,7 @@ if (expIsBExp== false) then
 match exp with
 | Zero -> false
 | One -> true
-| Value _ -> false
+| PAct _ -> false
 | Union(a,b) -> epsilon (a,false) || epsilon (b,false)
 | Conc(a,b) -> epsilon (a,false) && epsilon (b,false)
 | Star _ -> true
@@ -171,3 +174,73 @@ let example1=StringSet.of_list ["b";"c";"d"]
 let example1= atOf example1 
 
 let example2=SStringSet.to_list
+
+
+module Parser = struct
+  open Parser.Combinators
+
+  let symbol_parser : katI parser =
+    let* char_lst =  many1 (satisfy (fun c -> is_alpha c)) in
+    pure (pAct (implode char_lst)) << ws
+  
+  let one_parser : katI parser = 
+    let* _ = keyword "1" in 
+    pure one
+
+  let zero_parser : katI parser = 
+    let* _ = keyword "0" in 
+    pure zero
+
+  let rec min_term_parser (): katI parser =
+    let* _ = pure () in
+    choice
+      [ symbol_parser
+      ; one_parser
+      ; zero_parser
+      ; keyword "(" >> term_parser () << keyword ")"
+      ]
+
+  and star_parser (): katI parser = 
+    let* eI = min_term_parser () in
+    let* _ = keyword "*" <|> keyword "^*" in
+    pure (star eI)
+
+  and min_term_star_pareser () = star_parser () <|> min_term_parser () 
+    
+  and conc_parser () : katI parser = 
+    let* eI = min_term_star_pareser () in
+    let opr () = 
+          (*conc explicitly using "@" symbol*)
+          (let* _ = keyword "@" in
+          let* eI = min_term_star_pareser () in
+          pure (
+            (fun eI1 eI2 -> conc eI1 eI2), eI)) 
+          <|>
+          (*conc implicitly without using any operators*)
+          (let* eI = min_term_star_pareser () in
+          pure ((fun eI1 eI2 -> conc eI1 eI2), eI)) 
+    in
+    let* eIs = many (opr ()) in
+    pure (List.fold_left (fun acc (f, e) -> f acc e) eI eIs)
+
+  and union_parser () =
+    let* eI = conc_parser () in
+    let opr () = (let* _ = keyword "+" in
+           let* eI = conc_parser () in
+           pure ((fun eI1 eI2 -> union eI1 eI2), eI))
+    in
+    let* eIs = many (opr ()) in
+    pure (List.fold_left (fun acc (f, e) -> f acc e) eI eIs)
+
+  and term_parser () =
+    let* _ = pure () in
+    union_parser ()
+
+  let parse_kat (s : string) : kat option =
+    match parse (ws >> term_parser ()) s with
+    |Some ((r, _),[]) -> Some r
+    |_ -> None
+
+  let parse_kat_unsafe (s: string) : kat =
+    Option.get (parse_kat s)
+end
