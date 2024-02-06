@@ -58,6 +58,40 @@ type kat =
   | Star of kat
   | Not of kat
 
+module Print = struct
+
+  let pprint (exp: kat) = 
+  (*helper method, takes a expression, output the string, 
+      and **the precedence of the outer most expression** *)
+  let rec helper (exp: kat): string * int = 
+    match exp with
+    | One -> ("1", 0)
+    | Zero -> ("0", 0)
+    | PAct(c) -> (c, 0)
+    | PBool(c) -> (c, 0)
+    | Star(r) -> 
+      let (str, precedence) = helper r in 
+      if precedence <= 0 then (str^"*", 0) else ("("^str^")*", 0)
+    | Not (r) -> 
+      let (str, precedence) = helper r in 
+      if precedence <= 1 then ("~"^str, 1) else ("~("^str^")", 1)
+    | Conc(r1, r2) ->
+      let (str1, precedence1) = helper r1 in 
+      let (str2, precedence2) = helper r2 in 
+      let str1' = if precedence1 <= 2 then str1 else "("^str1^")" in 
+      let str2' = if precedence2 < 2 then str2 else "("^str2^")" in 
+      (str1' ^ " " ^ str2', 2)
+    | Union(r1, r2) ->
+      let (str1, precedence1) = helper r1 in 
+      let (str2, precedence2) = helper r2 in 
+      let str1' = if precedence1 <= 3 then str1 else "("^str1^")" in 
+      let str2' = if precedence2 < 3 then str2 else "("^str2^")" in 
+      (str1' ^ " + " ^ str2', 3) 
+  in
+  let (str, _) = helper exp in str 
+  
+end
+
 type katI= kat * bool  (*True when expression is boolean, false when expression is KAT*)
 let pAct p= PAct p,false
 let pBool b = PBool b,true
@@ -73,19 +107,23 @@ let union(e1:katI) (e2: katI):katI=
 
 let conc(e1:katI) (e2:katI):katI= (** would it be better to use (kat*bool) pairs as input???**)
   match (e1,e2) with
-    |(Zero,true),_-> Zero,true
-    |_,(Zero,true)-> Zero,true
-    |(Zero,false),_-> Zero,false
-    |_,(Zero,false)->Zero,false
+    |(Zero,_),_-> Zero,true
+    |_,(Zero,_)-> Zero,true
     |(One,_),_-> e2
     |_,(One,_)-> e1
     |(k1,true),(k2,true) -> Conc(k1,k2),true        (*if k1==One and k2==One then One,true  else Zero,true*)
     |(k1,false),(k2,false) -> Conc(k1,k2),false
+    (*TODO: please fix this, conc can concatnate two types of expression*)
     |(_,_),(_,_) -> raise (Invalid_argument "conc only works in same type expression")
 
 
 let not ((exp, expIsBExp): kat * bool) = 
-    if expIsBExp then (Not exp, true) else raise (Invalid_argument "negation only takes boolean expressions")
+    if expIsBExp 
+      then match exp with 
+        | One -> Zero, true 
+        | Zero -> One, true 
+        | _ -> (Not exp, true)
+      else raise (Invalid_argument ("negation applied to non-boolean expression: "^(Print.pprint exp)))
 
 let star((exp, expIsBExp): kat * bool)=
 if expIsBExp==false then (Star(exp), false) else One,true
@@ -261,36 +299,3 @@ module Parser = struct
 end
 
 
-module Print = struct
-
-  let pprint (exp: kat) = 
-  (*helper method, takes a expression, output the string, 
-      and **the precedence of the outer most expression** *)
-  let rec helper (exp: kat): string * int = 
-    match exp with
-    | One -> ("1", 0)
-    | Zero -> ("0", 0)
-    | PAct(c) -> (c, 0)
-    | PBool(c) -> (c, 0)
-    | Star(r) -> 
-      let (str, precedence) = helper r in 
-      if precedence <= 0 then (str^"*", 0) else ("("^str^")*", 0)
-    | Not (r) -> 
-      let (str, precedence) = helper r in 
-      if precedence <= 1 then ("~"^str, 1) else ("~("^str^")", 1)
-    | Conc(r1, r2) ->
-      let (str1, precedence1) = helper r1 in 
-      let (str2, precedence2) = helper r2 in 
-      let str1' = if precedence1 <= 2 then str1 else "("^str1^")" in 
-      let str2' = if precedence2 < 2 then str2 else "("^str2^")" in 
-      (str1' ^ " " ^ str2', 2)
-    | Union(r1, r2) ->
-      let (str1, precedence1) = helper r1 in 
-      let (str2, precedence2) = helper r2 in 
-      let str1' = if precedence1 <= 3 then str1 else "("^str1^")" in 
-      let str2' = if precedence2 < 3 then str2 else "("^str2^")" in 
-      (str1' ^ " + " ^ str2', 3) 
-  in
-  let (str, _) = helper exp in str 
-
-end
