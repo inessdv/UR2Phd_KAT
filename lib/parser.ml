@@ -3,6 +3,8 @@ module Combinators = struct
 
   let is_upper_case c = 'A' <= c && c <= 'Z'
 
+  let is_digit = function '0' .. '9' -> true | _ -> false
+
   let is_alpha c = is_lower_case c || is_upper_case c
 
   let is_blank c = String.contains " \012\n\r\t" c

@@ -140,7 +140,7 @@ let atOf(primitive_boolset:StringSet.t):SStringSet.t =
 
 
 (**similar question to pBool**)
-let rec epsilon (atom:StringSet.t) (exp: kat) : bool = 
+(* let rec epsilon (atom:StringSet.t) (exp: kat) : bool = 
 if (expIsBExp== false) then 
 match exp with
 | Zero -> false
@@ -150,11 +150,11 @@ match exp with
 | Conc(a,b) -> epsilon (a,false) && epsilon (b,false)
 | Star _ -> true
 | _ -> false
-else raise (Invalid_argument "epsilon only takes KA expressions")
+else raise (Invalid_argument "epsilon only takes KA expressions") *)
 
 (** empty word for KAT expressions**)
-let eps (sum: KATISet.t): bool =
-  KATISet.exists (fun exp -> epsilon exp) sum
+(* let eps (sum: KATISet.t): bool =
+  KATISet.exists (fun exp -> epsilon exp) sum *)
 
 
 (* existence of atom in R, set of KAT**)
@@ -179,9 +179,16 @@ let example2=SStringSet.to_list
 module Parser = struct
   open Parser.Combinators
 
-  let symbol_parser : katI parser =
-    let* char_lst =  many1 (satisfy (fun c -> is_alpha c)) in
-    pure (pAct (implode char_lst)) << ws
+  let p_act_parser : katI parser =
+    let* start = satisfy (fun c -> List.mem c ['p'; 'q'; 'r'; 's'; 't'; 'e']) in
+    let* rest =  many (satisfy (fun c -> is_alpha c || is_digit c)) in
+    pure (pAct (implode (start :: rest))) << ws
+
+  let p_bool_parser : katI parser =
+    let* start = satisfy (fun c -> List.mem c ['a'; 'b'; 'c'; 'd']) in
+    let* rest =  many (satisfy (fun c -> is_alpha c || is_digit c)) in
+    pure (pBool (implode (start :: rest))) << ws
+    
   
   let one_parser : katI parser = 
     let* _ = keyword "1" in 
@@ -194,7 +201,8 @@ module Parser = struct
   let rec min_term_parser (): katI parser =
     let* _ = pure () in
     choice
-      [ symbol_parser
+      [ p_act_parser 
+      ; p_bool_parser
       ; one_parser
       ; zero_parser
       ; keyword "(" >> term_parser () << keyword ")"
@@ -206,18 +214,25 @@ module Parser = struct
     pure (star eI)
 
   and min_term_star_pareser () = star_parser () <|> min_term_parser () 
+
+  and not_pareser () : katI parser = 
+    let* _ = char '~' << ws in 
+    let* eI = min_term_star_pareser () << ws in 
+    pure (not eI)
+
+  and not_star_parser () = not_pareser () <|> min_term_star_pareser ()
     
   and conc_parser () : katI parser = 
-    let* eI = min_term_star_pareser () in
+    let* eI = not_star_parser () in
     let opr () = 
           (*conc explicitly using "@" symbol*)
           (let* _ = keyword "@" in
-          let* eI = min_term_star_pareser () in
+          let* eI = not_star_parser () in
           pure (
             (fun eI1 eI2 -> conc eI1 eI2), eI)) 
           <|>
           (*conc implicitly without using any operators*)
-          (let* eI = min_term_star_pareser () in
+          (let* eI = not_star_parser () in
           pure ((fun eI1 eI2 -> conc eI1 eI2), eI)) 
     in
     let* eIs = many (opr ()) in
