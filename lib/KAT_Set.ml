@@ -99,30 +99,31 @@ end)
   
 (**examples to type check /tests**)
 module StringSet = Set.Make(String)
-let rec pBoolOf(bexp:kat):StringSet.t =
-  match bexp with           (*At*)
-  |One -> StringSet.empty          
-  |PBool b-> StringSet.singleton b
-  |Conc(a,b)-> StringSet.union (pBoolOf a) (pBoolOf b)     
-  |Union(a,b)-> StringSet.union (pBoolOf a) (pBoolOf b)           
-  |Not(b) -> pBoolOf b
-  (*TODO: Just to surpress the warning for now, remove when finished*)
-  | _ -> failwith "We want boolean expressions but KA expression is given"
+let rec pBoolOf((exp, expIsBExp): kat * bool):StringSet.t =
+  if expIsBExp then 
+    match exp with           (*At*)
+    |One -> StringSet.empty          
+    |PBool b-> StringSet.singleton b
+    |Conc(a,b)-> StringSet.union (pBoolOf (a,true)) (pBoolOf (b,true))      
+    |Union(a,b)-> StringSet.union (pBoolOf (a,true)) (pBoolOf (b,true))           
+    |Not(b) -> pBoolOf (b,true)
+    (*TODO: Just to surpress the warning for now, remove when finished*)
+    | _ -> failwith "We want boolean expressions but KA expression is given"
+else raise (Invalid_argument "pBool only takes bool expressions")
 
-
-(** QUESTION! when we call pBool we call Bexp or we should check?
 
 let rec pBoolOf(exp:katI):StringSet.t =
   match exp with           (*At*)
-  |(_,false) -> StringSet.empty
+  |(_,false) -> StringSet.empty (** or error message?**)
   |(bExp,true)-> 
     match bExp with
     |One -> StringSet.empty          
     |PBool b-> StringSet.singleton b
-    |Conc(a,b)-> StringSet.union (pBoolOf a) (pBoolOf b)     
-    |Union(a,b)-> StringSet.union (pBoolOf a) (pBoolOf b)           
-    |Not(b) -> pBoolOf b
-**)
+    |Conc(a,b)-> StringSet.union (pBoolOf (a,true)) (pBoolOf (b,true))     
+    |Union(a,b)-> StringSet.union (pBoolOf (a,true)) (pBoolOf (b,true))           
+    |Not(b) -> pBoolOf (b,true)
+    |_ -> StringSet.empty
+
 
 (** new type of set, set of string set to be produce power sets**)
 module SStringSet=Set.Make(StringSet)
@@ -136,23 +137,26 @@ let atOf(primitive_boolset:StringSet.t):SStringSet.t =
 
 
 (**similar question to pBool**)
-let rec epsilon (r: kat): bool = match r with
+let rec epsilon ((exp, expIsBExp): kat * bool): bool = 
+if (expIsBExp== false) then 
+match exp with
 | Zero -> false
 | One -> true
 | Value _ -> false
-| Union(a,b) -> epsilon a || epsilon b
-| Conc(a,b) -> epsilon a && epsilon b
+| Union(a,b) -> epsilon (a,false) || epsilon (b,false)
+| Conc(a,b) -> epsilon (a,false) && epsilon (b,false)
 | Star _ -> true
-| _ -> raise (Invalid_argument "epsilon only takes KA expressions")
+| _ -> false
+else raise (Invalid_argument "epsilon only takes KA expressions")
 
 (** empty word for KAT expressions**)
-let eps (sum: KATSet.t): bool =
-  KATSet.exists (fun r -> epsilon r) sum
+let eps (sum: KATISet.t): bool =
+  KATISet.exists (fun exp -> epsilon exp) sum
 
 
 (* existence of atom in R, set of KAT**)
-let existance ((a,true):katI) (rSet:KATISet.t): bool = (*??**)
-  KATISet.mem (a,true) rSet
+let existance ((exp,expIsBExp):kat * bool) (rSet:KATISet.t): bool = (*??**)
+  if expIsBExp then KATISet.mem (exp,true) rSet else raise (Invalid_argument "epsilon only takes Bexp expressions")
 
 (** function to extract p?
 **)
