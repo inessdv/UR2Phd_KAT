@@ -91,6 +91,11 @@ module KATSet = Set.Make(struct
 type t = kat (**would this be katI???**)
 let compare = compare
 end)
+
+module KATISet = Set.Make(struct
+type t = katI (**would this be katI???**)
+let compare = compare
+end)
   
 (**examples to type check /tests**)
 module StringSet = Set.Make(String)
@@ -109,7 +114,7 @@ let rec pBoolOf(bexp:kat):StringSet.t =
 
 let rec pBoolOf(exp:katI):StringSet.t =
   match exp with           (*At*)
-  |(bExp,false) -> StringSet.empty
+  |(_,false) -> StringSet.empty
   |(bExp,true)-> 
     match bExp with
     |One -> StringSet.empty          
@@ -144,6 +149,17 @@ let rec epsilon (r: kat): bool = match r with
 let eps (sum: KATSet.t): bool =
   KATSet.exists (fun r -> epsilon r) sum
 
+
+(* existence of atom in R, set of KAT**)
+let existance ((a,true):katI) (rSet:KATISet.t): bool = (*??**)
+  KATISet.mem (a,true) rSet
+
+(** function to extract p?
+**)
+
+(** derivative function: we need a and p and a KAT Exp
+let deriv (a:kat(* bexp atom **))(p:kat (*primitive action **))(exp:kat): KATSet.t =
+**)
 
 (*examples*)
 
