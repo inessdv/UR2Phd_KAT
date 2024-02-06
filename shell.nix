@@ -5,6 +5,7 @@ mkShell {
     dune_3
     ocamlPackages.ocaml-lsp
     ocaml
+    ocamlPackages.ocamlformat
   ];
   shellHook =
   ''
