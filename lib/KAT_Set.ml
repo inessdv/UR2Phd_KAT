@@ -59,8 +59,8 @@ type kat =
   | Not of kat
 
 type katI= kat * bool  (*True when expression is boolean, false when expression is KAT*)
-let pAct p= p,false
-let pBool b = b,true
+let pAct p= PAct p,false
+let pBool b = PBool b,true
 let one = One,true 
 let zero = (Zero,true) 
 
