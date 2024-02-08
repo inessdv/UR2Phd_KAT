@@ -91,12 +91,12 @@ let star((exp, expIsBExp): kat * bool)=
 if expIsBExp==false then (Star(exp), false) else One,true
 
 module KATSet = Set.Make(struct
-type t = kat (**would this be katI???**)
+type t = kat
 let compare = compare
 end)
 
 module KATISet = Set.Make(struct
-type t = katI (**would this be katI???**)
+type t = katI 
 let compare = compare
 end)
   
@@ -141,25 +141,25 @@ let atOf(primitive_boolset:StringSet.t):SStringSet.t =
 
 (**similar question to pBool**)
 let rec epsilon (atom:StringSet.t) (exp: kat) : bool = 
-if (expIsBExp== false) then 
 match exp with
 | Zero -> false
-| One -> true
+| One -> false
 | PAct _ -> false
-| Union(a,b) -> epsilon (a,false) || epsilon (b,false)
-| Conc(a,b) -> epsilon (a,false) && epsilon (b,false)
+|PBool b -> StringSet.mem b atom(*if b<= atom, then b must in the atom *)
+| Union(a,b) -> epsilon atom a || epsilon atom b
+| Conc(a,b) -> epsilon atom a && epsilon atom b
 | Star _ -> true
-| _ -> false
-else raise (Invalid_argument "epsilon only takes KA expressions")
+|Not(a)->epsilon atom a
 
 (** empty word for KAT expressions**)
-let eps (sum: KATISet.t): bool =
-  KATISet.exists (fun exp -> epsilon exp) sum
+let eps (atom:StringSet.t)(sum: KATSet.t): bool =
+  KATSet.exists (fun exp -> epsilon atom exp) sum
 
 
 (* existence of atom in R, set of KAT**)
 let existance ((exp,expIsBExp):kat * bool) (rSet:KATISet.t): bool = (*??**)
   if expIsBExp then KATISet.mem (exp,true) rSet else raise (Invalid_argument "epsilon only takes Bexp expressions")
+
 
 (** function to extract p?
 **)
