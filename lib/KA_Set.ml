@@ -224,7 +224,7 @@ module Equiv = struct
   let hd (r: string kleene): StringSet.t =
     let lin_r = linearization r in 
     (*convert the keys into set*)
-    StringSet.of_list (List.map fst (StringMap.to_list lin_r))
+    StringSet.of_seq (Seq.map fst (StringMap.to_seq lin_r))
 
   (** Function der_p(RE) -> P(RE) to find **)
   let deriv (p: string) (r: string kleene): KASet.t = 
@@ -246,9 +246,9 @@ module Equiv = struct
 
   (** Function hd_ext, extension of hd to lists of RE**)
   let hd_sum (sum: KASet.t): StringSet.t = 
-    let sumList = KASet.to_list sum in 
+    let sumList = KASet.to_seq sum in 
     (* union each head of term in the sum*)
-    List.fold_left StringSet.union StringSet.empty (List.map hd sumList)
+    Seq.fold_left StringSet.union StringSet.empty (Seq.map hd sumList)
 
 
 
