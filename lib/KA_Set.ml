@@ -156,11 +156,17 @@ module Equiv = struct
     let compare = compare
   end)
 
-  module PDerivPairSet = Set.Make (struct
-    (* set of pairs of partical derivitives*)
-    type t = KASet.t * KASet.t
-    let compare = compare
-  end) 
+  (**Monad structure on Set, bind function
+    maps function onto the set, and flatten the set*)
+  let (let*) (s: KASet.t) (f: string kleene -> KASet.t): KASet.t = 
+    let s_seq = KASet.to_seq s in 
+    let unflattened = Seq.map f s_seq in 
+    Seq.fold_left KASet.union KASet.empty unflattened
+
+  (**Monad structure on Set, return function.
+    Simply creates the singleton set*)
+  let return (elem: string kleene): KASet.t = 
+    KASet.singleton elem
 
   (** Set of string*)
   module StringSet = Set.Make(String)
@@ -168,23 +174,24 @@ module Equiv = struct
   (** A map from string*)
   module StringMap = Map.Make(String)
 
-  (** The linear form of a expression, which is string mapped to as set of KA expressions*)
-  type linearForm = KASet.t StringMap.t
+  (** The derivative map, it is a symbol mapped to a set of expression, 
+      which are the set representation of derivative with the symbol.*)
+  type derMap = KASet.t StringMap.t
 
-  (**Monad structure on Set, bind function
-      maps function onto the set, and flatten the set*)
-  let (let*) (s: KASet.t) (f: string kleene -> KASet.t): KASet.t = 
-    let sList = KASet.elements s in 
-    let unflattened = List.map f sList in 
-    List.fold_left KASet.union KASet.empty unflattened
-  
-    (**Monad structure on Set, return function.
-        Simply creates the singleton set*)
-  let return (elem: string kleene): KASet.t = 
-    KASet.singleton elem
+  module DerMapSet = Set.Make(struct
+    type t = derMap
+    let compare = compare
+  end)
+
+  module PDerivPairSet = Set.Make (struct
+    (* set of pairs of partial derivitives*)
+    type t = KASet.t * KASet.t
+    let compare = compare
+  end) 
+
 
   (** concatenate a regular expression to every regular expressions in the linear form*)
-  let concLinearForm (r_linear: linearForm) (r: string kleene): linearForm = 
+  let conc_der_map (r_linear: derMap) (r: string kleene): derMap = 
     StringMap.map (fun derivs -> 
       KASet.map (fun deriv -> Conc (deriv, r)) derivs) 
     r_linear
@@ -192,86 +199,93 @@ module Equiv = struct
   (** Create the union of two linear form, 
       this will merge all the deriviative of the same head
       this corresponds to the sum of two linear forms*)
-  let unionLinearForm (lin1: linearForm) (lin2: linearForm): linearForm = 
+  let union_der_map (lin1: derMap) (lin2: derMap): derMap = 
     StringMap.union 
       (* combine two KA set with union, when their hd are the same*)
       (fun _ s1 s2 -> Some (KASet.union s1 s2))
       lin1 lin2
 
   (*** do i need a helper function to find head p for r?**)
-  (** linearization function returning a list of tuples of the head p of regular expression r1 (p,r1)**)
-  let rec linearization (r: string kleene): linearForm = match r with
+  (** get_der_map function returning a list of tuples of the head p of regular expression r1 (p,r1)**)
+  let rec get_der_map (r: string kleene): derMap = match r with
     | Zero-> StringMap.empty
     | One -> StringMap.empty
     | Value p -> StringMap.singleton p (KASet.singleton One)
-    | Union(r1,r2) -> unionLinearForm (linearization r1) (linearization r2)
+    | Union(r1,r2) -> union_der_map (get_der_map r1) (get_der_map r2)
     (* four concatnation cases**)
     | Conc(Value p,r') -> StringMap.singleton p (KASet.singleton r')
     | Conc((Star(r1)),r2) -> 
-      unionLinearForm 
-        (concLinearForm (concLinearForm (linearization r1) (Star r1)) r2)
-        (linearization r2)
-    | Conc((Union(r1,r2)),r3) -> unionLinearForm (linearization (Conc(r1,r2))) (linearization (Conc(r2,r3))) 
-    | Conc(Conc(r1,r2),r3) -> linearization (Conc(r1,Conc(r2,r3)))
-    | Conc(One, r') -> linearization r'
+      union_der_map 
+        (conc_der_map (conc_der_map (get_der_map r1) (Star r1)) r2)
+        (get_der_map r2)
+    | Conc((Union(r1,r2)),r3) -> union_der_map (get_der_map (Conc(r1,r2))) (get_der_map (Conc(r2,r3))) 
+    | Conc(Conc(r1,r2),r3) -> get_der_map (Conc(r1,Conc(r2,r3)))
+    | Conc(One, r') -> get_der_map r'
     | Conc(Zero, _) -> StringMap.empty
-    | Star(r') -> concLinearForm (linearization r') (Star(r'))
+    | Star(r') -> conc_der_map (get_der_map r') (Star(r'))
+
+  (** Get the derivative map for a sum, represented as a set of terms*)
+  let get_der_map_sum (sum: KASet.t): DerMapSet.t = 
+    KASet.to_seq sum 
+    |> Seq.map get_der_map 
+    |> DerMapSet.of_seq
 
   (*** The following functions will help define the decision procedure
       hd(RE) , der_p(RE) , der_ext(P(RE)), ep(RE) , derivatives(R1,R2)
   **)
   (** Function hd(r) to find head**)
-  let hd (r: string kleene): StringSet.t =
-    let lin_r = linearization r in 
+  let hd (r: derMap): StringSet.t =
     (*convert the keys into set*)
-    StringSet.of_seq (Seq.map fst (StringMap.to_seq lin_r))
+    StringSet.of_seq (Seq.map fst (StringMap.to_seq r))
 
   (** Function der_p(RE) -> P(RE) to find **)
-  let deriv (p: string) (r: string kleene): KASet.t = 
-    StringMap.find p (linearization r)
+  let deriv (p: string) (der_map: derMap): KASet.t = 
+    match StringMap.find_opt p der_map with 
+    (*If the p doesn't exists then return empty*)
+    | None -> KASet.empty
+    (*Otherwise return the sum*)
+    | Some der_sum -> der_sum
 
-
-  (** Function eps(P(RE)) checking for empty word**)
+  (** Function eps(P(RE)) checking for empty word
+      No longer needed, included in linearize_sum*)
   let eps (sum: KASet.t): bool =
     KASet.exists (fun r -> epsilon r) sum
 
-  (* Python Notation
-    deriv_sum(p, sum) = {der for der in deriv(p, r) for r in sum} 
-  *)
-  (** Function der_ext(P(RE)) ????**)
-  let deriv_sum (p: string)(sum: KASet.t): KASet.t =
-    let* r = sum in 
-    let* der = deriv p r in 
-    return der
+  (** Function der_ext(P(RE))**)
+  let deriv_sum (p: string)(sum_der_map: DerMapSet.t): KASet.t =
+    DerMapSet.to_seq sum_der_map 
+    (*Take the derivative of each element of the sum*)
+    |> Seq.map (deriv p)  
+    (*Union the results*)
+    |> Seq.fold_left KASet.union KASet.empty 
 
   (** Function hd_ext, extension of hd to lists of RE**)
-  let hd_sum (sum: KASet.t): StringSet.t = 
-    let sumList = KASet.to_seq sum in 
+  let hd_sum (sum: DerMapSet.t): StringSet.t = 
+    let sumList = DerMapSet.to_seq sum in 
     (* union each head of term in the sum*)
     Seq.fold_left StringSet.union StringSet.empty (Seq.map hd sumList)
 
-
-
   (** Function derivatives(R1,R2), findes derivatives of a pair of kleene sets**)
-  let derivatives (re_pair: KASet.t * KASet.t): PDerivPairSet.t =
-    match re_pair with
-    |(r1_set,r2_set)-> let heads = StringSet.union (hd_sum r1_set) (hd_sum r2_set) in
-      StringSet.fold (fun x acc -> PDerivPairSet.add (deriv_sum x r1_set, deriv_sum x r2_set) acc) heads
-      PDerivPairSet.empty
+  let derivatives ((r1, r2): KASet.t * KASet.t): PDerivPairSet.t =
+    let der_map1 = get_der_map_sum r1 in  
+    let der_map2 = get_der_map_sum r2 in
+    let heads = StringSet.union (hd_sum der_map1) (hd_sum der_map2) in
+    (StringSet.to_seq heads)
+    |> (Seq.map (fun p -> (deriv_sum p der_map1, deriv_sum p der_map2)) )
+    |> PDerivPairSet.of_seq
 
 (*Equiv function*)
-  let rec equiv (r: PDerivPairSet.t * PDerivPairSet.t): bool =
-    match r with
-    |(pair_1,pair_2) -> (*pair 1 holds P(RE) and pair 2 holds  the pairs already tested*)
-      if PDerivPairSet.is_empty pair_1 then true else
-        let r = PDerivPairSet.choose pair_1 in
-          match r with
-          |(r1,r2) -> if eps(r1) != eps(r2) then false else
-            let h' = PDerivPairSet.add r pair_2 in
-              let dervs = derivatives(r1,r2) in
-              let s' = PDerivPairSet.diff dervs h' in
-              let s = PDerivPairSet.remove r pair_1 in
-              equiv((PDerivPairSet.union s s'),h')
+  let rec equiv ((todo, visited): PDerivPairSet.t * PDerivPairSet.t): bool =
+      match PDerivPairSet.choose_opt todo with 
+      (*todo is empty, finised*)
+      | None -> true
+      | Some (sum1,sum2) -> 
+          if eps(sum1) != eps(sum2) then false else
+          let new_visited = PDerivPairSet.add (sum1, sum2) visited in
+          let dervs = derivatives (sum1, sum2) in
+          let new_todo = 
+            PDerivPairSet.diff (PDerivPairSet.union todo dervs) new_visited in
+          equiv(new_todo, new_visited)
 end
   
 (**
