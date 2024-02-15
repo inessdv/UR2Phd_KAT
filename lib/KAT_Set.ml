@@ -148,13 +148,44 @@ let eps (atom:StringSet.t)(sum: KATSet.t): bool =
 let existance ((exp,expIsBExp):kat * bool) (rSet:KATISet.t): bool = (*??**)
   if expIsBExp then KATISet.mem (exp,true) rSet else raise (Invalid_argument "epsilon only takes Bexp expressions")
 
-
-(** function to extract p?
-**)
-
 (** derivative function: we need a and p and a KAT Exp
 let deriv (a:kat(* bexp atom **))(p:kat (*primitive action **))(exp:kat): KATSet.t =
 **)
+
+(** Linearization function
+**)
+
+(** A map from string*)
+module StringMap = Map.Make(String)
+
+(** The linear form of a expression, which is string mapped to as set of KA expressions*)
+type linearForm = KATSet.t StringMap.t
+(** linearization function
+**)
+let unionLinearForm (lin1: linearForm) (lin2: linearForm): linearForm = 
+  StringMap.union 
+    (* combine two KA set with union, when their hd are the same*)
+    (fun _ s1 s2 -> Some (KATSet.union s1 s2))
+    lin1 lin2
+
+let concLinearForm (r_linear: linearForm) (r: kat): linearForm = 
+  StringMap.map (fun derivs -> 
+    KATSet.map (fun deriv -> Conc (deriv, r)) derivs) 
+    r_linear
+
+let atoms (exp:kat): SStringSet.t = atOf (pBoolOf exp)
+
+let rec linearization (at:SStringSet.t) (exp: kat): linearForm =
+  match exp with
+  | PBool _ -> StringMap.empty
+  | PAct p  -> StringMap.map (StringSet.map (fun x -> p^x) at)  (KATSet.singleton One) (** map p to each atom and then each to one**)
+  | Union(e1,e2) -> unionLinearForm linearization(e1) linearization(e2)
+  | Conc(e1,e2) -> if (StringSet.map epsilon at e1) then
+    unionLinearForm (concLinearForm linearization(e1) e2) (linearization e2) else
+      concLinearForm linearization(e1) e2
+  | Star(e) -> concLinearForm linearization(e) Star(e)
+  | _ -> StringMap.empty
+
 
 (*examples*)
 
@@ -162,6 +193,10 @@ let example1=StringSet.of_list ["b";"c";"d"]
 let example1= atOf example1 
 
 let example2=SStringSet.to_list
+
+
+
+
 
 
 module Parser = struct
