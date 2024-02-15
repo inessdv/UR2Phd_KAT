@@ -189,12 +189,21 @@ module Equiv = struct
     let compare = compare
   end) 
 
+  (** Concatate and simplify two expressions,
+      this uses algebraic rules of conc to simplify the result*)
+  let conc_alg (e1: string kleene) (e2: string kleene): string kleene = 
+    match e1, e2 with 
+    | One, _ -> e2 
+    | _, One -> e1 
+    | Zero, _ -> Zero
+    | _, Zero -> Zero
+    | _, _ -> Conc (e1, e2)
 
   (** concatenate a regular expression to every regular expressions in the linear form*)
-  let conc_der_map (r_linear: derMap) (r: string kleene): derMap = 
+  let conc_der_map (der_map: derMap) (r: string kleene): derMap = 
     StringMap.map (fun derivs -> 
-      KASet.map (fun deriv -> Conc (deriv, r)) derivs) 
-    r_linear
+      KASet.map (fun deriv -> conc_alg deriv r) derivs) 
+    der_map
     
   (** Create the union of two linear form, 
       this will merge all the deriviative of the same head
