@@ -180,7 +180,7 @@ let rec linearization (at:SStringSet.t) (exp: kat): linearForm =
   | PBool _ -> StringMap.empty
   | PAct p  -> StringMap.map (StringSet.map (fun x -> p^x) at)  (KATSet.singleton One) (** map p to each atom and then each to one**)
   | Union(e1,e2) -> unionLinearForm linearization(e1) linearization(e2)
-  | Conc(e1,e2) -> if (StringSet.map epsilon at e1) then
+  | Conc(e1,e2) -> if (StringSet.map epsilon at e1) then (** check if atom from e2 is in e1?????**)
     unionLinearForm (concLinearForm linearization(e1) e2) (linearization e2) else
       concLinearForm linearization(e1) e2
   | Star(e) -> concLinearForm linearization(e) Star(e)
