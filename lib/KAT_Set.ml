@@ -125,9 +125,6 @@ let atOf(primitive_boolset:StringSet.t):SStringSet.t =
     (fun ss-> SStringSet.add (StringSet.add x ss)) ps ps) primitive_boolset 
     (SStringSet.singleton StringSet.empty)
 
-
-
-(**similar question to pBool**)
 let rec epsilon (atom:StringSet.t) (exp: kat) : bool = 
 match exp with
 | Zero -> false
@@ -158,19 +155,36 @@ let deriv (a:kat(* bexp atom **))(p:kat (*primitive action **))(exp:kat): KATSet
 (** A map from string*)
 module StringMap = Map.Make(String)
 
+(** define type of atom and prim act
+**)
+type p_bool = string
+type p_act = string
+module Atom = Set.Make(struct
+  type t = p_bool
+  let compare = compare
+end)
+
+module AtPactMap = Map.Make(struct
+  type t = Atom.t * p_act
+  let compare = compare
+end)
+
 (** The linear form of a expression, which is string mapped to as set of KA expressions*)
-type linearForm = KATSet.t StringMap.t
+type linearForm = KATSet.t AtPactMap.t
+
 (** linearization function
 **)
 let unionLinearForm (lin1: linearForm) (lin2: linearForm): linearForm = 
-  StringMap.union 
-    (* combine two KA set with union, when their hd are the same*)
+  AtPactMap.union
+    (* combine two KAT sets with union, when their hd are the same*)
     (fun _ s1 s2 -> Some (KATSet.union s1 s2))
     lin1 lin2
 
-let concLinearForm (r_linear: linearForm) (r: kat): linearForm = 
-  StringMap.map (fun derivs -> 
-    KATSet.map (fun deriv -> Conc (deriv, r)) derivs) 
+let concLinearForm (r_linear: linearForm) (r: kat): linearForm =
+  AtPactMap.map (fun derivs -> 
+(** when concatenating with 1, elimination of map of the 1, 
+    we could also eliminate 0, as we'd get an empty set!!!*)
+    KATSet.map (fun deriv -> Conc(deriv, r)) derivs) 
     r_linear
 
 let atoms (exp:kat): SStringSet.t = atOf (pBoolOf exp)
