@@ -156,18 +156,6 @@ module Equiv = struct
     let compare = compare
   end)
 
-  (**Monad structure on Set, bind function
-    maps function onto the set, and flatten the set*)
-  let (let*) (s: KASet.t) (f: string kleene -> KASet.t): KASet.t = 
-    let s_seq = KASet.to_seq s in 
-    let unflattened = Seq.map f s_seq in 
-    Seq.fold_left KASet.union KASet.empty unflattened
-
-  (**Monad structure on Set, return function.
-    Simply creates the singleton set*)
-  let return (elem: string kleene): KASet.t = 
-    KASet.singleton elem
-
   (** Set of string*)
   module StringSet = Set.Make(String)
 
