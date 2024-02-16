@@ -5,7 +5,7 @@ module Automaton = struct
   (** States for GKAT automaton *)
   type state = int64
   module StateSet = Set.Make(Int64)
-  (** Possible results of GKAT automata transitions
+  (* Possible results of GKAT automata transitions
       Rejection is implicit, by not present in the transition map*)
   type transRes = Accept | To of state * pAct
   (** Map correponding to transition function*)
@@ -46,9 +46,9 @@ module Automaton = struct
   let get_live_states (automaton: t): StateSet.t =  
     let atoms = atoms_of automaton in 
     let trans_map = automaton.trans_map in
-    (** Non-trivial states of the automaton*)
+    (* Non-trivial states of the automaton*)
     let states = get_states automaton in 
-    (** a state is a live state when _any_ of its transition is live *)
+    (* a state is a live state when _any_ of its transition is live *)
     let is_live_rec (is_live_opt: state -> bool option) (s: state) = 
       List.exists (fun atom -> 
         match StateAtomMap.find_opt  (s, atom) trans_map with 
@@ -61,9 +61,9 @@ module Automaton = struct
           | None -> false 
           | Some res -> res
       ) atoms in
-    (** pairs where the first is state, the second is whether that state is live*)
+    (* pairs where the first is state, the second is whether that state is live*)
     let is_live_map = compute_map is_live_rec states in 
-    (** Keep all the states that is live *)
+    (* Keep all the states that is live *)
     List.filter_map 
       (fun (s, s_is_live) -> if s_is_live then Some s else None) 
       is_live_map
