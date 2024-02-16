@@ -136,8 +136,11 @@ module Automaton = struct
           then true
           else 
             match check_res (s1, a1) (s2, a2) with 
+            (* mismatch exists in the results of (s1, s2) *)
             | None -> false
+            (* mismatch doesn't exist, have states `to_check` to check*)
             | Some to_check -> 
+              (* mark s1 and s2 as equal *)
               ignore @@ UnionFind.union s1_u s2_u; 
               queue_push_list todo to_check;
               bisim_help ()
