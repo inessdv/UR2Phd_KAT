@@ -12,6 +12,7 @@ bug-reports: "https://github.com/inessdv/UR2Phd_KAT/issues"
 depends: [
   "ocaml" {>= "5.1"}
   "dune" {>= "3.10"}
+  "unionFind" {>= "20220122"}
   "utop" {with-dev}
   "dune" {with-dev}
   "ounit2" {with-test}
