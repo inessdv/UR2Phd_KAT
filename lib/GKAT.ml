@@ -38,35 +38,6 @@ let compute_map
   List.map (fun inp -> (inp, compute_one inp)) inps
 
 
-(** A slight variation on the memo function,
-    where the memo function can encounter a infinite loop.
-    
-    Typical usage of the function is to let `func`
-    to be mutually recursive to a function like `memo_func`,
-    so that there is a possibility of infinite recursion.
-    
-    A infinite loop is encountered when
-    namely when the result of `inp` was requested,
-    and before the result `func inp` was computed,
-    the the result of `inp` was requested again.
-    When a infinite loop is detected, this function will simply output None.
-*)
-let memo (mem_tbl: ('a, 'b option) Hashtbl.t) (func: 'a -> 'b) (inp: 'a): 'b option = 
-  match Hashtbl.find_opt mem_tbl inp with
-  (* In the process of computing result for `inp`, infinite loop detected*)
-  | Some None -> None
-  (* Found result, return result *)
-  | Some Some res -> Some res 
-  (* Result not found, compute result *)
-  | None -> 
-    (* in the process of finding results for `inp`,
-       mark it with None. *)
-    let () = Hashtbl.add mem_tbl inp None in 
-    let res = (func inp) in 
-    let () = Hashtbl.replace mem_tbl inp (Some res) in 
-    Some res
-
-
 (** Primitive Booleans or Primitive Tests*)
 type pBools = string 
 
@@ -158,5 +129,5 @@ module Automaton = struct
         StateAtomMap.filter 
           (fun (s, _) _ -> StateSet.mem s live_states) 
           automaton.trans_map}
-          
+
 end
