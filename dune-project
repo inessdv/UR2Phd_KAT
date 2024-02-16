@@ -2,7 +2,7 @@
 
 (name KA_equiv)
 
-(generate_opam_files true)
+(generate_opam_files false)
 
 (source
  (github inessdv/UR2Phd_KAT))
