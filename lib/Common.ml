@@ -50,3 +50,7 @@ let compute_map
   (* function to compute one result *)
   let compute_one = comp_one_rec comp_one_opt in 
   List.map (fun inp -> (inp, compute_one inp)) inps
+
+  (* Convert a list into a queue*)
+  let queue_push_list (queue: 'a Queue.t) (l: 'a list): unit = 
+    List.iter (fun elem -> Queue.push elem queue) l 
