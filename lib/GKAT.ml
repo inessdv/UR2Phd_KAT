@@ -140,10 +140,8 @@ module Automaton = struct
   let check_res_pair ((res1, res2) : transRes option * transRes option) :
       (bool, state * state) Either.t =
     match (res1, res2) with
-    | None, None -> 
-      Either.left true
-    | Some Accept, Some Accept -> 
-      Either.left true
+    | None, None -> Either.left true
+    | Some Accept, Some Accept -> Either.left true
     | Some (To (s1, p1)), Some (To (s2, p2)) ->
         if p1 = p2 then Either.right (s1, s2) else Either.left false
     | _ -> Either.left false
@@ -157,7 +155,8 @@ module Automaton = struct
     let checks = List.map check_res_pair res_pairs in
     if List.mem (Either.left false) checks (* failed *) then None
     else
-      Option.some @@ List.filter_map
+      Option.some
+      @@ List.filter_map
            (fun check ->
              match check with
              | Either.Left _ -> None
@@ -195,8 +194,7 @@ module Automaton = struct
           | Some _, None -> false
           | None, Some _ -> false
           | Some s1_elem, Some s2_elem -> (
-              if UnionFind.eq s1_elem s2_elem (* already equal *) 
-              then true
+              if UnionFind.eq s1_elem s2_elem (* already equal *) then true
               else
                 match check_res (s1, a1) (s2, a2) with
                 (* mismatch exists in the results of (s1, s2) *)
