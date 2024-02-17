@@ -195,7 +195,7 @@ let concLinearForm (r_linear: linearForm) (r: kat): linearForm =
 
 (**let atoms (exp:kat): SStringSet.t = atOf (pBoolOf exp) ??????**)
 
-let rec linearization (at:SStringSet.t) (exp: kat): linearForm =
+(* let rec linearization (at:SStringSet.t) (exp: kat): linearForm =
   match exp with
   | PBool _ -> AtPactMap.empty
   | PAct p  -> StringMap.map (StringSet.map (fun x -> p^x) at)  (KATSet.singleton One) (** map p to each atom and then each to one**)
@@ -204,7 +204,7 @@ let rec linearization (at:SStringSet.t) (exp: kat): linearForm =
     unionLinearForm (concLinearForm linearization(e1) e2) (linearization e2) else
       concLinearForm linearization(e1) e2
   | Star(e) -> concLinearForm linearization(e) Star(e)
-  | _ -> AtPactMap.empty
+  | _ -> AtPactMap.empty *)
 
 
 

@@ -1,8 +1,10 @@
 open OUnit2
-open KA_test
 
 
 
 let _ = run_test_tt_main ("all tests" >::: [
-  epsilon_tests; deriv_test
+  KA_test.epsilon_tests; 
+  KA_test.deriv_test;
+  Test_GKAT.normalization_tests; 
+  Test_GKAT.equiv_tests
 ])
