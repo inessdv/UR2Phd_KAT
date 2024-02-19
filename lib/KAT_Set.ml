@@ -203,6 +203,19 @@ let concLinearForm (r_linear: linearForm) (r: kat): linearForm =
 
 (**let atoms (exp:kat): SStringSet.t = atOf (pBoolOf exp) ??????**)
 
+let rec mapMakerHelper(mapper)(at:SStringSet.t)(p):linearForm=
+    match at with
+    |SStringSet.empty -> mapper
+    |_-> let atom=at.min_elt in
+    let combine=atom*p in
+    mapMakerHelper (AtPactMap.add combine KATSet.singleton One mapper) (SStringSet.remove atom at) p
+
+(* mapMaker produce all atoms*p map to One *)
+let mapMaker (at:SStringSet.t)(p:kat):linearForm=
+    let mapper=AtPactMap.empty in
+    mapMakerHelper mapper at p
+
+
 let rec linearization (at:SStringSet.t) (exp: kat): linearForm =
   match exp with
   | PBool _ -> AtPactMap.empty
