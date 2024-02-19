@@ -203,23 +203,22 @@ let concLinearForm (r_linear: linearForm) (r: kat): linearForm =
 
 (**let atoms (exp:kat): SStringSet.t = atOf (pBoolOf exp) ??????**)
 
-let rec mapMakerHelper(mapper)(at:SStringSet.t)(p):linearForm=
-    match at with
-    |SStringSet.empty -> mapper
-    |_-> let atom=at.min_elt in
-    let combine=atom*p in
-    mapMakerHelper (AtPactMap.add combine KATSet.singleton One mapper) (SStringSet.remove atom at) p
+let rec mapMakerHelper(mapper:linearForm)(at:Atom.t)(p:p_act):linearForm=
+    if Atom.is_empty at then mapper else 
+    let atom=Atom.min_elt at in
+    let combine=(atom,p) in
+    mapMakerHelper (AtPactMap.add combine (KATSet.singleton One) mapper) (Atom.remove atom at) p
 
 (* mapMaker produce all atoms*p map to One *)
-let mapMaker (at:SStringSet.t)(p:kat):linearForm=
+let mapMaker (at:Atom.t)(p:p_act):linearForm=
     let mapper=AtPactMap.empty in
     mapMakerHelper mapper at p
 
 
-let rec linearization (at:SStringSet.t) (exp: kat): linearForm =
+let rec linearization (at:Atom.t) (exp: kat): linearForm =
   match exp with
   | PBool _ -> AtPactMap.empty
-  | PAct p  -> StringMap.map (StringSet.map (fun x -> p^x) at)  (KATSet.singleton One) (** map p to each atom and then each to one**)
+  | PAct p  -> mapMaker at p (** map p to each atom and then each to one**)
   | Union(e1,e2) -> unionLinearForm linearization(e1) linearization(e2)
   | Conc(e1,e2) -> if (StringSet.map epsilon at e1) then (** check if atom from e2 is in e1?????**)
     unionLinearForm (concLinearForm linearization(e1) e2) (linearization e2) else
