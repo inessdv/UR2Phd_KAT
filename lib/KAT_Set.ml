@@ -185,12 +185,20 @@ let unionLinearForm (lin1: linearForm) (lin2: linearForm): linearForm =
     (* combine two KAT sets with union, when their hd are the same*)
     (fun _ s1 s2 -> Some (KATSet.union s1 s2))
     lin1 lin2
+    
+let conc_alg (e1: kat) (e2: kat): kat = 
+  match e1, e2 with 
+    | One, _ -> e2 
+    | _, One -> e1 
+    | Zero, _ -> Zero
+    | _, Zero -> Zero
+    | _, _ -> Conc (e1, e2)
 
 let concLinearForm (r_linear: linearForm) (r: kat): linearForm =
   AtPactMap.map (fun derivs -> 
 (** when concatenating with 1, elimination of map of the 1, 
     we could also eliminate 0, as we'd get an empty set!!!*)
-    KATSet.map (fun deriv -> Conc(deriv, r)) derivs) 
+    KATSet.map (fun deriv -> conc_alg deriv  r ) derivs) 
     r_linear
 
 (**let atoms (exp:kat): SStringSet.t = atOf (pBoolOf exp) ??????**)
