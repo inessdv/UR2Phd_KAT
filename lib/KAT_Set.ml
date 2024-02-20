@@ -163,17 +163,19 @@ let map aSet = ASet.to_seq aSet
 
 (** define type of atom and prim act
 **)
-type p_bool = string
+(* type p_bool = string
 type p_act = string
 
 module Atom = Set.Make(struct
   type t = p_bool
   let compare = compare
-end)
+end) *)
+
+(*Use StringSet to replace Atom*)
 
 
 module AtPactMap = Map.Make(struct
-  type t = Atom.t * p_act
+  type t = StringSet.t * string
   let compare = compare
 end)
 
@@ -205,27 +207,34 @@ let concLinearForm (r_linear: linearForm) (r: kat): linearForm =
 
 (**let atoms (exp:kat): SStringSet.t = atOf (pBoolOf exp) ??????**)
 
-let rec mapMakerHelper(mapper:linearForm)(at:Atom.t)(p:p_act):linearForm=
-    if Atom.is_empty at then mapper else 
-    let atom:p_bool=Atom.min_elt at in
+let rec mapMakerHelper(mapper:linearForm)(at:SStringSet.t)(p:string):linearForm=
+    if SStringSet.is_empty at then mapper else 
+    let atom=SStringSet.min_elt at in
     let combine=(atom,p) in
-    mapMakerHelper (AtPactMap.add combine (KATSet.singleton One) mapper) (Atom.remove atom at) p
+    mapMakerHelper (AtPactMap.add combine (KATSet.singleton One) mapper) (SStringSet.remove atom at) p
 
 (* mapMaker produce all atoms*p map to One *)
-let mapMaker (at:Atom.t)(p:p_act):linearForm=
+let mapMaker (at:SStringSet.t)(p:string):linearForm=
     let mapper=AtPactMap.empty in
     mapMakerHelper mapper at p
 
+let atomExists(e2:linearForm)(e1:kat):linearForm =
+      (* let e2List = AtPactMap.to_list e2 in
+      match e2List with
+      | ((a,b),_):: rest-> if epsilon a e1 then ()
+      | _ -> *)
+      (* AtPactMap.filter (fun (a,_) -> (epsilon a e1) ) e2   *) (*don't know why not working*)
+      let e2List = AtPactMap.to_list e2 in
+      AtPactMap.of_list (List.filter (fun ((a,_),_)-> epsilon a e1 ) e2List)
 
-let rec linearization (at:Atom.t) (exp: kat): linearForm =
+
+let rec linearization (at:SStringSet.t) (exp: kat): linearForm =
   match exp with
   | PBool _ -> AtPactMap.empty
   | PAct p  -> mapMaker at p (** map p to each atom and then each to one**)
-  | Union(e1,e2) -> unionLinearForm linearization(at e1) linearization(at e2)
-  | Conc(e1,e2) -> if (StringSet.map epsilon at e1) then (** check if atom from e2 is in e1?????**)
-    unionLinearForm (concLinearForm linearization(e1) e2) (linearization e2) else
-      concLinearForm linearization(e1) e2
-  | Star(e) -> concLinearForm linearization(e) Star(e)
+  | Union(e1,e2) -> unionLinearForm (linearization at e1) (linearization at e2)
+  | Conc(e1,e2) -> unionLinearForm (concLinearForm (linearization at e1) e2) (atomExists(linearization at e2) e1)
+  | Star(e) -> concLinearForm (linearization at e) (Star(e)) 
   | _ -> AtPactMap.empty
 
 
