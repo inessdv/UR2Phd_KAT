@@ -165,10 +165,12 @@ let map aSet = ASet.to_seq aSet
 **)
 type p_bool = string
 type p_act = string
+
 module Atom = Set.Make(struct
   type t = p_bool
   let compare = compare
 end)
+
 
 module AtPactMap = Map.Make(struct
   type t = Atom.t * p_act
@@ -205,7 +207,7 @@ let concLinearForm (r_linear: linearForm) (r: kat): linearForm =
 
 let rec mapMakerHelper(mapper:linearForm)(at:Atom.t)(p:p_act):linearForm=
     if Atom.is_empty at then mapper else 
-    let atom=Atom.min_elt at in
+    let atom:p_bool=Atom.min_elt at in
     let combine=(atom,p) in
     mapMakerHelper (AtPactMap.add combine (KATSet.singleton One) mapper) (Atom.remove atom at) p
 
@@ -219,7 +221,7 @@ let rec linearization (at:Atom.t) (exp: kat): linearForm =
   match exp with
   | PBool _ -> AtPactMap.empty
   | PAct p  -> mapMaker at p (** map p to each atom and then each to one**)
-  | Union(e1,e2) -> unionLinearForm linearization(e1) linearization(e2)
+  | Union(e1,e2) -> unionLinearForm linearization(at e1) linearization(at e2)
   | Conc(e1,e2) -> if (StringSet.map epsilon at e1) then (** check if atom from e2 is in e1?????**)
     unionLinearForm (concLinearForm linearization(e1) e2) (linearization e2) else
       concLinearForm linearization(e1) e2
