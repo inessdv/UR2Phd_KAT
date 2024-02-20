@@ -141,14 +141,6 @@ let eps (atom:StringSet.t)(sum: KATSet.t): bool =
   KATSet.exists (fun exp -> epsilon atom exp) sum
 
 
-(* existence of atom in R, set of KAT**)
-let existance ((exp,expIsBExp):kat * bool) (rSet:KATISet.t): bool = (*??**)
-  if expIsBExp then KATISet.mem (exp,true) rSet else raise (Invalid_argument "epsilon only takes Bexp expressions")
-
-(** derivative function: we need a and p and a KAT Exp
-let deriv (a:kat(* bexp atom **))(p:kat (*primitive action **))(exp:kat): KATSet.t =
-**)
-
 (** Linearization function
 **)
 
@@ -255,20 +247,22 @@ let rec linearization (at:SStringSet.t) (exp: kat): linearForm =
   | Star(e) -> concLinearForm (linearization at e) (Star(e)) 
   | _ -> AtPactMap.empty
 
+(** Get the derivative map for a set of KATs (sum), represented as a set of terms **)
 let get_der_map_sum (sum: KATSet.t): DerMapSet.t = 
-    KATSet.to_seq sum 
-    |> Seq.map linearization
-    |> DerMapSet.of_seq
+  KATSet.to_list sum 
+(** We need to get primitive bools and then atoms of each for each KAT???**)
+  |> List.map linearization 
+  |> DerMapSet.of_list
 
-    (* let hd (r: string kleene): StringSet.t =
-      let lin_r = linearization r in 
-      (*convert the keys into set*)
-      StringSet.of_list (List.map fst (StringMap.to_list lin_r)) *)
+
+(**hd function gets the set of all heads αp mapped in the linearform of a KAT**)
 let hd (r: linearForm ): AtPactSet.t =
     AtPactSet.of_list (List.map fst (AtPactMap.to_list r))
       
   
-    (** Function der_p(RE) -> P(RE) to find **)
+    (** Function deriv collects all the partial derivatives of 
+      a KAT expression in respect to a αp, that were computed 
+      by linearization function. **)
 let deriv (atp: atPact) (der_map: linearForm): KATSet.t = 
       match AtPactMap.find_opt atp der_map with 
       (*If the p doesn't exists then return empty*)
@@ -277,16 +271,16 @@ let deriv (atp: atPact) (der_map: linearForm): KATSet.t =
       | Some der_sum -> der_sum
   
 let hd_sum (sum: DerMapSet.t): AtPactSet.t = 
-  let sumLinear = DerMapSet.to_seq sum in 
+  let sumLinear = DerMapSet.to_list sum in 
   (* union each head of term in the sum*)
-  Seq.fold_left AtPactSet.union AtPactSet.empty (Seq.map hd sumLinear)
+  List.fold_left AtPactSet.union AtPactSet.empty (List.map hd sumLinear)
 
 let deriv_sum (atp: atPact)(sum_der_map: DerMapSet.t): KATSet.t =
-    DerMapSet.to_seq sum_der_map 
+    DerMapSet.to_list sum_der_map 
     (*Take the derivative of each element of the sum*)
-    |> Seq.map (deriv atp)  
+    |> List.map (deriv atp)  
     (*Union the results*)
-    |> Seq.fold_left KATSet.union KATSet.empty 
+    |> List.fold_left KATSet.union KATSet.empty 
 
 (**Is atoms from e1? **)
 let rec hAll (e1:kat)(e2:kat)(at: SStringSet.t): bool =
@@ -300,9 +294,9 @@ let derivatives ((r1, r2): KATSet.t * KATSet.t): PDerivPairSet.t =
     let der_map1 = get_der_map_sum r1 in  
     let der_map2 = get_der_map_sum r2 in
     let heads = AtPactSet.union (hd_sum der_map1) (hd_sum der_map2) in
-    (AtPactSet.to_seq heads)
-    |> (Seq.map (fun p -> (deriv_sum p der_map1, deriv_sum p der_map2)) )
-    |> PDerivPairSet.of_seq
+    (AtPactSet.to_list heads)
+    |> (List.map (fun p -> (deriv_sum p der_map1, deriv_sum p der_map2)) )
+    |> PDerivPairSet.of_list
   
 
 (*examples*)
