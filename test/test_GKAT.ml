@@ -1,55 +1,70 @@
 open KA_equiv.Common
 open KA_equiv.GKAT.Automaton
+open KA_equiv.GKAT
 open OUnit2
 
 (* circular automata, it will loop forever. *)
 let automaton1 : t =
   {
-    p_bools = PBoolSet.of_list [ "b" ];
     start = 1;
     trans_map =
-      StateAtomMap.of_list
+      Trans.map_of_list
         [
-          ((1, PBoolSet.empty), To (2, "p1"));
-          ((1, PBoolSet.singleton "b"), To (2, "p2"));
-          ((2, PBoolSet.empty), To (3, "p3"));
-          ((2, PBoolSet.singleton "b"), To (3, "p3"));
-          ((3, PBoolSet.empty), To (1, "p3"));
-          ((3, PBoolSet.singleton "b"), To (1, "p3"));
+          ( 1,
+            [
+              (PBoolSet.empty, To (2, "p1"));
+              (PBoolSet.singleton "b", To (2, "p2"));
+            ] );
+          ( 2,
+            [
+              (PBoolSet.empty, To (3, "p3"));
+              (PBoolSet.singleton "b", To (3, "p3"));
+            ] );
+          ( 3,
+            [
+              (PBoolSet.empty, To (1, "p3"));
+              (PBoolSet.singleton "b", To (1, "p3"));
+            ] );
         ];
   }
 
 (* start state is circular, but every other state is live *)
 let automaton2 : t =
   {
-    p_bools = PBoolSet.of_list [ "b" ];
     start = 1;
     trans_map =
-      StateAtomMap.of_list
+      Trans.map_of_list
         [
-          ((1, PBoolSet.empty), To (1, "p1"));
-          ((1, PBoolSet.singleton "b"), To (1, "p1"));
-          ((2, PBoolSet.empty), Accept);
-          ((2, PBoolSet.singleton "b"), Accept);
-          ((3, PBoolSet.empty), Accept);
-          ((3, PBoolSet.singleton "b"), Accept);
+          ( 1,
+            [
+              (PBoolSet.empty, To (1, "p1"));
+              (PBoolSet.singleton "b", To (1, "p1"));
+            ] );
+          (2, [ (PBoolSet.empty, Accept); (PBoolSet.singleton "b", Accept) ]);
+          (3, [ (PBoolSet.empty, Accept); (PBoolSet.singleton "b", Accept) ]);
         ];
   }
 
 (* a automata that every state is live *)
 let automaton3 : t =
   {
-    p_bools = PBoolSet.of_list [ "b" ];
     start = 1;
     trans_map =
-      StateAtomMap.of_list
+      Trans.map_of_list
         [
-          ((1, PBoolSet.empty), To (2, "p2"));
-          ((1, PBoolSet.singleton "b"), To (1, "p1"));
-          ((2, PBoolSet.empty), To (3, "p2"));
-          ((2, PBoolSet.singleton "b"), To (1, "p1"));
-          ((3, PBoolSet.empty), Accept);
-          ((3, PBoolSet.singleton "b"), To (1, "p1"));
+          ( 1,
+            [
+              (PBoolSet.empty, To (2, "p2"));
+              (PBoolSet.singleton "b", To (1, "p1"));
+            ] );
+          ( 2,
+            [
+              (PBoolSet.empty, To (3, "p2"));
+              (PBoolSet.singleton "b", To (1, "p1"));
+            ] );
+          ( 3,
+            [ (PBoolSet.empty, Accept); (PBoolSet.singleton "b", To (1, "p1")) ]
+          );
         ];
   }
 
@@ -57,38 +72,56 @@ let automaton3 : t =
     except the action from 1 to 2 is different *)
 let automaton4 : t =
   {
-    p_bools = PBoolSet.of_list [ "b" ];
     start = 1;
     trans_map =
-      StateAtomMap.of_list
+      Trans.map_of_list
         [
-          ((1, PBoolSet.empty), To (2, "p1"));
-          ((1, PBoolSet.singleton "b"), To (1, "p1"));
-          ((2, PBoolSet.empty), To (3, "p2"));
-          ((2, PBoolSet.singleton "b"), To (1, "p1"));
-          ((3, PBoolSet.empty), Accept);
-          ((3, PBoolSet.singleton "b"), To (1, "p1"));
+          ( 1,
+            [
+              (PBoolSet.empty, To (2, "p1"));
+              (PBoolSet.singleton "b", To (1, "p1"));
+            ] );
+          ( 2,
+            [
+              (PBoolSet.empty, To (3, "p2"));
+              (PBoolSet.singleton "b", To (1, "p1"));
+            ] );
+          ( 3,
+            [ (PBoolSet.empty, Accept); (PBoolSet.singleton "b", To (1, "p1")) ]
+          );
         ];
   }
 
 (* a automata that is equivalent to automata 3 *)
 let automaton5 : t =
   {
-    p_bools = PBoolSet.of_list [ "b" ];
     start = 1;
     trans_map =
-      StateAtomMap.of_list
+      Trans.map_of_list
         [
-          ((1, PBoolSet.empty), To (2, "p2"));
-          ((1, PBoolSet.singleton "b"), To (1, "p1"));
-          ((2, PBoolSet.empty), To (3, "p2"));
-          ((2, PBoolSet.singleton "b"), To (4, "p1"));
-          ((3, PBoolSet.empty), Accept);
-          ((3, PBoolSet.singleton "b"), To (1, "p1"));
-          ((4, PBoolSet.empty), To (5, "p2"));
-          ((4, PBoolSet.singleton "b"), To (4, "p1"));
-          ((5, PBoolSet.empty), To (3, "p2"));
-          ((5, PBoolSet.singleton "b"), To (1, "p1"));
+          ( 1,
+            [
+              (PBoolSet.empty, To (2, "p2"));
+              (PBoolSet.singleton "b", To (1, "p1"));
+            ] );
+          ( 2,
+            [
+              (PBoolSet.empty, To (3, "p2"));
+              (PBoolSet.singleton "b", To (4, "p1"));
+            ] );
+          ( 3,
+            [ (PBoolSet.empty, Accept); (PBoolSet.singleton "b", To (1, "p1")) ]
+          );
+          ( 4,
+            [
+              (PBoolSet.empty, To (5, "p2"));
+              (PBoolSet.singleton "b", To (4, "p1"));
+            ] );
+          ( 5,
+            [
+              (PBoolSet.empty, To (3, "p2"));
+              (PBoolSet.singleton "b", To (1, "p1"));
+            ] );
         ];
   }
 
@@ -96,22 +129,31 @@ let automaton5 : t =
     and state 8 is the same as state 1, and state 9 is the same as state 2 *)
 let automaton6 : t =
   {
-    p_bools = PBoolSet.of_list [ "b" ];
     start = 1;
     trans_map =
-      StateAtomMap.of_list
+      Trans.map_of_list
         [
-          ((1, PBoolSet.empty), To (2, "p2"));
-          ((2, PBoolSet.empty), To (3, "p2"));
-          ((2, PBoolSet.singleton "b"), To (8, "p1"));
-          ((3, PBoolSet.empty), Accept);
-          ((3, PBoolSet.singleton "b"), To (5, "p1"));
-          ((4, PBoolSet.singleton "b"), To (5, "p3"));
-          ((5, PBoolSet.empty), To (4, "p2"));
-          ((8, PBoolSet.empty), To (9, "p2"));
-          ((8, PBoolSet.singleton "b"), To (4, "p1"));
-          ((9, PBoolSet.empty), To (3, "p2"));
-          ((9, PBoolSet.singleton "b"), To (1, "p1"));
+          (1, [ (PBoolSet.empty, To (2, "p2")) ]);
+          ( 2,
+            [
+              (PBoolSet.empty, To (3, "p2"));
+              (PBoolSet.singleton "b", To (8, "p1"));
+            ] );
+          ( 3,
+            [ (PBoolSet.empty, Accept); (PBoolSet.singleton "b", To (5, "p1")) ]
+          );
+          (4, [ (PBoolSet.singleton "b", To (5, "p3")) ]);
+          (5, [ (PBoolSet.empty, To (4, "p2")) ]);
+          ( 8,
+            [
+              (PBoolSet.empty, To (9, "p2"));
+              (PBoolSet.singleton "b", To (4, "p1"));
+            ] );
+          ( 9,
+            [
+              (PBoolSet.empty, To (3, "p2"));
+              (PBoolSet.singleton "b", To (1, "p1"));
+            ] );
         ]
       (* 1 -> \atom -> if atom == Set.fromList [1] then Reject else To 2 2
             2 -> \atom -> if atom == Set.fromList [1] then To 8 1 else To 3 2
@@ -127,22 +169,34 @@ let automaton6 : t =
       with 8 the same as 1 *)
 let automaton7 : t =
   {
-    p_bools = PBoolSet.of_list [ "b" ];
     start = 1;
     trans_map =
-      StateAtomMap.of_list
+      Trans.map_of_list
         [
-          ((1, PBoolSet.empty), To (2, "p2"));
-          ((1, PBoolSet.singleton "b"), To (6, "p2"));
-          ((2, PBoolSet.empty), To (3, "p2"));
-          ((2, PBoolSet.singleton "b"), To (8, "p1"));
-          ((3, PBoolSet.empty), Accept);
-          ((3, PBoolSet.singleton "b"), To (4, "p2"));
-          ((4, PBoolSet.singleton "b"), To (7, "p3"));
-          ((6, PBoolSet.empty), To (7, "p5"));
-          ((6, PBoolSet.singleton "b"), To (7, "p4"));
-          ((8, PBoolSet.empty), To (2, "p2"));
-          ((8, PBoolSet.singleton "b"), To (4, "p3"));
+          ( 1,
+            [
+              (PBoolSet.empty, To (2, "p2"));
+              (PBoolSet.singleton "b", To (6, "p2"));
+            ] );
+          ( 2,
+            [
+              (PBoolSet.empty, To (3, "p2"));
+              (PBoolSet.singleton "b", To (8, "p1"));
+            ] );
+          ( 3,
+            [ (PBoolSet.empty, Accept); (PBoolSet.singleton "b", To (4, "p2")) ]
+          );
+          (4, [ (PBoolSet.singleton "b", To (7, "p3")) ]);
+          ( 6,
+            [
+              (PBoolSet.empty, To (7, "p5"));
+              (PBoolSet.singleton "b", To (7, "p4"));
+            ] );
+          ( 8,
+            [
+              (PBoolSet.empty, To (2, "p2"));
+              (PBoolSet.singleton "b", To (4, "p3"));
+            ] );
         ]
       (* 1 -> \atom -> if atom == Set.fromList [1] then To 6 2 else To 2 2
          2 -> \atom -> if atom == Set.fromList [1] then To 8 1 else To 3 2
@@ -157,18 +211,25 @@ let normalization_tests =
   "normalization test"
   >::: [
          ( "normalize automata1 should get empty automata." >:: fun _ ->
-           assert_equal (normalize automaton1).trans_map StateAtomMap.empty );
+           assert_equal ~cmp:Trans.map_equal ~printer:Trans.pprint_map StateMap.empty
+             (normalize automaton1).trans_map );
          ( "normalize automata2 should remove transition from 1." >:: fun _ ->
-           assert_equal (normalize automaton2).trans_map
-           @@ StateAtomMap.of_list
+           assert_equal ~cmp:Trans.map_equal ~printer:Trans.pprint_map
+             (Trans.map_of_list
                 [
-                  ((2, PBoolSet.empty), Accept);
-                  ((2, PBoolSet.singleton "b"), Accept);
-                  ((3, PBoolSet.empty), Accept);
-                  ((3, PBoolSet.singleton "b"), Accept);
-                ] );
+                  ( 2,
+                    [
+                      (PBoolSet.empty, Accept); (PBoolSet.singleton "b", Accept);
+                    ] );
+                  ( 3,
+                    [
+                      (PBoolSet.empty, Accept); (PBoolSet.singleton "b", Accept);
+                    ] );
+                ])
+             (normalize automaton2).trans_map );
          ( "normalize automata3 should get itself." >:: fun _ ->
-           assert_equal (normalize automaton3).trans_map automaton3.trans_map );
+           assert_equal ~cmp:Trans.map_equal ~printer:Trans.pprint_map automaton3.trans_map
+             (normalize automaton3).trans_map );
        ]
 
 let equiv_tests =
