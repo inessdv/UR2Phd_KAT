@@ -282,7 +282,7 @@ let deriv_sum (atp: atPact)(sum_der_map: DerMapSet.t): KATSet.t =
     (*Union the results*)
     |> List.fold_left KATSet.union KATSet.empty 
 
-(**Is atoms from e1? **)
+(**Is atoms from e1?? **)
 let rec hAll (e1:kat)(e2:kat)(at: SStringSet.t): bool =
 if (SStringSet.is_empty at) then true
 else 
@@ -298,6 +298,19 @@ let derivatives ((r1, r2): KATSet.t * KATSet.t): PDerivPairSet.t =
     |> (List.map (fun p -> (deriv_sum p der_map1, deriv_sum p der_map2)) )
     |> PDerivPairSet.of_list
   
+
+(**Equivalence Function
+    where in the equiv function should we extract atoms of the expressions being compared**)
+let rec equiv ((todo, visited): PDerivPairSet.t * PDerivPairSet.t): bool =
+  match PDerivPairSet.choose_opt todo with (**get a KATSet pair**)
+      (*todo is empty, finised*)
+      | None -> true
+      | Some (sum1,sum2) -> 
+          if sum1.is_empty then true else
+          (**do we get atoms of sum1 and sum2 here? and then call hAll**)
+          false
+
+
 
 (*examples*)
 
