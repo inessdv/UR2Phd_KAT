@@ -247,9 +247,11 @@ let rec linearization (at:SStringSet.t) (exp: kat): linearForm =
   | Star(e) -> concLinearForm (linearization at e) (Star(e)) 
   | _ -> AtPactMap.empty
 
+(** gets the string set of atoms directly from expression**)
 let getAtomsof (exp: kat): SStringSet.t =
   let primitives = pBoolOf(exp,true) in
     atOf(primitives) 
+
 (** Get the derivative map for a set of KATs (sum), represented as a set of terms **)
 let get_der_map_sum (sum: KATSet.t): DerMapSet.t = 
   KATSet.to_list sum 
@@ -285,6 +287,8 @@ let deriv_sum (atp: atPact)(sum_der_map: DerMapSet.t): KATSet.t =
     |> List.fold_left KATSet.union KATSet.empty 
 
 (**Is atoms from e1?? UNON OF BOTH**)
+(**hAll takes two expressions e1 and e2 returns True if, 
+    for every atom α, we have Eα(e1)=Eα(e2) and False otherwise**)
 let rec hAll (e1:kat)(e2:kat)(at: SStringSet.t): bool =
 if (SStringSet.is_empty at) then true
 else 
@@ -308,7 +312,8 @@ let rec equiv ((todo, visited): PDerivPairSet.t * PDerivPairSet.t): bool =
       (*todo is empty, finised*)
       | None -> true
       | Some (sum1,sum2) -> 
-          if sum1.is_empty then true else
+          if (KATSet.is_empty sum1) then true else
+
           (**do we get atoms of sum1 and sum2 here? and then call hAll**)
           false
 
