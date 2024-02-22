@@ -247,13 +247,15 @@ let rec linearization (at:SStringSet.t) (exp: kat): linearForm =
   | Star(e) -> concLinearForm (linearization at e) (Star(e)) 
   | _ -> AtPactMap.empty
 
+let getAtomsof (exp: kat): SStringSet.t =
+  let primitives = pBoolOf(exp,true) in
+    atOf(primitives) 
 (** Get the derivative map for a set of KATs (sum), represented as a set of terms **)
 let get_der_map_sum (sum: KATSet.t): DerMapSet.t = 
   KATSet.to_list sum 
-(** We need to get primitive bools and then atoms of each for each KAT???**)
-  |> List.map linearization 
+(** would this work??? **)
+  |> List.map (fun x -> linearization (getAtomsof x) x)
   |> DerMapSet.of_list
-
 
 (**hd function gets the set of all heads αp mapped in the linearform of a KAT**)
 let hd (r: linearForm ): AtPactSet.t =
@@ -282,7 +284,7 @@ let deriv_sum (atp: atPact)(sum_der_map: DerMapSet.t): KATSet.t =
     (*Union the results*)
     |> List.fold_left KATSet.union KATSet.empty 
 
-(**Is atoms from e1?? **)
+(**Is atoms from e1?? UNON OF BOTH**)
 let rec hAll (e1:kat)(e2:kat)(at: SStringSet.t): bool =
 if (SStringSet.is_empty at) then true
 else 
