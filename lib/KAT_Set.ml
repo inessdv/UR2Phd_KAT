@@ -67,7 +67,7 @@ let conc(e1:katI) (e2:katI):katI= (** would it be better to use (kat*bool) pairs
     |(_,_),(_,_) -> raise (Invalid_argument "conc only works in same type expression")
 
 
-let not ((exp, expIsBExp): kat * bool) = 
+let not_N ((exp, expIsBExp): kat * bool) = 
     if expIsBExp 
       then match exp with 
         | One -> Zero, true 
@@ -125,6 +125,7 @@ let atOf(primitive_boolset:StringSet.t):SStringSet.t =
     (fun ss-> SStringSet.add (StringSet.add x ss)) ps ps) primitive_boolset 
     (SStringSet.singleton StringSet.empty)
 
+(** empty word for KAT expressions**)
 let rec epsilon (atom:StringSet.t) (exp: kat) : bool = 
 match exp with
 | Zero -> false
@@ -134,9 +135,9 @@ match exp with
 | Union(a,b) -> epsilon atom a || epsilon atom b
 | Conc(a,b) -> epsilon atom a && epsilon atom b
 | Star _ -> true
-|Not(a)->epsilon atom a
+|Not(a) ->  not (epsilon atom a)
 
-(** empty word for KAT expressions**)
+(** empty word for KATset**)
 let eps (atom:StringSet.t)(sum: KATSet.t): bool =
   KATSet.exists (fun exp -> epsilon atom exp) sum
 
@@ -146,12 +147,6 @@ let eps (atom:StringSet.t)(sum: KATSet.t): bool =
 
 (** A map from string*)
 module StringMap = Map.Make(String)
-
-(**pipeline for setm to seq and seq to set
-let map aSet = ASet.to_seq aSet
-  |> Seq.map
-  |> BSet.of_seq
-**)
 
 (** define type of atom and prim act
 **)
@@ -292,9 +287,18 @@ let deriv_sum (atp: atPact)(sum_der_map: DerMapSet.t): KATSet.t =
 let rec hAll (e1:kat)(e2:kat)(at: SStringSet.t): bool =
 if (SStringSet.is_empty at) then true
 else 
-  let ele =SStringSet.min_elt at in 
+  let ele = SStringSet.min_elt at in 
   if epsilon ele e1 == epsilon ele e2 then hAll e1 e2 (SStringSet.remove ele at)
   else false
+
+(** takes two KATsets and returns true if for every atom α, we have Eα(E1)=Eα(E2) and False otherwise**)
+let rec hAll_sum (e1:KATSet.t)(e2:KATSet.t)(at: SStringSet.t): bool =
+  if (SStringSet.is_empty at) then true
+  else 
+    let ele = SStringSet.min_elt at in 
+    if eps ele e1 == eps ele e2 then hAll_sum e1 e2 (SStringSet.remove ele at)
+    else false
+(* check if correct???**)
 
 let derivatives ((r1, r2): KATSet.t * KATSet.t): PDerivPairSet.t =
     let der_map1 = get_der_map_sum r1 in  
@@ -305,17 +309,28 @@ let derivatives ((r1, r2): KATSet.t * KATSet.t): PDerivPairSet.t =
     |> PDerivPairSet.of_list
   
 
-(**Equivalence Function
-    where in the equiv function should we extract atoms of the expressions being compared**)
-let rec equiv ((todo, visited): PDerivPairSet.t * PDerivPairSet.t): bool =
+(** Equivalence Function **)
+let equiv  (e1:kat) (e2:kat) : bool =
+  let pb_e1 = pBoolOf (e1,true) and pb_e2 = pBoolOf (e2,true) in
+    let prim_bools = StringSet.union pb_e1 pb_e2 in 
+    let atoms = atOf prim_bools in
+let rec equiv_help ((todo, visited): (PDerivPairSet.t * PDerivPairSet.t)) : bool =
   match PDerivPairSet.choose_opt todo with (**get a KATSet pair**)
-      (*todo is empty, finised*)
-      | None -> true
-      | Some (sum1,sum2) -> 
-          if (KATSet.is_empty sum1) then true else
+      | None -> true (*todo is empty, finised*)
+      | Some (sum1,sum2) -> (*first pair of todo*)
+          if (hAll_sum sum1 sum2 atoms) = false then false (* Eα(E1)!=Eα(E2) *)
+          else
+            let new_visited = PDerivPairSet.add (sum1, sum2) visited in (* add checked pair to visited *)
+            let dervs = derivatives (sum1, sum2) in (* find derivs of pair *)
+            let new_todo = (* add new pairs from derivs to todo and take set diff of visited to avoid reps*)
+            PDerivPairSet.diff (PDerivPairSet.union todo dervs) new_visited in
+              equiv_help(new_todo, new_visited)
+              
+(* first call to equiv_help with todo having e1 and e2 as the first pair and visited as empty pair *)
+in equiv_help ((PDerivPairSet.singleton (KATSet.singleton e1, KATSet.singleton e2)), (PDerivPairSet.empty))
 
-          (**do we get atoms of sum1 and sum2 here? and then call hAll**)
-          false
+
+
 
 
 
