@@ -55,7 +55,7 @@ let union(e1:katI) (e2: katI):katI=
     | (k1,true),(k2,true) -> Union(k1,k2),true
     |(k1,_),(k2,_)-> Union(k1,k2),false
 
-let conc(e1:katI) (e2:katI):katI= 
+let conc(e1:katI) (e2:katI):katI= (** would it be better to use (kat*bool) pairs as input???**)
   match (e1,e2) with
     |(Zero,_),_-> Zero,true
     |_,(Zero,_)-> Zero,true
@@ -90,9 +90,7 @@ end)
   
 (**examples to type check /tests**)
 module StringSet = Set.Make(String)
-
-(*
-let rec pBoolOf((exp, expIsBExp): kat * bool):StringSet.t =
+(* let rec pBoolOf((exp, expIsBExp): kat * bool):StringSet.t =
   if expIsBExp then 
     match exp with           (*At*)
     |One -> StringSet.empty          
@@ -102,12 +100,12 @@ let rec pBoolOf((exp, expIsBExp): kat * bool):StringSet.t =
     |Not(b) -> pBoolOf (b,true)
     (*TODO: Just to surpress the warning for now, remove when finished*)
     | _ -> failwith "We want boolean expressions but KA expression is given"
-else raise (Invalid_argument "pBool only takes bool expressions")
-*)
+else raise (Invalid_argument "pBool only takes bool expressions") *)
+
 
 let rec pBoolOf(exp:katI):StringSet.t =
   match exp with           (*At*)
-  |(_,false) -> StringSet.empty (* or error message?*)
+  |(_,false) -> StringSet.empty (** or error message?**)
   |(bExp,true)-> 
     match bExp with
     |One -> StringSet.empty          
@@ -144,7 +142,8 @@ let eps (atom:StringSet.t)(sum: KATSet.t): bool =
   KATSet.exists (fun exp -> epsilon atom exp) sum
 
 
-(* Linearization function *)
+(** Linearization function
+**)
 
 (** A map from string*)
 module StringMap = Map.Make(String)
@@ -206,10 +205,12 @@ let conc_alg (e1: kat) (e2: kat): kat =
 
 let concLinearForm (r_linear: linearForm) (r: kat): linearForm =
   AtPactMap.map (fun derivs -> 
-(* when concatenating with 1, elimination of map of the 1, 
+(** when concatenating with 1, elimination of map of the 1, 
     we could also eliminate 0, as we'd get an empty set!!!*)
     KATSet.map (fun deriv -> conc_alg deriv  r ) derivs) 
     r_linear
+
+(**let atoms (exp:kat): SStringSet.t = atOf (pBoolOf exp) ??????**)
 
 let rec mapMakerHelper(mapper:linearForm)(at:SStringSet.t)(p:string):linearForm=
     if SStringSet.is_empty at then mapper else 
@@ -235,7 +236,7 @@ let atomExists(e2:linearForm)(e1:kat):linearForm =
 let rec linearization (at:SStringSet.t) (exp: kat): linearForm =
   match exp with
   | PBool _ -> AtPactMap.empty
-  | PAct p  -> mapMaker at p (* map p to each atom and then each to one*)
+  | PAct p  -> mapMaker at p (** map p to each atom and then each to one**)
   | Union(e1,e2) -> unionLinearForm (linearization at e1) (linearization at e2)
   | Conc(e1,e2) -> unionLinearForm (concLinearForm (linearization at e1) e2) (atomExists(linearization at e2) e1)
   | Star(e) -> concLinearForm (linearization at e) (Star(e)) 
@@ -249,16 +250,16 @@ let getAtomsof (exp: kat): SStringSet.t =
 (** Get the derivative map for a set of KATs (sum), represented as a set of terms **)
 let get_der_map_sum (sum: KATSet.t): DerMapSet.t = 
   KATSet.to_list sum 
-(* would this work??? *)
+(** would this work??? **)
   |> List.map (fun x -> linearization (getAtomsof x) x)
   |> DerMapSet.of_list
 
 (**hd function gets the set of all heads αp mapped in the linearform of a KAT**)
 let hd (r: linearForm ): AtPactSet.t =
     AtPactSet.of_list (List.map fst (AtPactMap.to_list r))
-
+      
   
-(** Function deriv collects all the partial derivatives of 
+    (** Function deriv collects all the partial derivatives of 
       a KAT expression in respect to a αp, that were computed 
       by linearization function. **)
 let deriv (atp: atPact) (der_map: linearForm): KATSet.t = 
@@ -280,6 +281,7 @@ let deriv_sum (atp: atPact)(sum_der_map: DerMapSet.t): KATSet.t =
     (*Union the results*)
     |> List.fold_left KATSet.union KATSet.empty 
 
+(**Is atoms from e1?? UNON OF BOTH**)
 (**hAll takes two expressions e1 and e2 returns True if, 
     for every atom α, we have Eα(e1)=Eα(e2) and False otherwise**)
 let rec hAll (e1:kat)(e2:kat)(at: SStringSet.t): bool =
@@ -296,7 +298,7 @@ let rec hAll_sum (e1:KATSet.t)(e2:KATSet.t)(at: SStringSet.t): bool =
     let ele = SStringSet.min_elt at in 
     if eps ele e1 == eps ele e2 then hAll_sum e1 e2 (SStringSet.remove ele at)
     else false
-(* check if correct???*)
+(* check if correct???**)
 
 let rec epsilon_2 (prim_bools: StringSet.t) (e:kat): SStringSet.t = (*set of atoms*)
   match e with
@@ -320,7 +322,13 @@ let rec epsilon_2 (prim_bools: StringSet.t) (e:kat): SStringSet.t = (*set of ato
 
 (*write hAll version 2 using epsilon_2!!!!!*)
 
-
+let rec h_all_2 (atom:StringSet.t)(s1: KATSet.t)(s2:KATSet.t): bool =
+  let e1=KATSet.min_elt s1 in
+  let e2=KATSet.min_elt s2 in
+  let eps_e1=epsilon_2 atom e1 in
+  let eps_e2=epsilon_2 atom e2 in
+  if SStringSet.equal eps_e1 eps_e2 then h_all_2 atom (KATSet.remove e1) (KATSet.remove e2)
+  else false
 
 let derivatives ((r1, r2): KATSet.t * KATSet.t): PDerivPairSet.t =
     let der_map1 = get_der_map_sum r1 in  
@@ -336,7 +344,7 @@ let equiv  (e1:kat) (e2:kat) : bool =
     let prim_bools = StringSet.union pb_e1 pb_e2 in 
     let atoms = atOf prim_bools in
 let rec equiv_help ((todo, visited): (PDerivPairSet.t * PDerivPairSet.t)) : bool =
-  match PDerivPairSet.choose_opt todo with (*get a KATSet pair*)
+  match PDerivPairSet.choose_opt todo with (**get a KATSet pair**)
       | None -> true (*todo is empty, finised*)
       | Some (sum1,sum2) -> (*first pair of todo*)
           if (hAll_sum sum1 sum2 atoms) = false then false (* Eα(E1)!=Eα(E2) *)
@@ -357,8 +365,8 @@ in equiv_help ((PDerivPairSet.singleton (KATSet.singleton e1, KATSet.singleton e
 
 (*examples*)
 
-let example1= StringSet.of_list ["b";"c";"d"]
-let example1_atoms= atOf example1 
+let example1=StringSet.of_list ["b";"c";"d"]
+let example1= atOf example1 
 
 let example2=SStringSet.to_list
 
