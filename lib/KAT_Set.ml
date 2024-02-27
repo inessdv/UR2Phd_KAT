@@ -300,6 +300,30 @@ let rec hAll_sum (e1:KATSet.t)(e2:KATSet.t)(at: SStringSet.t): bool =
     else false
 (* check if correct???**)
 
+let rec epsilon_2 (prim_bools: StringSet.t) (e:kat): SStringSet.t = (*set of atoms*)
+  match e with
+  | One -> atOf prim_bools
+  | Zero -> SStringSet.empty
+  | PBool b -> atOf (StringSet.remove b prim_bools)
+    |> SStringSet.map (StringSet.add b)
+  | PAct _ -> SStringSet.empty (*???*)
+  |Union (e1,e2) -> 
+    let ep1 = epsilon_2 prim_bools e1 and 
+    ep2 = epsilon_2 prim_bools e2 
+    in SStringSet.union ep1 ep2
+  |Conc (e1,e2) -> 
+    let ep1 = epsilon_2 prim_bools e1 and 
+    ep2 = epsilon_2 prim_bools e2 
+    in SStringSet.inter ep1 ep2
+  |Not(e) -> 
+    let atoms = atOf prim_bools and notE = epsilon_2 prim_bools e
+  in SStringSet.diff atoms notE
+  | Star _ -> atOf prim_bools (*???*)
+
+(*write hAll version 2 using epsilon_2!!!!!*)
+
+
+
 let derivatives ((r1, r2): KATSet.t * KATSet.t): PDerivPairSet.t =
     let der_map1 = get_der_map_sum r1 in  
     let der_map2 = get_der_map_sum r2 in
@@ -307,7 +331,6 @@ let derivatives ((r1, r2): KATSet.t * KATSet.t): PDerivPairSet.t =
     (AtPactSet.to_list heads)
     |> (List.map (fun p -> (deriv_sum p der_map1, deriv_sum p der_map2)) )
     |> PDerivPairSet.of_list
-  
 
 (** Equivalence Function **)
 let equiv  (e1:kat) (e2:kat) : bool =
@@ -325,7 +348,7 @@ let rec equiv_help ((todo, visited): (PDerivPairSet.t * PDerivPairSet.t)) : bool
             let new_todo = (* add new pairs from derivs to todo and take set diff of visited to avoid reps*)
             PDerivPairSet.diff (PDerivPairSet.union todo dervs) new_visited in
               equiv_help(new_todo, new_visited)
-              
+
 (* first call to equiv_help with todo having e1 and e2 as the first pair and visited as empty pair *)
 in equiv_help ((PDerivPairSet.singleton (KATSet.singleton e1, KATSet.singleton e2)), (PDerivPairSet.empty))
 
