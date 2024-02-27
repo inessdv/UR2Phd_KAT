@@ -107,7 +107,7 @@ else raise (Invalid_argument "pBool only takes bool expressions")
 
 let rec pBoolOf(exp:katI):StringSet.t =
   match exp with           (*At*)
-  |(_,false) -> StringSet.empty (** or error message?**)
+  |(_,false) -> StringSet.empty (* or error message?*)
   |(bExp,true)-> 
     match bExp with
     |One -> StringSet.empty          
@@ -249,7 +249,7 @@ let getAtomsof (exp: kat): SStringSet.t =
 (** Get the derivative map for a set of KATs (sum), represented as a set of terms **)
 let get_der_map_sum (sum: KATSet.t): DerMapSet.t = 
   KATSet.to_list sum 
-(** would this work??? **)
+(* would this work??? *)
   |> List.map (fun x -> linearization (getAtomsof x) x)
   |> DerMapSet.of_list
 
@@ -280,7 +280,6 @@ let deriv_sum (atp: atPact)(sum_der_map: DerMapSet.t): KATSet.t =
     (*Union the results*)
     |> List.fold_left KATSet.union KATSet.empty 
 
-(**Is atoms from e1?? UNON OF BOTH**)
 (**hAll takes two expressions e1 and e2 returns True if, 
     for every atom α, we have Eα(e1)=Eα(e2) and False otherwise**)
 let rec hAll (e1:kat)(e2:kat)(at: SStringSet.t): bool =
@@ -337,7 +336,7 @@ let equiv  (e1:kat) (e2:kat) : bool =
     let prim_bools = StringSet.union pb_e1 pb_e2 in 
     let atoms = atOf prim_bools in
 let rec equiv_help ((todo, visited): (PDerivPairSet.t * PDerivPairSet.t)) : bool =
-  match PDerivPairSet.choose_opt todo with (**get a KATSet pair**)
+  match PDerivPairSet.choose_opt todo with (*get a KATSet pair*)
       | None -> true (*todo is empty, finised*)
       | Some (sum1,sum2) -> (*first pair of todo*)
           if (hAll_sum sum1 sum2 atoms) = false then false (* Eα(E1)!=Eα(E2) *)
@@ -358,8 +357,8 @@ in equiv_help ((PDerivPairSet.singleton (KATSet.singleton e1, KATSet.singleton e
 
 (*examples*)
 
-let example1=StringSet.of_list ["b";"c";"d"]
-let example1= atOf example1 
+let example1= StringSet.of_list ["b";"c";"d"]
+let example1_atoms= atOf example1 
 
 let example2=SStringSet.to_list
 
