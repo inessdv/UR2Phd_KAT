@@ -320,15 +320,25 @@ let rec epsilon_2 (prim_bools: StringSet.t) (e:kat): SStringSet.t = (*set of ato
   in SStringSet.diff atoms notE
   | Star _ -> atOf prim_bools (*???*)
 
-(*write hAll version 2 using epsilon_2!!!!!*)
 
-let rec h_all_2 (atom:StringSet.t)(s1: KATSet.t)(s2:KATSet.t): bool =
+(*write hAll version 2 using epsilon_2!!!!!*)
+(*
+let rec h_all_2 (prim_bools:StringSet.t)(s1: KATSet.t)(s2:KATSet.t): bool =
   let e1=KATSet.min_elt s1 in
   let e2=KATSet.min_elt s2 in
-  let eps_e1=epsilon_2 atom e1 in
-  let eps_e2=epsilon_2 atom e2 in
-  if SStringSet.equal eps_e1 eps_e2 then h_all_2 atom (KATSet.remove e1) (KATSet.remove e2)
+  let eps_e1=epsilon_2 prim_bools e1 in
+  let eps_e2=epsilon_2 prim_bools e2 in
+  if SStringSet.equal eps_e1 eps_e2 then h_all_2 prim_bools (KATSet.remove e1 s1) (KATSet.remove e2 s1)
   else false
+
+ let rec h_all_2_sum (e1:KATSet.t)(e2:KATSet.t)(prim_bools: SStringSet.t): bool =
+  if (StringSet.is_empty prim_bools) then true
+  else 
+    let ele = StringSet.min_elt prim_bools in 
+    if h_all_2 ele e1 e2  then h_all_2_sum e1 e2 (StringSet.remove ele prim_bools)
+    else false 
+*)
+
 
 let derivatives ((r1, r2): KATSet.t * KATSet.t): PDerivPairSet.t =
     let der_map1 = get_der_map_sum r1 in  
@@ -363,9 +373,9 @@ in equiv_help ((PDerivPairSet.singleton (KATSet.singleton e1, KATSet.singleton e
 
 
 
-(*examples*)
+(*Examples for testing*)
 
-let example1=StringSet.of_list ["b";"c";"d"]
+let example1 = StringSet.of_list ["b";"c";"d"]
 let example1= atOf example1 
 
 let example2=SStringSet.to_list
