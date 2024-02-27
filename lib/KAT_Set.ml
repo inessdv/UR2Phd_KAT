@@ -55,7 +55,7 @@ let union(e1:katI) (e2: katI):katI=
     | (k1,true),(k2,true) -> Union(k1,k2),true
     |(k1,_),(k2,_)-> Union(k1,k2),false
 
-let conc(e1:katI) (e2:katI):katI= (** would it be better to use (kat*bool) pairs as input???**)
+let conc(e1:katI) (e2:katI):katI= 
   match (e1,e2) with
     |(Zero,_),_-> Zero,true
     |_,(Zero,_)-> Zero,true
@@ -90,6 +90,8 @@ end)
   
 (**examples to type check /tests**)
 module StringSet = Set.Make(String)
+
+(*
 let rec pBoolOf((exp, expIsBExp): kat * bool):StringSet.t =
   if expIsBExp then 
     match exp with           (*At*)
@@ -101,7 +103,7 @@ let rec pBoolOf((exp, expIsBExp): kat * bool):StringSet.t =
     (*TODO: Just to surpress the warning for now, remove when finished*)
     | _ -> failwith "We want boolean expressions but KA expression is given"
 else raise (Invalid_argument "pBool only takes bool expressions")
-
+*)
 
 let rec pBoolOf(exp:katI):StringSet.t =
   match exp with           (*At*)
@@ -142,8 +144,7 @@ let eps (atom:StringSet.t)(sum: KATSet.t): bool =
   KATSet.exists (fun exp -> epsilon atom exp) sum
 
 
-(** Linearization function
-**)
+(* Linearization function *)
 
 (** A map from string*)
 module StringMap = Map.Make(String)
@@ -205,12 +206,10 @@ let conc_alg (e1: kat) (e2: kat): kat =
 
 let concLinearForm (r_linear: linearForm) (r: kat): linearForm =
   AtPactMap.map (fun derivs -> 
-(** when concatenating with 1, elimination of map of the 1, 
+(* when concatenating with 1, elimination of map of the 1, 
     we could also eliminate 0, as we'd get an empty set!!!*)
     KATSet.map (fun deriv -> conc_alg deriv  r ) derivs) 
     r_linear
-
-(**let atoms (exp:kat): SStringSet.t = atOf (pBoolOf exp) ??????**)
 
 let rec mapMakerHelper(mapper:linearForm)(at:SStringSet.t)(p:string):linearForm=
     if SStringSet.is_empty at then mapper else 
@@ -236,7 +235,7 @@ let atomExists(e2:linearForm)(e1:kat):linearForm =
 let rec linearization (at:SStringSet.t) (exp: kat): linearForm =
   match exp with
   | PBool _ -> AtPactMap.empty
-  | PAct p  -> mapMaker at p (** map p to each atom and then each to one**)
+  | PAct p  -> mapMaker at p (* map p to each atom and then each to one*)
   | Union(e1,e2) -> unionLinearForm (linearization at e1) (linearization at e2)
   | Conc(e1,e2) -> unionLinearForm (concLinearForm (linearization at e1) e2) (atomExists(linearization at e2) e1)
   | Star(e) -> concLinearForm (linearization at e) (Star(e)) 
@@ -257,9 +256,9 @@ let get_der_map_sum (sum: KATSet.t): DerMapSet.t =
 (**hd function gets the set of all heads αp mapped in the linearform of a KAT**)
 let hd (r: linearForm ): AtPactSet.t =
     AtPactSet.of_list (List.map fst (AtPactMap.to_list r))
-      
+
   
-    (** Function deriv collects all the partial derivatives of 
+(** Function deriv collects all the partial derivatives of 
       a KAT expression in respect to a αp, that were computed 
       by linearization function. **)
 let deriv (atp: atPact) (der_map: linearForm): KATSet.t = 
@@ -298,7 +297,7 @@ let rec hAll_sum (e1:KATSet.t)(e2:KATSet.t)(at: SStringSet.t): bool =
     let ele = SStringSet.min_elt at in 
     if eps ele e1 == eps ele e2 then hAll_sum e1 e2 (SStringSet.remove ele at)
     else false
-(* check if correct???**)
+(* check if correct???*)
 
 let rec epsilon_2 (prim_bools: StringSet.t) (e:kat): SStringSet.t = (*set of atoms*)
   match e with
@@ -408,7 +407,7 @@ module Parser = struct
   and not_pareser () : katI parser = 
     let* _ = char '~' << ws in 
     let* eI = min_term_star_pareser () << ws in 
-    pure (not eI)
+    pure (not_N eI)
 
   and not_star_parser () = not_pareser () <|> min_term_star_pareser ()
     
