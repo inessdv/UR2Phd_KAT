@@ -6,6 +6,8 @@ let _ =
     >::: [
            KA_test.epsilon_tests;
            KA_test.deriv_test;
+           KAT_test.epsilon_tests;
+           KAT_test.deriv_test;
            Test_GKAT.normalization_tests;
            Test_GKAT.equiv_tests;
          ])
