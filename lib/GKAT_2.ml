@@ -1,12 +1,21 @@
 open KAT_Set
 
 type bExp = 
-  |PBool of string*bExp*bExp (* confused here*)
+  |Zero
+  |One
+  |PBool of string
+  |Or of bExp*bExp
+  |And of bExp*bExp
+  |Not of bExp
+
 
 type gkat =
   | Pact of string
   | Seq of kat*kat
+  | If of bExp*kat*kat
   | Test of bExp
   | While of bExp*kat
+
+
 
 
