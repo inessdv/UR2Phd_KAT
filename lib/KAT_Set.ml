@@ -8,6 +8,11 @@ type kat =
   | Star of kat
   | Not of kat
 
+module KATSet = Set.Make(struct
+  type t = kat
+  let compare = compare
+  end)
+
 module Print = struct
 
   let pprint (exp: kat) = 
@@ -39,6 +44,11 @@ module Print = struct
       (str1' ^ " + " ^ str2', 3) 
   in
   let (str, _) = helper exp in str 
+
+  let pprint_sum (expset:KATSet.t):string list=
+    let exp_list=KATSet.to_list expset in 
+    List.fold_left (fun r x -> (pprint x) ::r) [] exp_list
+
   
 end
 
@@ -78,10 +88,7 @@ let not_N ((exp, expIsBExp): kat * bool) =
 let star((exp, expIsBExp): kat * bool)=
 if expIsBExp==false then (Star(exp), false) else One,true
 
-module KATSet = Set.Make(struct
-type t = kat
-let compare = compare
-end)
+
 
 module KATISet = Set.Make(struct
 type t = katI 
