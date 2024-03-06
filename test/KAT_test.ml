@@ -14,7 +14,7 @@ let epsilon_tests = "epslion test" >:::[
 ]
 
 let deriv_test = "deriv and linearization test" >::: [
-  "D(bcp)((b+p)p) = p + 1" >:: (fun _ ->
+  "D(ap)((ap+bq) = 1+0" >:: (fun _ ->
     assert_equal ~printer: pprint_sum
       (KATSet.singleton(fromStr "1+0")) (deriv (Atom.of_list ["a";"b"],"p") (linearization (fromStr "ap + bq"))));
 ]
@@ -25,3 +25,9 @@ let deriv_test = "deriv and linearization test" >::: [
     assert_equal ~printer: pprint 
       (fromStr "p + 1") (deriv 'a' (fromStr "a + b")));
 ] *)
+
+let deriv_test = "equiv test" >::: [
+  "D(bcp)((b+p)p) = p + 1" >:: (fun _ ->
+    assert_equal ~printer: pprint_sum
+      (KATSet.singleton(fromStr "1+0")) (deriv (Atom.of_list ["a";"b"],"p") (linearization (fromStr "ap + bq"))));
+]
