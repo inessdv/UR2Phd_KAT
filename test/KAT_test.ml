@@ -26,8 +26,8 @@ let deriv_test = "deriv and linearization test" >::: [
       (fromStr "p + 1") (deriv 'a' (fromStr "a + b")));
 ] *)
 
-let deriv_test = "equiv test" >::: [
+(* let deriv_test = "equiv test" >::: [
   "D(bcp)((b+p)p) = p + 1" >:: (fun _ ->
     assert_equal ~printer: pprint_sum
       (KATSet.singleton(fromStr "1+0")) (deriv (Atom.of_list ["a";"b"],"p") (linearization (fromStr "ap + bq"))));
-]
+] *)

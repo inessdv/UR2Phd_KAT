@@ -245,7 +245,7 @@ let getAtomsof (exp: kat): SStringSet.t =
       atOf(primitives) 
 
 
-let rec linearization (exp: kat): linearForm =
+let linearization (exp: kat): linearForm =
   let rec linearization_helper (at:SStringSet.t) (exp: kat): linearForm =
   match exp with
   | PBool _ -> AtPactMap.empty
@@ -253,7 +253,8 @@ let rec linearization (exp: kat): linearForm =
   | Union(e1,e2) -> unionLinearForm (linearization_helper at e1) (linearization_helper at e2)
   | Conc(e1,e2) -> unionLinearForm (concLinearForm (linearization_helper at e1) e2) (atomExists(linearization_helper at e2) e1)
   | Star(e) -> concLinearForm (linearization_helper at e) (Star(e)) 
-  | _ -> AtPactMap.empty in 
+  | _ -> AtPactMap.empty 
+in 
   linearization_helper (getAtomsof exp) exp
 
 (** gets the string set of atoms directly from expression**)
