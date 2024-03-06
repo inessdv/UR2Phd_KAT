@@ -45,9 +45,10 @@ module Print = struct
   in
   let (str, _) = helper exp in str 
 
-  let pprint_sum (expset:KATSet.t):string list=
+  let pprint_sum (expset:KATSet.t):string=
     let exp_list=KATSet.to_list expset in 
-    List.fold_left (fun r x -> (pprint x) ::r) [] exp_list
+    let string_list=List.fold_left (fun r x -> (pprint x) ::r) [] exp_list in
+    String.concat " " string_list
 
   
 end
@@ -239,25 +240,29 @@ let atomExists(e2:linearForm)(e1:kat):linearForm =
       let e2List = AtPactMap.to_list e2 in
       AtPactMap.of_list (List.filter (fun ((a,_),_)-> epsilon a e1 ) e2List)
 
+let getAtomsof (exp: kat): SStringSet.t =
+    let primitives = pBoolOf(exp,true) in
+      atOf(primitives) 
 
-let rec linearization (at:SStringSet.t) (exp: kat): linearForm =
+
+let rec linearization (exp: kat): linearForm =
+  let rec linearization_helper (at:SStringSet.t) (exp: kat): linearForm =
   match exp with
   | PBool _ -> AtPactMap.empty
   | PAct p  -> mapMaker at p (* map p to each atom and then each to one*)
-  | Union(e1,e2) -> unionLinearForm (linearization at e1) (linearization at e2)
-  | Conc(e1,e2) -> unionLinearForm (concLinearForm (linearization at e1) e2) (atomExists(linearization at e2) e1)
-  | Star(e) -> concLinearForm (linearization at e) (Star(e)) 
-  | _ -> AtPactMap.empty
+  | Union(e1,e2) -> unionLinearForm (linearization_helper at e1) (linearization_helper at e2)
+  | Conc(e1,e2) -> unionLinearForm (concLinearForm (linearization_helper at e1) e2) (atomExists(linearization_helper at e2) e1)
+  | Star(e) -> concLinearForm (linearization_helper at e) (Star(e)) 
+  | _ -> AtPactMap.empty in 
+  linearization_helper (getAtomsof exp) exp
 
 (** gets the string set of atoms directly from expression**)
-let getAtomsof (exp: kat): SStringSet.t =
-  let primitives = pBoolOf(exp,true) in
-    atOf(primitives) 
+
 
 (** Get the derivative map for a set of KATs (sum), represented as a set of terms **)
 let get_der_map_sum (sum: KATSet.t): DerMapSet.t = 
   KATSet.to_list sum 
-  |> List.map (fun x -> linearization (getAtomsof x) x)
+  |> List.map (fun x -> linearization  x)
   |> DerMapSet.of_list
 
 (**hd function gets the set of all heads αp mapped in the linearform of a KAT**)
