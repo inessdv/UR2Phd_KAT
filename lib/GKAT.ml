@@ -1,12 +1,12 @@
 open Common
 
-module Exp= struct
+(* module Exp= struct
   type t=
   let conversion = let open KAT_Set in 
   
 
 
-end
+end *)
 module Trans = struct
   (** Defines the transition structure of GKAT automaton *)
 
