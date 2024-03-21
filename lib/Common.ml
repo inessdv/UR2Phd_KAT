@@ -122,15 +122,7 @@ module AtomMap = struct
     to_list map |> List.map (fun (key, _) -> key) |> AtomSet.of_list
 end
 
-module State = struct
-  include Int
-  (** States for automaton *)
-
-  let pprint (s : t) = "s" ^ string_of_int s
-end
-
-module StateSet = Set.Make (State)
-module StateMap = Map.Make (State)
+module State = PointedCoprod.MakePosInt
 
 module StatePairSet = Set.Make (struct
   type t = State.t * State.t
