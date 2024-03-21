@@ -1,7 +1,0 @@
-{
-    "diffEditor.codeLens": true,
-    "ocaml.sandbox": {
-        "kind": "global"
-    },
-    "nixEnvSelector.nixFile": "${workspaceFolder}/shell.nix"
-}
