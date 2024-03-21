@@ -10,7 +10,7 @@ module Automaton = struct
   type t = 
     |P_tests of PBoolSet.t
     |P_acts of PActSet.t
-    |States of StateSet.t
+    |States of State.Set.t
     |Trans of trans
     |Start of State.t
    
@@ -23,7 +23,7 @@ module PAutomaton = struct
   type t = 
     |P_tests of PBoolSet.t
     |P_acts of PActSet.t
-    |States of StateSet.t
+    |States of State.Set.t
     |Trans of trans
     |Start of pState
    
