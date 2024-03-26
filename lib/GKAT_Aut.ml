@@ -6,14 +6,12 @@ module PActSet = Set.Make (String)
 type res = Accept | Rejeject | To of State.t * pAct
 type trans = State.t -> Atom.t -> res
 
-module StateSet = Set.Make (String)
-
 module Automaton = struct
 
   type t = {
     p_tests: PBoolSet.t;
     p_acts: PActSet.t;
-    states: StateSet.t;
+    states: State.Set.t;
     trans: trans;
     start: State.t;
   }
@@ -25,7 +23,7 @@ module PAutomaton = struct
   type t = {
     p_tests: PBoolSet.t;
     p_acts: PActSet.t;
-    states: StateSet.t;
+    states: State.Set.t;
     trans: trans;
     start: State.t;
     p_start: Atom.t -> res;
@@ -48,7 +46,7 @@ let thompson_construct (exp:gkat)(p_act: PActSet.t)(p_test: PBoolSet.t): PAutoma
   | Pact p -> {
     p_tests = p_test;
     p_acts = p_act;
-    states = StateSet.singleton ;
+    states = State.Set.singleton ;
     trans = fun _ _ -> Accept;
     p_start = fun at -> To(State.elem, p);
   }
@@ -69,7 +67,7 @@ let thompson_construct (exp:gkat)(p_act: PActSet.t)(p_test: PBoolSet.t): PAutoma
   | Test b -> {
     p_tests = p_test;
     p_acts = p_act;
-    states = StateSet.empty ;
+    states = State.Set.empty ;
     trans = fun _ -> failwith "no result";
     p_start = fun at -> if satisfy at b then Accept else Reject ;
   }
