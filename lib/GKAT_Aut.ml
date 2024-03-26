@@ -1,31 +1,80 @@
 open Common
+open GKAT_2
 
 module PActSet = Set.Make (String)
 
 type res = Accept | Rejeject | To of State.t * pAct
 type trans = State.t -> Atom.t -> res
 
+
 module Automaton = struct
 
-  type t = 
-    |P_tests of PBoolSet.t
-    |P_acts of PActSet.t
-    |States of State.Set.t
-    |Trans of trans
-    |Start of State.t
+  type t = {
+    p_tests: PBoolSet.t;
+    p_acts: PActSet.t;
+    states: StatePairSet.t;
+    trans: trans;
+    start: State.t;
+  }
    
-
 end
 
 module PAutomaton = struct
 
-  type pState = Atom.t -> res
-  type t = 
-    |P_tests of PBoolSet.t
-    |P_acts of PActSet.t
-    |States of State.Set.t
-    |Trans of trans
-    |Start of pState
-   
-
+  type t = {
+    p_tests: PBoolSet.t;
+    p_acts: PActSet.t;
+    states: StatePairSet.t;
+    trans: trans;
+    start: State.t;
+    p_start: Atom.t -> res;
+  }
 end
+
+
+let rec satisfy (at: Atom.t)(iota: bExp): bool =
+  match iota with
+  |Zero -> false
+  |One -> true
+  |PBool b -> Atom.mem b at
+  |Or (i,b) -> satisfy at i || satisfy at b
+  |And (i,b) -> satisfy at i && satisfy at b
+  |Not b -> not (satisfy at b)
+
+let thompson_construct (exp:gkat)(p_act: PActSet.t)(p_test: PBoolSet.t): PAutomaton.t =
+  match exp with 
+  | Pact p -> {
+    p_tests = p_test;
+    p_acts = p_act;
+    states = State.elem |> StatePairSet.singleton ;
+    trans = fun _ _ -> Accept;
+    p_start = fun at -> l;
+  }
+  | Seq -> {
+    p_tests = ;
+    p_acts = ;
+    states =  ;
+    trans = ;
+    p_start = ;
+  } 
+  | If -> {
+    p_tests = ;
+    p_acts = ;
+    states =  ;
+    trans = ;
+    p_start = ;
+  } 
+  | Test b -> {
+    p_tests = p_test;
+    p_acts = p_act;
+    states = StatePairSet.empty ;
+    trans = ;
+    p_start = fun at -> if satisfy at b then Accept else Reject ;
+  }
+  | While -> {
+    p_tests = ;
+    p_acts = ;
+    states =  ;
+    trans = ;
+    p_start = ;
+  }
