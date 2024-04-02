@@ -143,6 +143,6 @@ let rec thompson_construct (exp : gkat) (p_act : PActSet.t)
         trans =
           (fun _ ->
             failwith "no result");
-            p_start = fun at -> if satisfy at b then Accept else Rejeject);
+            p_start = fun at -> if satisfy at b then Accept else Rejeject;
       }
   | While -> _
