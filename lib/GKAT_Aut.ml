@@ -72,14 +72,30 @@ let rec thompson_construct (exp:gkat)(p_act: PActSet.t)(p_test: PBoolSet.t): PAu
     ) ;
     p_start = s1.p_start;
   } 
-  | If -> {
-    p_tests = ;
-    p_acts = ;
-    states =  ;
-    trans = ;
-    p_start = ;
-  } 
-  | Test b -> {
+  | If (bexp ,exp1 ,exp2)-> 
+    let s1=thompson_construct exp1 p_act p_test in
+    let s2=thompson_construct exp2 p_act p_test in 
+  let bauto= thompson_construct Test(bexp) p_act p_test in
+    let coprod= State.coprod s1.states s2.states in 
+    let right_states =State.Set.map coprod.to_right s2.states in 
+    
+
+  (* if satisfy p_test bexp then 
+    {
+    p_tests = p_test;
+    p_acts = p_act;
+    states = State.Set.union s1.states right_states ;
+    trans = s1.trans;
+    p_start = s1.p_start;
+  }
+else {
+  p_tests = p_test;
+  p_acts = p_act;
+  states = State.Set.union s1.states right_states ;
+  trans = s2.trans;
+  p_start = s2.p_start;
+} *)
+  
     p_tests = p_test;
     p_acts = p_act;
     states = State.Set.empty ;
