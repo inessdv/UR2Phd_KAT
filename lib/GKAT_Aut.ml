@@ -126,6 +126,7 @@ let rec thompson_construct (exp : gkat) (p_act : PActSet.t)
   | While(bexp,exp) -> 
     let auto1 = thompson_construct exp p_act p_test in
     { p_tests = p_test; p_acts = p_act; states = auto1.states; 
-    trans = fun state atom -> match auto1.trans state atom with 
-    | Accept -> ; 
+    trans = (fun state atom -> match auto1.trans state atom with 
+    | Accept -> p_start atom
+    | r -> r); 
     p_start = (fun atom -> if satisfy atom bexp then auto1.p_start atom else Accept);}
