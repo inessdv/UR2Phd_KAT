@@ -114,14 +114,14 @@ let rec thompson_construct (exp : gkat) (p_act : PActSet.t)
       match (auto1.p_start atom) with
       | Accept -> Reject
       | _ -> auto1.p_start atom
-    else Reject) in
+    else Reject) in     (*should this be accept?*)
     
     { p_tests = p_test; 
       p_acts = p_act; 
       states = auto1.states; 
       trans = (fun state atom -> match (auto1.trans state atom) with 
         | Accept -> iota_e atom
-        | Reject -> iota_e atom
+        | Reject -> iota_e atom  (*Should we reject here?*)
         | r -> r );
       p_start = iota_e;
     }
