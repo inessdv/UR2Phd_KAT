@@ -125,3 +125,37 @@ let rec thompson_construct (exp : gkat) (p_act : PActSet.t)
       p_start = iota_e;
     }
 
+let check_res (res1: res) (res2:res) : StatePairSet.t option =
+  match (res1,res2) with 
+  | (Accept,Accept) -> Some StatePairSet.empty
+  | (Reject,Reject)-> Some StatePairSet.empty
+  | (To(s1 ,p1),To(s2,p2)) -> 
+    if p1 = p2 then Some (s1,s2) else None
+  | _ -> None
+
+
+
+let rec check_atoms ((s1,s2): State.t * State.t) (atoms_toCheck:PActSet.t): StatePairSet.t option =
+  match atoms_toCheck with
+  | PActSet.empty -> Some (*true???*)
+  | a1::rest -> 
+    match check_res (trans s1 a1) (trans s1 a2) with (*a1.trans???*)
+    | None -> None
+    | Some s_pairs ->
+      match check_atoms (s1,s2) rest with
+      | None -> None
+      | Some s_pairs1 -> StatePairSet.union s_pairs s_pairs1
+      
+
+let rec bisim (a1: PAutomaton.t) (a2:PAutomaton.t): bool = (*assert (a1.p_tests = a2.p_tests)*)
+    let atoms = Atom.of_p_bools a1.p_tests in
+    let (s1,s2) = (a1.p_start , a2.p_start) in
+    let rec help(todo:StatePairSet.t)(checked: StatePairSet.t): bool =
+      match StatePairSet.choose_opt todo with
+      | None -> true
+      | Some (s1,s2) -> 
+        match check_atoms(s1,s2) atoms with
+        |None -> false
+        |Some to_check -> help (StatePairSet.union to_check todo) (StatePairSet.union checked (s1,s2))
+      
+      in help ((a1.p_start, a2.p_start)) (StatePairSet.empty) 
