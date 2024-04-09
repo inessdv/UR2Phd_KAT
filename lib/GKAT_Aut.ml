@@ -133,14 +133,17 @@ let rec thompson_construct (exp : gkat) (p_act : PActSet.t)
       }
 
 let convert (pauto : PAutomaton.t) : Automaton.t =
+  let newStart= State.fresh pauto.states in
   {
     p_tests = pauto.p_tests;
     p_acts = pauto.p_acts;
-    states = State.;
+    states = State.Set.add(newStart) pauto.states ;
     trans =
       (fun state atom ->
-        match auto1.trans state atom with Accept -> iota_e atom | r -> r);
-    p_start = iota_e;
+        match state with 
+        | newStart -> pauto.p_start atom
+        | r -> pauto.trans r atom);
+    start = newStart;
   }
 
 let check_res (res1 : res) (res2 : res) : StatePairSet.t option =
@@ -153,12 +156,12 @@ let check_res (res1 : res) (res2 : res) : StatePairSet.t option =
   | _ -> None
 
 let rec check_atoms ((s1, s2) : State.t * State.t)
-    (atoms_toCheck : PActSet.t list) (a1 : Automaton.t) (a2 : Automaton.t) :
+(atoms_toCheck : PActSet.t list) (a1 : Automaton.t) (a2 : Automaton.t) :
     StatePairSet.t option =
   match atoms_toCheck with
   | [] -> Some StatePairSet.empty
   | atom :: rest -> (
-      match check_res (a1.trans s1 atom) (a2.trans s1 atom) with
+      match check_res (a1.trans s1 atom) (a2.trans s2 atom) with
       | None -> None
       | Some s_pairs -> (
           match check_atoms (s1, s2) rest a1 a2 with
