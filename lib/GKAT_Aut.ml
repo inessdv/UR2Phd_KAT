@@ -147,7 +147,6 @@ let rec check_atoms ((s1,s2): State.t * State.t) (atoms_toCheck: PActSet.t list)
         match check_atoms (s1,s2) rest a1 a2 with
         | None -> None
         | Some s_pairs1 -> Some (StatePairSet.union s_pairs s_pairs1)
-      
 
  
 let rec bisim (a1: Automaton.t) (a2:Automaton.t): bool = assert (a1.p_tests = a2.p_tests);
@@ -163,6 +162,31 @@ let rec bisim (a1: Automaton.t) (a2:Automaton.t): bool = assert (a1.p_tests = a2
       in let start_pair = StatePairSet.singleton (a1.start,a2.start) in
         help (start_pair) (StatePairSet.empty) 
 
+
+(*bisim with check_atoms as an inside function!*)
+let rec bisim (a1: Automaton.t) (a2:Automaton.t): bool = assert (a1.p_tests = a2.p_tests);
+    let atoms = Atom.of_p_bools a1.p_tests in
+    let rec help(todo:StatePairSet.t)(checked: StatePairSet.t): bool =
+      match StatePairSet.choose_opt todo with
+      | None -> true
+      | Some (s1,s2) -> 
+        let rec check_atoms ((s1,s2): State.t * State.t) (atoms_toCheck: PActSet.t list): StatePairSet.t option =
+          match atoms_toCheck with
+            | [] -> Some StatePairSet.empty
+            | atom::rest -> 
+              match check_res (a1.trans s1 atom) (a2.trans s1 atom) with 
+              | None -> None
+              | Some s_pairs ->
+                match check_atoms (s1,s2) rest with
+                | None -> None
+                | Some s_pairs1 -> Some (StatePairSet.union s_pairs s_pairs1) in
+        match check_atoms (s1,s2) atoms with 
+          |None -> false
+          |Some to_check -> help (StatePairSet.union to_check todo) (StatePairSet.union checked (StatePairSet.singleton (s1,s2)))
+      
+      in let start_pair = StatePairSet.singleton (a1.start,a2.start) in
+        help (start_pair) (StatePairSet.empty) 
+   
 
 
 (* do we need to code a bisim for PAutomaton?*)
