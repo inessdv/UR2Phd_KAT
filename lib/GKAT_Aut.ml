@@ -1,7 +1,9 @@
 open Common
 open GKAT_2
 open PointedCoprod
+
 module PActSet = Set.Make (String)
+
 
 type res = Accept | Reject | To of State.t * pAct
 type trans = State.t -> Atom.t -> res
@@ -125,37 +127,43 @@ let rec thompson_construct (exp : gkat) (p_act : PActSet.t)
       p_start = iota_e;
     }
 
+
 let check_res (res1: res) (res2:res) : StatePairSet.t option =
   match (res1,res2) with 
   | (Accept,Accept) -> Some StatePairSet.empty
   | (Reject,Reject)-> Some StatePairSet.empty
   | (To(s1 ,p1),To(s2,p2)) -> 
-    if p1 = p2 then Some (s1,s2) else None
+    let s_pair = StatePairSet.singleton (s1,s2) in
+    if p1 = p2 then Some s_pair else None
   | _ -> None
 
-
-
-let rec check_atoms ((s1,s2): State.t * State.t) (atoms_toCheck:PActSet.t): StatePairSet.t option =
+let rec check_atoms ((s1,s2): State.t * State.t) (atoms_toCheck: PActSet.t list) (a1: Automaton.t) (a2:Automaton.t): StatePairSet.t option =
   match atoms_toCheck with
-  | PActSet.empty -> Some (*true???*)
-  | a1::rest -> 
-    match check_res (trans s1 a1) (trans s1 a2) with (*a1.trans???*)
-    | None -> None
-    | Some s_pairs ->
-      match check_atoms (s1,s2) rest with
+    | [] -> Some StatePairSet.empty
+    | atom::rest -> 
+      match check_res (a1.trans s1 atom) (a2.trans s1 atom) with 
       | None -> None
-      | Some s_pairs1 -> StatePairSet.union s_pairs s_pairs1
+      | Some s_pairs ->
+        match check_atoms (s1,s2) rest a1 a2 with
+        | None -> None
+        | Some s_pairs1 -> Some (StatePairSet.union s_pairs s_pairs1)
       
 
-let rec bisim (a1: PAutomaton.t) (a2:PAutomaton.t): bool = (*assert (a1.p_tests = a2.p_tests)*)
+ 
+let rec bisim (a1: Automaton.t) (a2:Automaton.t): bool = assert (a1.p_tests = a2.p_tests);
     let atoms = Atom.of_p_bools a1.p_tests in
-    let (s1,s2) = (a1.p_start , a2.p_start) in
     let rec help(todo:StatePairSet.t)(checked: StatePairSet.t): bool =
       match StatePairSet.choose_opt todo with
       | None -> true
-      | Some (s1,s2) -> 
-        match check_atoms(s1,s2) atoms with
-        |None -> false
-        |Some to_check -> help (StatePairSet.union to_check todo) (StatePairSet.union checked (s1,s2))
+      | Some (s1,s2) -> (* add check_atoms inside function to avoid passing a1 and a2??*)
+        match check_atoms (s1,s2) atoms a1 a2 with 
+          |None -> false
+          |Some to_check -> help (StatePairSet.union to_check todo) (StatePairSet.union checked (StatePairSet.singleton (s1,s2)))
       
-      in help ((a1.p_start, a2.p_start)) (StatePairSet.empty) 
+      in let start_pair = StatePairSet.singleton (a1.start,a2.start) in
+        help (start_pair) (StatePairSet.empty) 
+
+
+
+(* do we need to code a bisim for PAutomaton?*)
+
