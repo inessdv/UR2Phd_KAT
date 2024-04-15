@@ -137,12 +137,12 @@ let convert (pauto : PAutomaton.t) : Automaton.t =
   {
     p_tests = pauto.p_tests;
     p_acts = pauto.p_acts;
-    states = State.Set.add(newStart) pauto.states ;
+    states = State.Set.add newStart pauto.states ;
     trans =
       (fun state atom ->
-        match state with 
-        | newStart -> pauto.p_start atom
-        | r -> pauto.trans r atom);
+        match state==newStart with    (*If statement*)
+        | true -> pauto.p_start atom
+        | false -> pauto.trans state atom);
     start = newStart;
   }
 
@@ -190,7 +190,7 @@ let rec bisim (a1 : Automaton.t) (a2 : Automaton.t) : bool =
 (*bisim with check_atoms as an inside function!*)
 let rec bisim (a1 : Automaton.t) (a2 : Automaton.t) : bool =
   assert (a1.p_tests = a2.p_tests);
-  let atoms = Atom.of_p_bools a1.p_tests in
+  let atoms = Atom.of_p_bools a1.p_tests in       (*Declare check_atoms after here*)
   let rec help (todo : StatePairSet.t) (checked : StatePairSet.t) : bool =
     match StatePairSet.choose_opt todo with
     | None -> true
@@ -200,61 +200,26 @@ let rec bisim (a1 : Automaton.t) (a2 : Automaton.t) : bool =
           match atoms_toCheck with
           | [] -> Some StatePairSet.empty
           | atom :: rest -> (
-              match check_res (a1.trans s1 atom) (a2.trans s1 atom) with
+              match check_res (a1.trans s1 atom) (a2.trans s2 atom) with
               | None -> None
               | Some s_pairs -> (
                   match check_atoms (s1, s2) rest with
                   | None -> None
-                  | Some s_pairs1 -> Some (StatePairSet.union s_pairs s_pairs1))
+                  | Some s_pairs_rest -> Some (StatePairSet.union s_pairs s_pairs_rest))
               )
         in
         match check_atoms (s1, s2) atoms with
         | None -> false
         | Some to_check ->
+          let checked = StatePairSet.add  (s1,s2) checked   in
+          let to_check = StatePairSet.diff to_check checked in
+          let todo = StatePairSet.diff todo checked in
             help
               (StatePairSet.union to_check todo)
-              (StatePairSet.union checked (StatePairSet.singleton (s1, s2))))
+              checked )
   in
 
   let start_pair = StatePairSet.singleton (a1.start, a2.start) in
   help start_pair StatePairSet.empty
 
-
-module StateMap = Map.Make (struct
-  type t = State.t * State.t
-  let compare = compare
-end)
-
-(*Cartesian product for two lists*)
-let product (l1: 'a list) (l2: 'b list): ('a * 'b) list =
-  List.rev (
-     List.fold_left
-      (fun x a ->
-        List.fold_left
-         (fun y b -> (a,b)::y)
-         x
-         l2
-     )
-     []
-     l1
-   )
-
-let rev_map (a: Automaton.t): State.Set.t StateMap.t = 
-  let states = a.states in
-  let atoms = Atom.of_p_bools a.p_tests in 
-  let state_atom_pairs = product (State.Set.to_list a.states) atoms in 
-
-  List.filter (
-    fun (s,at) -> 
-      match a.trans s at with
-      | To (s',p) -> Some (s',s)
-      | _ -> None
-  ) state_atom_pairs |> List.fold 
-  
-  (
-    fun (s',s) map -> StateMap.map.update 
-  ) StateMap.empty
-
-
-
-
+(* do we need to code a bisim for PAutomaton?*)
