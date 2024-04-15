@@ -133,7 +133,7 @@ let rec thompson_construct (exp : gkat) (p_act : PActSet.t)
       }
 
 let convert (pauto : PAutomaton.t) : Automaton.t =
-  let newStart= State.fresh pauto.states in
+  let newStart = State.fresh pauto.states in
   {
     p_tests = pauto.p_tests;
     p_acts = pauto.p_acts;
@@ -219,4 +219,42 @@ let rec bisim (a1 : Automaton.t) (a2 : Automaton.t) : bool =
   let start_pair = StatePairSet.singleton (a1.start, a2.start) in
   help start_pair StatePairSet.empty
 
-(* do we need to code a bisim for PAutomaton?*)
+
+module StateMap = Map.Make (struct
+  type t = State.t * State.t
+  let compare = compare
+end)
+
+(*Cartesian product for two lists*)
+let product (l1: 'a list) (l2: 'b list): ('a * 'b) list =
+  List.rev (
+     List.fold_left
+      (fun x a ->
+        List.fold_left
+         (fun y b -> (a,b)::y)
+         x
+         l2
+     )
+     []
+     l1
+   )
+
+let rev_map (a: Automaton.t): State.Set.t StateMap.t = 
+  let states = a.states in
+  let atoms = Atom.of_p_bools a.p_tests in 
+  let state_atom_pairs = product (State.Set.to_list a.states) atoms in 
+
+  List.filter (
+    fun (s,at) -> 
+      match a.trans s at with
+      | To (s',p) -> Some (s',s)
+      | _ -> None
+  ) state_atom_pairs |> List.fold 
+  
+  (
+    fun (s',s) map -> StateMap.map.update 
+  ) StateMap.empty
+
+
+
+
