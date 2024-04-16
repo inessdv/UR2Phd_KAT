@@ -224,10 +224,14 @@ let rec bisim (a1 : Automaton.t) (a2 : Automaton.t) : bool =
 
 (* do we need to code a bisim for PAutomaton?*)
 
-module StateMap = Map.Make (struct
-  type t = State.t * State.t
+(* module StateMap = Map.Make (struct
+  type t = State.Set.t * State.t
   let compare = compare
-end)
+end) *)
+
+module StateMap = Map.Make(State)
+
+type state_set_map = State.Set.t StateMap.t
 
 (*Cartesian product for two lists*)
 let product (l1: 'a list) (l2: 'b list): ('a * 'b) list =
@@ -248,13 +252,15 @@ let rev_map (a: Automaton.t): State.Set.t StateMap.t =
   let atoms = Atom.of_p_bools a.p_tests in 
   let state_atom_pairs = product (State.Set.to_list a.states) atoms in 
 
-  List.filter (
+  let live_states_list=List.filter_map (
     fun (s,at) -> 
       match a.trans s at with
       | To (s',p) -> Some (s',s)
       | _ -> None
-  ) state_atom_pairs |> List.fold 
-  
-  (
-    fun (s',s) map -> StateMap.map.update 
-  ) StateMap.empty
+  ) state_atom_pairs in
+  List.fold_left
+  (fun (m)(s',s) -> StateMap.update s' (
+    fun opt -> match opt with
+    | Some(state)-> let newSet=State.Set.add s state in Some(newSet)
+    | None-> Some(State.Set.singleton s)) m 
+  ) StateMap.empty live_states_list
