@@ -252,30 +252,48 @@ let rev_map (a: Automaton.t): State.Set.t StateMap.t =
   let atoms = Atom.of_p_bools a.p_tests in 
   let state_atom_pairs = product (State.Set.to_list states) atoms in 
 
-  let live_states_list=List.filter_map (
+  let statesPair_list = List.filter_map (
     fun (s,at) -> 
       match a.trans s at with
       | To (s',_) -> Some (s',s)
       | _ -> None
   ) state_atom_pairs in
+
   List.fold_left
-  (fun (m)(s',s) -> StateMap.update s' (
+  (fun m (s',s) -> StateMap.update s' (
     fun opt -> match opt with
-    | Some(state)-> let newSet=State.Set.add s state in Some(newSet)
-    | None-> Some(State.Set.singleton s)) m 
-  ) StateMap.empty live_states_list
+    | Some state -> Some (State.Set.add s state) 
+    | None -> Some (State.Set.singleton s) ) m 
+  ) StateMap.empty statesPair_list
 
-  let exclude_dead_state (m:state_set_map) (state: 'a list)(todo: 'a list):'a list=
-      List.fold_left (fun r ele -> match StateMap.find_opt ele m with
+
+
+(*DFS to exclude dead states*)
+let rec exclude_dead_state (graph:state_set_map) (state: State.t) (visited: State.Set.t) (live_states: State.Set.t): State.Set.t =
+      if State.Set.mem state visited then visited else (*check if we have checked this state*)
+      let new_visited = State.Set.add state visited in
+      match StateMap.find_opt state graph with
+      | Some states -> let alive = State.Set.add state live_states and  state_list = State.Set.to_list states in 
+        List.fold_left (fun acc s -> exclude_dead_state graph s acc alive) new_visited state_list
+      | None -> live_states (*check logic?*)
+
+
+(*      List.fold_left (fun r ele -> match StateMap.find_opt ele m with
       | Some(state_set)-> let state_list=State.Set.to_list state_set in List.append state state_list
-      | None-> _)
+      | None-> _)*)
 
-  let normalization(a:Automaton.t):Automaton.t=
-      let reverse_map=rev_map a in 
+(*
+  let normalization(a: Automaton.t): Automaton.t =
+      let reverse_map = rev_map a in 
+      let live_states = exclude_dead_state reverse_map a.start State.Set.empty State.Set.empty in
+      let member = State.Set.mem a.start live_states in
+        if member then 
+
       let atoms = Atom.of_p_bools a.p_tests in 
       let state_atom_pairs = product (State.Set.to_list a.states) atoms in 
       let all_accepting_states= List.filter (
         fun (s,at)->match a.trans s at with
         |Accept->true
         |_ -> false ) state_atom_pairs in 
-      
+
+*)
