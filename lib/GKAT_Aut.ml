@@ -283,25 +283,26 @@ let rec exclude_dead_state_from (graph : state_set_map) (state : State.t)
    | Some(state_set)-> let state_list=State.Set.to_list state_set in List.append state state_list
    | None-> _)*)
 
-let get_accpeting_states_from (a: Automaton.t)(atoms: PBoolSet.t list): State.Set.t=
-let states=a.states in 
-State.Set.filter (
-  fun s->List.exists (fun at -> match a.trans s at with 
-  |Accept->true
-  |_ -> false ) atoms ) states
+(*Getting all accepting states from an automaton*)
+let get_accpeting_states_from (a : Automaton.t) (atoms : PBoolSet.t list) :State.Set.t =
+  let states = a.states in
+  State.Set.filter
+    (fun s ->
+      List.exists
+        (fun at -> match a.trans s at with Accept -> true | _ -> false)
+        atoms)
+    states
 
+let normalization(a: Automaton.t): Automaton.t option=
+let atoms = Atom.of_p_bools a.p_tests in
+    let reverse_map = rev_map a in
+    let live_states = exclude_dead_state reverse_map a.start State.Set.empty State.Set.empty in
+    let member = State.Set.mem a.start live_states in
 
-  let normalization(a: Automaton.t): Automaton.t option=
-      let reverse_map = rev_map a in 
-      let live_states = exclude_dead_state reverse_map a.start State.Set.empty State.Set.empty in
-      let member = State.Set.mem a.start live_states in
-
-      let atoms = Atom.of_p_bools a.p_tests in 
-      let state_atom_pairs = product (State.Set.to_list a.states) atoms in 
-      let all_accepting_states= List.filter (
-        fun (s,at)->match a.trans s at with
-        |Accept->true
-        |_ -> false ) state_atom_pairs in 
-      let liveStates= exclude_dead_state_from()
-
-
+    
+    let state_atom_pairs = product (State.Set.to_list a.states) atoms in
+    let all_accepting_states= List.filter (
+      fun (s,at)->match a.trans s at with
+      |Accept->true
+      |_ -> false ) state_atom_pairs in
+    let liveStates= exclude_dead_state_from()
