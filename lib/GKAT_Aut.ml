@@ -250,12 +250,12 @@ let product (l1: 'a list) (l2: 'b list): ('a * 'b) list =
 let rev_map (a: Automaton.t): State.Set.t StateMap.t = 
   let states = a.states in
   let atoms = Atom.of_p_bools a.p_tests in 
-  let state_atom_pairs = product (State.Set.to_list a.states) atoms in 
+  let state_atom_pairs = product (State.Set.to_list states) atoms in 
 
   let live_states_list=List.filter_map (
     fun (s,at) -> 
       match a.trans s at with
-      | To (s',p) -> Some (s',s)
+      | To (s',_) -> Some (s',s)
       | _ -> None
   ) state_atom_pairs in
   List.fold_left
@@ -264,3 +264,18 @@ let rev_map (a: Automaton.t): State.Set.t StateMap.t =
     | Some(state)-> let newSet=State.Set.add s state in Some(newSet)
     | None-> Some(State.Set.singleton s)) m 
   ) StateMap.empty live_states_list
+
+  let exclude_dead_state (m:state_set_map) (state: 'a list)(todo: 'a list):'a list=
+      List.fold_left (fun r ele -> match StateMap.find_opt ele m with
+      | Some(state_set)-> let state_list=State.Set.to_list state_set in List.append state state_list
+      | None-> _)
+
+  let normalization(a:Automaton.t):Automaton.t=
+      let reverse_map=rev_map a in 
+      let atoms = Atom.of_p_bools a.p_tests in 
+      let state_atom_pairs = product (State.Set.to_list a.states) atoms in 
+      let all_accepting_states= List.filter (
+        fun (s,at)->match a.trans s at with
+        |Accept->true
+        |_ -> false ) state_atom_pairs in 
+      
