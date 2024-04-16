@@ -137,10 +137,11 @@ let convert (pauto : PAutomaton.t) : Automaton.t =
   {
     p_tests = pauto.p_tests;
     p_acts = pauto.p_acts;
-    states = State.Set.add newStart pauto.states ;
+    states = State.Set.add newStart pauto.states;
     trans =
       (fun state atom ->
-        match state==newStart with    (*If statement*)
+        match state == newStart with
+        (*If statement*)
         | true -> pauto.p_start atom
         | false -> pauto.trans state atom);
     start = newStart;
@@ -156,7 +157,7 @@ let check_res (res1 : res) (res2 : res) : StatePairSet.t option =
   | _ -> None
 
 let rec check_atoms ((s1, s2) : State.t * State.t)
-(atoms_toCheck : PActSet.t list) (a1 : Automaton.t) (a2 : Automaton.t) :
+    (atoms_toCheck : PActSet.t list) (a1 : Automaton.t) (a2 : Automaton.t) :
     StatePairSet.t option =
   match atoms_toCheck with
   | [] -> Some StatePairSet.empty
@@ -190,7 +191,8 @@ let rec bisim (a1 : Automaton.t) (a2 : Automaton.t) : bool =
 (*bisim with check_atoms as an inside function!*)
 let rec bisim (a1 : Automaton.t) (a2 : Automaton.t) : bool =
   assert (a1.p_tests = a2.p_tests);
-  let atoms = Atom.of_p_bools a1.p_tests in       (*Declare check_atoms after here*)
+  let atoms = Atom.of_p_bools a1.p_tests in
+  (*Declare check_atoms after here*)
   let rec help (todo : StatePairSet.t) (checked : StatePairSet.t) : bool =
     match StatePairSet.choose_opt todo with
     | None -> true
@@ -205,18 +207,16 @@ let rec bisim (a1 : Automaton.t) (a2 : Automaton.t) : bool =
               | Some s_pairs -> (
                   match check_atoms (s1, s2) rest with
                   | None -> None
-                  | Some s_pairs_rest -> Some (StatePairSet.union s_pairs s_pairs_rest))
-              )
+                  | Some s_pairs_rest ->
+                      Some (StatePairSet.union s_pairs s_pairs_rest)))
         in
         match check_atoms (s1, s2) atoms with
         | None -> false
         | Some to_check ->
-          let checked = StatePairSet.add  (s1,s2) checked   in
-          let to_check = StatePairSet.diff to_check checked in
-          let todo = StatePairSet.diff todo checked in
-            help
-              (StatePairSet.union to_check todo)
-              checked )
+            let checked = StatePairSet.add (s1, s2) checked in
+            let to_check = StatePairSet.diff to_check checked in
+            let todo = StatePairSet.diff todo checked in
+            help (StatePairSet.union to_check todo) checked)
   in
 
   let start_pair = StatePairSet.singleton (a1.start, a2.start) in
@@ -225,69 +225,76 @@ let rec bisim (a1 : Automaton.t) (a2 : Automaton.t) : bool =
 (* do we need to code a bisim for PAutomaton?*)
 
 (* module StateMap = Map.Make (struct
-  type t = State.Set.t * State.t
-  let compare = compare
-end) *)
+     type t = State.Set.t * State.t
+     let compare = compare
+   end) *)
 
-module StateMap = Map.Make(State)
+module StateMap = Map.Make (State)
 
 type state_set_map = State.Set.t StateMap.t
 
 (*Cartesian product for two lists*)
-let product (l1: 'a list) (l2: 'b list): ('a * 'b) list =
-  List.rev (
-     List.fold_left
-      (fun x a ->
-        List.fold_left
-         (fun y b -> (a,b)::y)
-         x
-         l2
-     )
-     []
-     l1
-   )
+let product (l1 : 'a list) (l2 : 'b list) : ('a * 'b) list =
+  List.rev
+    (List.fold_left
+       (fun x a -> List.fold_left (fun y b -> (a, b) :: y) x l2)
+       [] l1)
 
-let rev_map (a: Automaton.t): State.Set.t StateMap.t = 
+let rev_map (a : Automaton.t) : State.Set.t StateMap.t =
   let states = a.states in
-  let atoms = Atom.of_p_bools a.p_tests in 
-  let state_atom_pairs = product (State.Set.to_list states) atoms in 
+  let atoms = Atom.of_p_bools a.p_tests in
+  let state_atom_pairs = product (State.Set.to_list states) atoms in
 
-  let statesPair_list = List.filter_map (
-    fun (s,at) -> 
-      match a.trans s at with
-      | To (s',_) -> Some (s',s)
-      | _ -> None
-  ) state_atom_pairs in
+  let statesPair_list =
+    List.filter_map
+      (fun (s, at) ->
+        match a.trans s at with To (s', _) -> Some (s', s) | _ -> None)
+      state_atom_pairs
+  in
 
   List.fold_left
-  (fun m (s',s) -> StateMap.update s' (
-    fun opt -> match opt with
-    | Some state -> Some (State.Set.add s state) 
-    | None -> Some (State.Set.singleton s) ) m 
-  ) StateMap.empty statesPair_list
-
-
+    (fun m (s', s) ->
+      StateMap.update s'
+        (fun opt ->
+          match opt with
+          | Some state -> Some (State.Set.add s state)
+          | None -> Some (State.Set.singleton s))
+        m)
+    StateMap.empty statesPair_list
 
 (*DFS to exclude dead states*)
-let rec exclude_dead_state (graph:state_set_map) (state: State.t) (visited: State.Set.t) (live_states: State.Set.t): State.Set.t =
-      if State.Set.mem state visited then visited else (*check if we have checked this state*)
-      let new_visited = State.Set.add state visited in
-      match StateMap.find_opt state graph with
-      | Some states -> let alive = State.Set.add state live_states and  state_list = State.Set.to_list states in 
-        List.fold_left (fun acc s -> exclude_dead_state graph s acc alive) new_visited state_list
-      | None -> live_states (*check logic?*)
+let rec exclude_dead_state_from (graph : state_set_map) (state : State.t)
+    (visited : State.Set.t) (live_states : State.Set.t) : State.Set.t =
+  if State.Set.mem state visited then live_states
+  else
+    (*check if we have checked this state*)
+    let new_visited = State.Set.add state visited in
+    match StateMap.find_opt state graph with
+    | Some states ->
+        let alive = State.Set.add state live_states
+        and state_list = State.Set.to_list states in
+        List.fold_left
+          (fun acc s -> exclude_dead_state_from graph s acc alive)
+          new_visited state_list
+    | None -> live_states
+(*check logic?*)
+
+(* List.fold_left (fun r ele -> match StateMap.find_opt ele m with
+   | Some(state_set)-> let state_list=State.Set.to_list state_set in List.append state state_list
+   | None-> _)*)
+
+let get_accpeting_states_from (a: Automaton.t)(atoms: PBoolSet.t list): State.Set.t=
+let states=a.states in 
+State.Set.filter (
+  fun s->List.exists (fun at -> match a.trans s at with 
+  |Accept->true
+  |_ -> false ) atoms ) states
 
 
-(*      List.fold_left (fun r ele -> match StateMap.find_opt ele m with
-      | Some(state_set)-> let state_list=State.Set.to_list state_set in List.append state state_list
-      | None-> _)*)
-
-(*
-  let normalization(a: Automaton.t): Automaton.t =
+  let normalization(a: Automaton.t): Automaton.t option=
       let reverse_map = rev_map a in 
       let live_states = exclude_dead_state reverse_map a.start State.Set.empty State.Set.empty in
       let member = State.Set.mem a.start live_states in
-        if member then 
 
       let atoms = Atom.of_p_bools a.p_tests in 
       let state_atom_pairs = product (State.Set.to_list a.states) atoms in 
@@ -295,5 +302,6 @@ let rec exclude_dead_state (graph:state_set_map) (state: State.t) (visited: Stat
         fun (s,at)->match a.trans s at with
         |Accept->true
         |_ -> false ) state_atom_pairs in 
+      let liveStates= exclude_dead_state_from()
 
-*)
+
