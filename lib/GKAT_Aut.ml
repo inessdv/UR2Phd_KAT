@@ -286,7 +286,7 @@ let get_accpeting_states_from (a : Automaton.t) (atoms : PBoolSet.t list) :
   State.Set.filter
     (fun s ->
       List.exists
-        (fun at -> match a.trans s at with Accept -> true | _ -> false)
+        (fun at -> a.trans s at = Accept)
         atoms)
     states
 
@@ -309,47 +309,19 @@ let normalization (a : Automaton.t) : Automaton.t option =
   (*for each accept state DFS to check for other live states*)
   let live_states =
     State.Set.fold
-      (fun s acc -> live_states_from reverse_auto s acc)
+      (fun s live_states -> live_states_from reverse_auto s live_states)
       State.Set.empty accepting_states
   in
-  (*if start state is     let member = State.Set.mem a.start live_states in
-    if member then replace else None ??*)
-  (*update transition to dead states to reject*)
-  let states = a.states in
+  (*Updating res of transition function to reject if To dead state*)
   Some
       {
         p_tests = a.p_tests;
         p_acts = a.p_acts;
         states = live_states;
         trans = (fun state atom -> match a.trans state atom with 
-        |To(s,p)-> if (State.Set.exists s) then To(s,p) else Reject
-        |_-> _);
+        |To(s,p) -> if (State.Set.mem s live_states) then To(s,p) else Reject
+        |res-> res);
         start = a.start;
       }
 
 
-  (* let state_atom_pairs = product (State.Set.to_list states) atoms in
-  let updates =
-    List.filter
-      (fun (s, at) ->
-        match a.trans s at with
-        | To (s', p) ->
-            if State.Set.mem s' live_states then a.trans s at = To (s', p)
-            else a.trans s at = Reject
-        | _ -> a.trans s at = a.trans s at)
-      state_atom_pairs
-  in
-  _ *)
-
-let normalization (a : Automaton.t) : Automaton.t option =
-  let atoms = Atom.of_p_bools a.p_tests in
-  
-    let reverse_map = rev_map a in
-    let live_states =
-      exclude_dead_state reverse_map a.start State.Set.empty State.Set.empty
-    in
-    (* let member = State.Set.mem a.start live_states in *)
-    let state_atom_pairs = product (State.Set.to_list a.states) atoms in
-    let all_accepting_states = get_accpeting_states_from a atoms in
-    let liveStates = exclude_dead_state_from reverse_map in
-    
