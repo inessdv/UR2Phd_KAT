@@ -19,7 +19,7 @@
  (name KA_equiv)
  (synopsis "A short synopsis")
  (description "A longer description")
- (depends (ocaml (>= 5.1)) dune unionFind)
+ (depends (ocaml (>= 5.1)) dune unionFind hashcons)
  (tags
   (topics "to describe" your project)))
 

@@ -13,6 +13,7 @@ depends: [
   "ocaml" {>= "5.1"}
   "dune" {>= "3.10"}
   "unionFind" {>= "20220122"}
+  "hashcons"
   "utop" {with-dev}
   "dune" {with-dev}
   "ounit2" {with-test}
