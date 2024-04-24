@@ -250,12 +250,12 @@ module Equiv = struct
           HSet.add f s
       in
       let popped = pop_to_set_until (fun f -> f == e) in
-      (* whether the scc has a transition to live *)
-      let to_live = HSet.exists (fun e -> ExpHSet.mem e to_live_scc) popped in
       (* whether the scc is live *)
       let is_live =
-        to_live
-        || HSet.exists (fun e -> not @@ BExp.is_false @@ epsilion e) popped
+        (* whether the scc has a transition to live *)
+        HSet.exists (fun e -> ExpHSet.mem e to_live_scc) popped ||
+        (* whether the scc has an accepting transition *)
+        HSet.exists (fun e -> not @@ BExp.is_false @@ epsilion e) popped
       in
       let info_of_e = ExpTbl.find info_of e in
       (* union all the popped expression into a *)
