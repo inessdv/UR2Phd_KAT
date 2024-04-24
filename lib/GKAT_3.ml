@@ -42,6 +42,28 @@ module BExp = struct
     else if b1 == b2 then b1
     else if b1 == b_not b2 then zero
     else hashcons @@ And (b1, b2)
+
+  let z3_empty_ctx = Z3.mk_context []
+
+  (** convert a boolean expression to z3 expression *)
+  let rec to_z3 (b : t) : Z3.Expr.expr =
+    let open Z3.Boolean in
+    match b.node with
+    | Zero -> mk_false z3_empty_ctx
+    | One -> mk_true z3_empty_ctx
+    | PBool str -> mk_const_s z3_empty_ctx str
+    | Or (b1, b2) -> mk_or z3_empty_ctx [ to_z3 b1; to_z3 b2 ]
+    | And (b1, b2) -> mk_and z3_empty_ctx [ to_z3 b1; to_z3 b2 ]
+    | Not b1 -> mk_not z3_empty_ctx @@ to_z3 b1
+
+  (** test if a boolean expression is constant false
+      
+  In other word, whether it is unsatisfiable. *)
+  let is_false (b : t) : bool =
+    let solver = Z3.Solver.mk_solver z3_empty_ctx None in
+    match Z3.Solver.check solver [ to_z3 b ] with
+    | Z3.Solver.UNSATISFIABLE -> true
+    | _ -> false
 end
 
 module Exp = struct
@@ -86,7 +108,7 @@ module Exp = struct
 end
 
 module Derivatives = struct
-  (** define the datat type of on-the-fly automaton *)
+  (** defines derivatives *)
 
   type ('k, 'v) map = ('k, 'v) Hashcons.Hmap.t
   (** a fast immutable map for hashconsed key *)
@@ -102,10 +124,13 @@ module Derivatives = struct
   This uses the map representation of the derivative for the ease of implementation,
   and primitive action is encoded as a string *)
   let derivative (exp : Exp.t) : (BExp.t, Exp.t * string) map = _
+end
 
+module Equiv = struct
   module LiveExps : sig
     val is_live : Exp.t -> bool
   end = struct
+    open Derivatives
     (** Modules for computing live expressions. 
     This module performs a modified Tarjan's algorithm to find live states.
     
@@ -118,14 +143,23 @@ module Derivatives = struct
     let stack : Exp.t Stack.t = Stack.create ()
 
     type expInfo = {
-      idx : int;  (** the lowest reachable index from the current expression *)
+      idx : int;
+      (* the element used for SCC, which is represented as an union-find object*)
+      elem : Exp.t UnionFind.elem;
+      (* the lowest reachable index from the current expression *)
       mutable low_link : int;
-          (** whether the expression is on the stack. 
-          
-      This variable is to aviod the linear time check of whether a expression is in the stack.*)
+      (* whether the expression is on the stack.
+
+         This variable is to aviod the linear time check of whether a expression is in the stack.*)
       mutable on_stack : bool;
     }
-    (** some attributes of a expression used in Tarjan's algorithm *)
+
+    (** find the representative expression of for the SCC of the input `e` 
+        
+    This function assumes that the SCC of the expression `e` 
+    has already been collected as a union-find object*)
+    let rep (info_of_e : expInfo) : Exp.t =
+      UnionFind.get @@ UnionFind.find info_of_e.elem
 
     (** A mutable hash table of expressions *)
     module ExpTbl = Hashtbl.Make (struct
@@ -167,13 +201,42 @@ module Derivatives = struct
        can be computed by `rep_{scc} e`.*)
     let live_scc : ExpHSet.t = ExpHSet.create 251
 
-
     (** visit the predecessor of e
     
     this will set the info of e to the correct value 
     and compute the `detected_liveness` of `e`.
     **this function assumes `e` is in the `info_of` table.** *)
-    let visit_predecessor_of (e: Exp.t): unit = _
+    let rec visit_predecessor_of (e : Exp.t) (info_of_e : expInfo) : unit =
+      let e_to_live_scc : bool ref = ref false in
+      (* visit the predecessor `e'` of `e`.*)
+      let visit_single_predecessor (e' : Exp.t) : unit =
+        (* f hasn't been explored, then explore f *)
+        if not @@ ExpTbl.mem info_of e' then (
+          visit e';
+          let info_of_e' = ExpTbl.find info_of e' in
+          info_of_e.low_link <- min info_of_e.low_link info_of_e'.low_link)
+        else
+          let info_of_e' = ExpTbl.find info_of e' in
+          if info_of_e'.on_stack then
+            (* if f has been explored, and on stack, then it is in the scc of e
+               Thus we update the `low_link` of `e`*)
+            info_of_e.low_link <- min info_of_e.low_link info_of_e'.low_link
+          else
+            (* if f explored but not on stack This means that f is part of an explored scc. We will update the `e_to_live_scc` value *)
+            e_to_live_scc :=
+              !e_to_live_scc || ExpHSet.mem (rep info_of_e') live_scc
+      in
+      Hashcons.Hmap.iter
+        (fun _bexp (e', _p) -> visit_single_predecessor e')
+        (derivative e)
+
+    and construct_scc_of e : unit =
+      (* pop the top element of the stack and return whether it is live *)
+      let pop_to_live_scc () = _ in
+      _
+
+    and visit (e : Exp.t) : unit = _
+
     let is_live = _
   end
 end

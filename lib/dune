@@ -1,4 +1,4 @@
 (library
  (public_name KA_equiv)
  (name KA_equiv)
- (libraries unionFind hashcons))
+ (libraries unionFind hashcons z3))
