@@ -123,18 +123,26 @@ module Derivatives = struct
   
   This uses the map representation of the derivative for the ease of implementation,
   and primitive action is encoded as a string *)
-  let derivative (exp : Exp.t) : (BExp.t, Exp.t * string) map = _
+  let derivative (exp : Exp.t) : (BExp.t_, Exp.t * string) map = _
 end
 
 module Equiv = struct
-  module LiveExps : sig
+  module LiveExps (Size : sig
+    val size : int
+    (** the size of the expressions that you want to check.contents
+        
+    This value is used to optmize hash table implementation*)
+  end) : sig
     val is_live : Exp.t -> bool
   end = struct
-    open Derivatives
     (** Modules for computing live expressions. 
     This module performs a modified Tarjan's algorithm to find live states.
     
     This is a seperate module, since it contains internal states.*)
+
+    open Derivatives
+    open Size
+    module HSet = Hashcons.Hset
 
     (** current index to assign to the next node*)
     let cur_idx : int ref = ref 0
@@ -184,7 +192,7 @@ module Equiv = struct
     (** get the info of a particular expression 
         
     TODO: use the expression size to compute the reachable expressions, instead of a fixed number.*)
-    let info_of : expInfo ExpTbl.t = ExpTbl.create 251
+    let info_of : expInfo ExpTbl.t = ExpTbl.create Size.size
 
     (* Whether a expression transitions to a live scc
 
@@ -193,13 +201,13 @@ module Equiv = struct
        This only keeps track of the expression on the stack,
        expressions not on the stack but explored are already collected as scc,
        hence should use `live_scc` instead.*)
-    let to_live_scc : ExpHSet.t = ExpHSet.create 251
+    let to_live_scc : ExpHSet.t = ExpHSet.create size
 
     (* all the currently discovered live scc,
        each scc is marked by its "representing expression" in the union-find object.
        for a expression `e`, the representing expression for its scc
        can be computed by `rep_{scc} e`.*)
-    let live_scc : ExpHSet.t = ExpHSet.create 251
+    let live_scc : ExpHSet.t = ExpHSet.create size
 
     (** visit the predecessor of e
     
@@ -231,12 +239,80 @@ module Equiv = struct
         (derivative e)
 
     and construct_scc_of e : unit =
-      (* pop the top element of the stack and return whether it is live *)
-      let pop_to_live_scc () = _ in
-      _
+      (* pop the top element of the element and add it to the set*)
+      let rec pop_to_set_until (cond : Exp.t -> bool) : Exp.t_ HSet.t =
+        let f = Stack.pop stack in
+        let info_of_f = ExpTbl.find info_of f in
+        info_of_f.on_stack <- false;
+        if cond f then HSet.singleton f
+        else
+          let s = pop_to_set_until (cond : Exp.t -> bool) in
+          HSet.add f s
+      in
+      let popped = pop_to_set_until (fun f -> f == e) in
+      (* whether the scc has a transition to live *)
+      let to_live = HSet.exists (fun e -> ExpHSet.mem e to_live_scc) popped in
+      (* whether the scc is live *)
+      let is_live =
+        to_live
+        || HSet.exists (fun e -> not @@ BExp.is_false @@ epsilion e) popped
+      in
+      let info_of_e = ExpTbl.find info_of e in
+      (* union all the popped expression into a *)
+      if is_live then (
+        (* for each element in popped,
+           add it to the scc using union,
+           and remove it from `to_live_scc` to save memory*)
+        HSet.iter
+          (fun f ->
+            ignore
+            @@ UnionFind.union (ExpTbl.find info_of f).elem info_of_e.elem;
+            ExpHSet.remove f to_live_scc)
+          popped;
+        (* add the representative of `e` to `live_scc`*)
+        ExpHSet.add (rep info_of_e) live_scc)
+      else
+        (* remove all the popped value from `to_live_scc` to save memory*)
+        HSet.iter (fun f -> ExpHSet.remove f to_live_scc) popped
 
-    and visit (e : Exp.t) : unit = _
+    (** Construct union find object that classifies the scc from `e`
 
-    let is_live = _
+    This function is based on Tarjan's SCC algorithm;
+    it will iterate through all the reachable expressions from `e`,
+    and should only be called when e has not been explored.
+    *)
+    and visit (e : Exp.t) : unit =
+      (* init*)
+      Stack.push e stack;
+      let init_info =
+        {
+          idx = !cur_idx;
+          elem = UnionFind.make e;
+          low_link = !cur_idx;
+          on_stack = true;
+        }
+      in
+      ExpTbl.add info_of e init_info;
+      cur_idx := !cur_idx + 1;
+
+      (* visit all the reachable expressions recursively *)
+      visit_predecessor_of e init_info;
+
+      (* the computed info of e*)
+      let info_of_e = ExpTbl.find info_of e in
+
+      (* collect scc if all the scc is explored *)
+      if info_of_e.low_link = info_of_e.idx then construct_scc_of e
+
+    let is_live (e: Exp.t): bool = 
+      match ExpTbl.find_opt info_of e with 
+      (* `e` has not been explored, visit `e` first.*)
+      | None -> 
+        visit e; 
+        let info_of_e = ExpTbl.find info_of e in 
+        ExpHSet.mem (rep info_of_e) live_scc
+      (* `e` has been explored *)
+      | Some info_of_e ->  
+        ExpHSet.mem (rep info_of_e) live_scc
   end
 end
