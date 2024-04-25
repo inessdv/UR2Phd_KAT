@@ -2,7 +2,9 @@ open Common
 open GKAT_2
 open PointedCoprod
 module PActSet = Set.Make (String)
+module StateMap = Map.Make (State)
 
+type state_set_map = State.Set.t StateMap.t
 type res = Accept | Reject | To of State.t * pAct
 type trans = State.t -> Atom.t -> res
 
@@ -169,25 +171,45 @@ let rec check_atoms ((s1, s2) : State.t * State.t)
           | None -> None
           | Some s_pairs1 -> Some (StatePairSet.union s_pairs s_pairs1)))
 
+(*
+   make s -> give you a fresh memory 
+   make s ≠ make s 
+*)
+
 let bisim1 (a1 : Automaton.t) (a2 : Automaton.t) : bool =
   assert (a1.p_tests = a2.p_tests);
   let atoms = Atom.of_p_bools a1.p_tests in
-  let rec help (todo : StatePairSet.t) (checked : StatePairSet.t) : bool =
+  (* maps each state in a1 to its corresponding unionfind element *)
+  let uf_map1 =
+    List.map (fun s -> (s, UnionFind.make s)) (a1.states |> State.Set.to_list)
+    |> StateMap.of_list
+  in
+  (* get union find element of automaton 1*)
+  let get_elem1 s = StateMap.find s uf_map1 in
+  let get_elem2 = _ in
+  let rec help (todo : StatePairSet.t) : bool =
     match StatePairSet.choose_opt todo with
     | None -> true
     | Some (s1, s2) -> (
-        (* add check_atoms inside function to avoid passing a1 and a2??*)
-        match check_atoms (s1, s2) atoms a1 a2 with
-        | None -> false
-        | Some to_check ->
-            help
-              (* TODO: remove all the checked elements from `to_check`*)
-              (StatePairSet.union to_check todo)
-              (StatePairSet.union checked (StatePairSet.singleton (s1, s2))))
+        (* if they are already marked bisimilar *)
+        if UnionFind.eq (get_elem1 s1) (get_elem2 s2) then true
+        else
+          (* add check_atoms inside function to avoid passing a1 and a2??*)
+          match check_atoms (s1, s2) atoms a1 a2 with
+          | None -> false
+          | Some to_check ->
+              (* remove all the checked equal states *)
+              let to_check =
+                StatePairSet.filter
+                  (fun (s1, s2) ->
+                    not @@ UnionFind.eq (get_elem1 s1) (get_elem2 s2))
+                  to_check
+              in
+              ignore @@ UnionFind.union (get_elem1 s1) (get_elem2 s2);
+              help (StatePairSet.union to_check todo))
   in
-
   let start_pair = StatePairSet.singleton (a1.start, a2.start) in
-  help start_pair StatePairSet.empty
+  help start_pair
 
 (*bisim with check_atoms as an inside function!*)
 let bisim2 (a1 : Automaton.t) (a2 : Automaton.t) : bool =
@@ -229,10 +251,6 @@ let bisim2 (a1 : Automaton.t) (a2 : Automaton.t) : bool =
      type t = State.Set.t * State.t
      let compare = compare
    end) *)
-
-module StateMap = Map.Make (State)
-
-type state_set_map = State.Set.t StateMap.t
 
 (*Cartesian product for two lists*)
 let product (l1 : 'a list) (l2 : 'b list) : ('a * 'b) list =
@@ -377,6 +395,4 @@ let equiv (exp1 : gkat) (exp2 : gkat) : bool =
   in
   let auto1 = normalization (convert (thompson_construct exp1 p_act p_bool)) in
   let auto2 = normalization (convert (thompson_construct exp2 p_act p_bool)) in
-  match (auto1, auto2) with 
-  |Some a1, Some a2 -> bisim1 a1 a2 
-  | _ -> false
+  match (auto1, auto2) with Some a1, Some a2 -> bisim1 a1 a2 | _ -> false
