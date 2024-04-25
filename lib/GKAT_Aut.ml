@@ -169,7 +169,7 @@ let rec check_atoms ((s1, s2) : State.t * State.t)
           | None -> None
           | Some s_pairs1 -> Some (StatePairSet.union s_pairs s_pairs1)))
 
-let rec bisim (a1 : Automaton.t) (a2 : Automaton.t) : bool =
+let bisim1 (a1 : Automaton.t) (a2 : Automaton.t) : bool =
   assert (a1.p_tests = a2.p_tests);
   let atoms = Atom.of_p_bools a1.p_tests in
   let rec help (todo : StatePairSet.t) (checked : StatePairSet.t) : bool =
@@ -189,7 +189,7 @@ let rec bisim (a1 : Automaton.t) (a2 : Automaton.t) : bool =
   help start_pair StatePairSet.empty
 
 (*bisim with check_atoms as an inside function!*)
-let rec bisim (a1 : Automaton.t) (a2 : Automaton.t) : bool =
+let bisim2 (a1 : Automaton.t) (a2 : Automaton.t) : bool =
   assert (a1.p_tests = a2.p_tests);
   let atoms = Atom.of_p_bools a1.p_tests in
   (*Declare check_atoms after here*)
@@ -323,5 +323,24 @@ let normalization (a : Automaton.t) : Automaton.t option =
         |res-> res);
         start = a.start;
       }
+
+let rec be_to_pbool (be:bExp)(p_bool:PBoolSet.t):PBoolSet.t=
+  match be with
+| GKAT_2.Zero -> p_bool
+| GKAT_2.One -> p_bool
+| GKAT_2.PBool b -> PBoolSet.add b p_bool
+| GKAT_2.Or (be1, be2) -> PBoolSet.union (be_to_pbool be1 p_bool)(be_to_pbool be2 p_bool)
+| GKAT_2.And (be1, be2) -> PBoolSet.union (be_to_pbool be1 p_bool)(be_to_pbool be2 p_bool)
+| GKAT_2.Not be -> PBoolSet.union (p_bool)(be_to_pbool be p_bool)
+
+
+let rec extract_p_act (exp:gkat)(p_act : PActSet.t):PActSet.t=
+match exp with
+| Pact p -> PActSet.add p p_act
+| Seq (exp1, exp2) -> PActSet.union (extract exp1 p_act) (extract exp2 p_act)
+| If (_, exp1, exp2) -> PActSet.union (extract exp1 p_act) (extract exp2 p_act)
+| Test _ -> p_act
+| While (_, exp) -> PActSet.union p_act (extract exp p_act)
+
 
 
