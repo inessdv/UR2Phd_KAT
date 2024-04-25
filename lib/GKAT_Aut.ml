@@ -284,10 +284,7 @@ let get_accpeting_states_from (a : Automaton.t) (atoms : PBoolSet.t list) :
     State.Set.t =
   let states = a.states in
   State.Set.filter
-    (fun s ->
-      List.exists
-        (fun at -> a.trans s at = Accept)
-        atoms)
+    (fun s -> List.exists (fun at -> a.trans s at = Accept) atoms)
     states
 
 let rec check_start_state (a : Automaton.t) (atoms : PBoolSet.t list) : bool =
@@ -304,43 +301,80 @@ let normalization (a : Automaton.t) : Automaton.t option =
   if check_start_state a atoms == false then None
     (*Check if the start state is a dead state*)
   else
-  let accepting_states = get_accpeting_states_from a atoms in
-  let reverse_auto = rev_map a in
-  (*for each accept state DFS to check for other live states*)
-  let live_states =
-    State.Set.fold
-      (fun s live_states -> live_states_from reverse_auto s live_states)
-      State.Set.empty accepting_states
-  in
-  (*Updating res of transition function to reject if To dead state*)
-  Some
+    let accepting_states = get_accpeting_states_from a atoms in
+    let reverse_auto = rev_map a in
+    (*for each accept state DFS to check for other live states*)
+    let live_states =
+      State.Set.fold
+        (fun s live_states -> live_states_from reverse_auto s live_states)
+        State.Set.empty accepting_states
+    in
+    (*Updating res of transition function to reject if To dead state*)
+    Some
       {
         p_tests = a.p_tests;
         p_acts = a.p_acts;
         states = live_states;
-        trans = (fun state atom -> match a.trans state atom with 
-        |To(s,p) -> if (State.Set.mem s live_states) then To(s,p) else Reject
-        |res-> res);
+        trans =
+          (fun state atom ->
+            match a.trans state atom with
+            | To (s, p) ->
+                if State.Set.mem s live_states then To (s, p) else Reject
+            | res -> res);
         start = a.start;
       }
 
-let rec be_to_pbool (be:bExp)(p_bool:PBoolSet.t):PBoolSet.t=
+let rec be_to_pbool (be : bExp) (p_bool : PBoolSet.t) : PBoolSet.t =
   match be with
-| GKAT_2.Zero -> p_bool
-| GKAT_2.One -> p_bool
-| GKAT_2.PBool b -> PBoolSet.add b p_bool
-| GKAT_2.Or (be1, be2) -> PBoolSet.union (be_to_pbool be1 p_bool)(be_to_pbool be2 p_bool)
-| GKAT_2.And (be1, be2) -> PBoolSet.union (be_to_pbool be1 p_bool)(be_to_pbool be2 p_bool)
-| GKAT_2.Not be -> PBoolSet.union (p_bool)(be_to_pbool be p_bool)
+  | GKAT_2.Zero -> p_bool
+  | GKAT_2.One -> p_bool
+  | GKAT_2.PBool b -> PBoolSet.add b p_bool
+  | GKAT_2.Or (be1, be2) ->
+      PBoolSet.union (be_to_pbool be1 p_bool) (be_to_pbool be2 p_bool)
+  | GKAT_2.And (be1, be2) ->
+      PBoolSet.union (be_to_pbool be1 p_bool) (be_to_pbool be2 p_bool)
+  | GKAT_2.Not be -> PBoolSet.union p_bool (be_to_pbool be p_bool)
 
+let rec extract_p_act (exp : gkat) (p_act : PActSet.t) : PActSet.t =
+  match exp with
+  | Pact p -> PActSet.add p p_act
+  | Seq (exp1, exp2) ->
+      PActSet.union (extract_p_act exp1 p_act) (extract_p_act exp2 p_act)
+  | If (_, exp1, exp2) ->
+      PActSet.union (extract_p_act exp1 p_act) (extract_p_act exp2 p_act)
+  | Test _ -> p_act
+  | While (_, exp) -> PActSet.union p_act (extract_p_act exp p_act)
 
-let rec extract_p_act (exp:gkat)(p_act : PActSet.t):PActSet.t=
-match exp with
-| Pact p -> PActSet.add p p_act
-| Seq (exp1, exp2) -> PActSet.union (extract exp1 p_act) (extract exp2 p_act)
-| If (_, exp1, exp2) -> PActSet.union (extract exp1 p_act) (extract exp2 p_act)
-| Test _ -> p_act
-| While (_, exp) -> PActSet.union p_act (extract exp p_act)
+let rec extract_p_bool (exp : gkat) (p_bool : PBoolSet.t) : PBoolSet.t =
+  match exp with
+  | Pact _ -> p_bool
+  | Seq (exp1, exp2) ->
+      PBoolSet.union (extract_p_bool exp1 p_bool) (extract_p_bool exp2 p_bool)
+  | If (be, exp1, exp2) ->
+      PBoolSet.union
+        (be_to_pbool be PBoolSet.empty)
+        (PBoolSet.union
+           (extract_p_bool exp1 p_bool)
+           (extract_p_bool exp2 p_bool))
+  | Test be -> PBoolSet.union (be_to_pbool be PBoolSet.empty) p_bool
+  | While (be, exp) ->
+      PBoolSet.union
+        (be_to_pbool be PBoolSet.empty)
+        (PBoolSet.union p_bool (extract_p_bool exp p_bool))
 
-
-
+let equiv (exp1 : gkat) (exp2 : gkat) : bool =
+  let p_bool =
+    PBoolSet.union
+      (extract_p_bool exp1 PBoolSet.empty)
+      (extract_p_bool exp2 PBoolSet.empty)
+  in
+  let p_act =
+    PActSet.union
+      (extract_p_act exp1 PActSet.empty)
+      (extract_p_act exp2 PActSet.empty)
+  in
+  let auto1 = normalization (convert (thompson_construct exp1 p_act p_bool)) in
+  let auto2 = normalization (convert (thompson_construct exp2 p_act p_bool)) in
+  match (auto1, auto2) with 
+  |Some a1, Some a2 -> bisim1 a1 a2 
+  | _ -> false
