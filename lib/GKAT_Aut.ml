@@ -364,6 +364,7 @@ let rec extract_p_bool (exp : gkat) (p_bool : PBoolSet.t) : PBoolSet.t =
         (PBoolSet.union p_bool (extract_p_bool exp p_bool))
 
 let equiv (exp1 : gkat) (exp2 : gkat) : bool =
+  (* TODO: see if we can remove `...Set.empty`*)
   let p_bool =
     PBoolSet.union
       (extract_p_bool exp1 PBoolSet.empty)
