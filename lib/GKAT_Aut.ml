@@ -181,6 +181,7 @@ let bisim1 (a1 : Automaton.t) (a2 : Automaton.t) : bool =
         | None -> false
         | Some to_check ->
             help
+              (* TODO: remove all the checked elements from `to_check`*)
               (StatePairSet.union to_check todo)
               (StatePairSet.union checked (StatePairSet.singleton (s1, s2))))
   in
