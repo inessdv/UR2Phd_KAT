@@ -129,7 +129,7 @@ end
 module Equiv = struct
   module LiveExps (Size : sig
     val size : int
-    (** the size of the expressions that you want to check.contents
+    (** the size of all the expressions needing to check.
         
     This value is used to optmize hash table implementation*)
   end) : sig
@@ -189,10 +189,10 @@ module Equiv = struct
         Option.is_some @@ ExpTbl.find_opt s exp
     end
 
-    (** get the info of a particular expression 
+    (** tables mapping each expression to its info
         
     TODO: use the expression size to compute the reachable expressions, instead of a fixed number.*)
-    let info_of : expInfo ExpTbl.t = ExpTbl.create Size.size
+    let info_tbl : expInfo ExpTbl.t = ExpTbl.create Size.size
 
     (* Whether a expression transitions to a live scc
 
@@ -209,6 +209,12 @@ module Equiv = struct
        can be computed by `rep_{scc} e`.*)
     let live_scc : ExpHSet.t = ExpHSet.create size
 
+    (** get the info of a expression, will fail if the expression hasn't been explored*)
+    let info_of (e : Exp.t) : expInfo = ExpTbl.find info_tbl e
+
+    (** return whether `e` has been explored *)
+    let explored (e : Exp.t) : bool = ExpTbl.mem info_tbl e
+
     (** visit the predecessor of e
     
     this will set the info of e to the correct value 
@@ -219,18 +225,19 @@ module Equiv = struct
       (* visit the predecessor `e'` of `e`.*)
       let visit_single_predecessor (e' : Exp.t) : unit =
         (* f hasn't been explored, then explore f *)
-        if not @@ ExpTbl.mem info_of e' then (
+        if not @@ explored e' then (
           visit e';
-          let info_of_e' = ExpTbl.find info_of e' in
-          info_of_e.low_link <- min info_of_e.low_link info_of_e'.low_link)
+          info_of_e.low_link <- min info_of_e.low_link (info_of e').low_link)
         else
-          let info_of_e' = ExpTbl.find info_of e' in
+          let info_of_e' = info_of e' in
           if info_of_e'.on_stack then
             (* if f has been explored, and on stack, then it is in the scc of e
                Thus we update the `low_link` of `e`*)
             info_of_e.low_link <- min info_of_e.low_link info_of_e'.low_link
           else
-            (* if f explored but not on stack This means that f is part of an explored scc. We will update the `e_to_live_scc` value *)
+            (* if f explored but not on stack. 
+               This means that f is part of an explored scc. 
+              We will update the `e_to_live_scc` value *)
             e_to_live_scc :=
               !e_to_live_scc || ExpHSet.mem (rep info_of_e') live_scc
       in
@@ -239,25 +246,25 @@ module Equiv = struct
         (derivative e)
 
     and construct_scc_of e : unit =
-      (* pop the top element of the element and add it to the set*)
-      let rec pop_to_set_until (cond : Exp.t -> bool) : Exp.t_ HSet.t =
+      (* pop until `e` is reached, and output all the elements in a set *)
+      let rec pop_until_e () : Exp.t_ HSet.t =
         let f = Stack.pop stack in
-        let info_of_f = ExpTbl.find info_of f in
+        let info_of_f = info_of f in
         info_of_f.on_stack <- false;
-        if cond f then HSet.singleton f
+        if f == e then HSet.singleton f
         else
-          let s = pop_to_set_until (cond : Exp.t -> bool) in
+          let s = pop_until_e () in
           HSet.add f s
       in
-      let popped = pop_to_set_until (fun f -> f == e) in
+      let popped = pop_until_e () in
       (* whether the scc is live *)
       let is_live =
         (* whether the scc has a transition to live *)
-        HSet.exists (fun e -> ExpHSet.mem e to_live_scc) popped ||
+        HSet.exists (fun e -> ExpHSet.mem e to_live_scc) popped
         (* whether the scc has an accepting transition *)
-        HSet.exists (fun e -> not @@ BExp.is_false @@ epsilion e) popped
+        || HSet.exists (fun e -> not @@ BExp.is_false @@ epsilion e) popped
       in
-      let info_of_e = ExpTbl.find info_of e in
+      let info_of_e = info_of e in
       (* union all the popped expression into a *)
       if is_live then (
         (* for each element in popped,
@@ -265,8 +272,7 @@ module Equiv = struct
            and remove it from `to_live_scc` to save memory*)
         HSet.iter
           (fun f ->
-            ignore
-            @@ UnionFind.union (ExpTbl.find info_of f).elem info_of_e.elem;
+            ignore @@ UnionFind.union (info_of f).elem info_of_e.elem;
             ExpHSet.remove f to_live_scc)
           popped;
         (* add the representative of `e` to `live_scc`*)
@@ -284,7 +290,7 @@ module Equiv = struct
     and visit (e : Exp.t) : unit =
       (* init*)
       Stack.push e stack;
-      let init_info =
+      let init_e_info =
         {
           idx = !cur_idx;
           elem = UnionFind.make e;
@@ -292,27 +298,25 @@ module Equiv = struct
           on_stack = true;
         }
       in
-      ExpTbl.add info_of e init_info;
+      ExpTbl.add info_tbl e init_e_info;
       cur_idx := !cur_idx + 1;
 
       (* visit all the reachable expressions recursively *)
-      visit_predecessor_of e init_info;
+      visit_predecessor_of e init_e_info;
 
       (* the computed info of e*)
-      let info_of_e = ExpTbl.find info_of e in
+      let info_of_e = info_of e in
 
       (* collect scc if all the scc is explored *)
       if info_of_e.low_link = info_of_e.idx then construct_scc_of e
 
-    let is_live (e: Exp.t): bool = 
-      match ExpTbl.find_opt info_of e with 
+    let is_live (e : Exp.t) : bool =
+      match ExpTbl.find_opt info_tbl e with
       (* `e` has not been explored, visit `e` first.*)
-      | None -> 
-        visit e; 
-        let info_of_e = ExpTbl.find info_of e in 
-        ExpHSet.mem (rep info_of_e) live_scc
+      | None ->
+          visit e;
+          ExpHSet.mem (rep @@ info_of e) live_scc
       (* `e` has been explored *)
-      | Some info_of_e ->  
-        ExpHSet.mem (rep info_of_e) live_scc
+      | Some info_of_e -> ExpHSet.mem (rep info_of_e) live_scc
   end
 end
