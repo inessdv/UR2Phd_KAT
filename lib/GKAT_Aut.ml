@@ -327,7 +327,6 @@ let normalization (a : Automaton.t) : Automaton.t option =
 
 let rec be_to_pbool (be : bExp) (p_bool : PBoolSet.t) : PBoolSet.t =
   match be with
-<<<<<<< HEAD
   | GKAT_2.Zero -> p_bool
   | GKAT_2.One -> p_bool
   | GKAT_2.PBool b -> PBoolSet.add b p_bool
@@ -336,22 +335,6 @@ let rec be_to_pbool (be : bExp) (p_bool : PBoolSet.t) : PBoolSet.t =
   | GKAT_2.And (be1, be2) ->
       PBoolSet.union (be_to_pbool be1 p_bool) (be_to_pbool be2 p_bool)
   | GKAT_2.Not be -> PBoolSet.union p_bool (be_to_pbool be p_bool)
-=======
-| GKAT_2.Zero -> p_bool
-| GKAT_2.One -> p_bool
-| GKAT_2.PBool b -> PBoolSet.add b p_bool
-| GKAT_2.Or (be1, be2) -> PBoolSet.union (be_to_pbool be1 p_bool)(be_to_pbool be2 p_bool)
-| GKAT_2.And (be1, be2) -> PBoolSet.union (be_to_pbool be1 p_bool)(be_to_pbool be2 p_bool)
-| GKAT_2.Not be -> PBoolSet.union (p_bool)(be_to_pbool be p_bool)
-
-let rec extract_p_act (exp:gkat)(p_act : PActSet.t):PActSet.t=
-match exp with
-| Pact p -> PActSet.add p p_act
-| Seq (exp1, exp2) -> PActSet.union (extract_p_act exp1 p_act) (extract_p_act exp2 p_act)
-| If (_, exp1, exp2) -> PActSet.union (extract_p_act exp1 p_act) (extract_p_act exp2 p_act)
-| Test _ -> p_act
-| While (_, exp) -> PActSet.union p_act (extract_p_act exp p_act)
->>>>>>> acb42e929e31cd9b7fd51d73f739be67272b38ed
 
 let rec extract_p_act (exp : gkat) (p_act : PActSet.t) : PActSet.t =
   match exp with
@@ -380,7 +363,6 @@ let rec extract_p_bool (exp : gkat) (p_bool : PBoolSet.t) : PBoolSet.t =
         (be_to_pbool be PBoolSet.empty)
         (PBoolSet.union p_bool (extract_p_bool exp p_bool))
 
-<<<<<<< HEAD
 let equiv (exp1 : gkat) (exp2 : gkat) : bool =
   let p_bool =
     PBoolSet.union
@@ -397,36 +379,3 @@ let equiv (exp1 : gkat) (exp2 : gkat) : bool =
   match (auto1, auto2) with 
   |Some a1, Some a2 -> bisim1 a1 a2 
   | _ -> false
-=======
-
-let equivalence (e1:gkat) (e2:gkat): bool =
-  let pact_set = extract_p_act e1 in
-  let pbools = be_to_pbool in 
-  let a1 = thompson_construct pbools pact_set e1 in
-  let a2 = thompson_construct pbools pact_set e2 in 
-  let a2_n = normalization (convert a2) in
-  let equiv =   
-    match normalization (convert a1) with
-    | Some a1 -> 
-      match normalization (convert a2) with
-      | Some a2 -> bisim1 a1 a2
-      | None -> false
-    | None -> false
-
-  in equiv
-
-(*
-comon ground:
-let p_bools = e1 union e2
-let pact =
-construct auto using common pbools
-let a1 = thompson pbools pact e1
-let a2 = thompson pbools pact e2
-
-let a1 = normalize a1
-let a2 = normalize a2
-
-bisim a1 a2
-
-   *)
->>>>>>> acb42e929e31cd9b7fd51d73f739be67272b38ed
