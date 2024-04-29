@@ -8,4 +8,7 @@ let _ =
            KA_test.deriv_test;
            KAT_test.epsilon_tests;
            KAT_test.deriv_test;
+           GKAT_test_qcheck.test_equiv_deriv;  
+           GKAT_test_qcheck.test_equiv_aut;  
+           GKAT_test_qcheck.test_both_method;  
          ])
