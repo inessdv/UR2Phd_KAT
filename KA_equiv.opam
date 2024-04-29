@@ -18,6 +18,7 @@ depends: [
   "utop" {with-dev}
   "dune" {with-dev}
   "ounit2" {with-test}
+  "qcheck" {with-test}
   "odoc" {with-doc}
 ]
 build: [
