@@ -184,9 +184,13 @@ let bisim1 (a1 : Automaton.t) (a2 : Automaton.t) : bool =
     List.map (fun s -> (s, UnionFind.make s)) (a1.states |> State.Set.to_list)
     |> StateMap.of_list
   in
+  let uf_map2 =
+    List.map (fun s -> (s, UnionFind.make s)) (a2.states |> State.Set.to_list)
+    |> StateMap.of_list
+  in
   (* get union find element of automaton 1*)
   let get_elem1 s = StateMap.find s uf_map1 in
-  let get_elem2 = _ in
+  let get_elem2 s = StateMap.find s uf_map2 in
   let rec help (todo : StatePairSet.t) : bool =
     match StatePairSet.choose_opt todo with
     | None -> true
