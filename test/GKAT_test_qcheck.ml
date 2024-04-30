@@ -268,8 +268,8 @@ let test_equiv_deriv =
 let test_equiv_aut =
 QCheck_ounit.to_ounit2_test
 @@ Test.make ~count:1000 ~name:"testing thompson's construction based algorithm with generated equivalence"
-      (** We don't have a printer at this point*)
-      (* ~print:(fun (e1, e2, _) -> _ ) *)
+      (* We don't have a printer at this point*)
+      (* ~print:(fun (e1, e2) -> _ ) *)
       GenExp.gen_eq_exp
       (fun (e1, e2) ->
         (* HACK: ignore generated result with duplicate labels,
@@ -279,8 +279,8 @@ QCheck_ounit.to_ounit2_test
 let test_both_method =
   QCheck_ounit.to_ounit2_test
   @@ Test.make ~count:1000 ~name:"the KAT derivative based algorithm and thompson's construction based algorithm should return the same result"
-        (** We don't have a printer at this point*)
-        (* ~print:(fun (e1, e2, _) -> _ ) *)
+        (* We don't have a printer at this point*)
+        (* ~print:(fun (e1, e2) -> _ ) *)
         (Gen.pair 
           (GenExp.exp_sized bexp_max_size exp_max_size)
           (GenExp.exp_sized bexp_max_size exp_max_size))

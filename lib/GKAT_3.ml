@@ -127,6 +127,8 @@ module Derivatives = struct
 end
 
 module Equiv = struct
+
+  (** This module is DEPRECATED! Please disregard  *****)
   module LiveExps (Size : sig
     val size : int
     (** the size of all the expressions needing to check.
