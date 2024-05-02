@@ -117,17 +117,25 @@ module Derivatives = struct
       
   The boolean expression consists of all the atoms 
   that is accepted by the expression *)
-  let epsilion (exp : Exp.t) : BExp.t = _
+  let rec epsilion (exp : Exp.t) : BExp.t =
+    match exp.node with
+    | Pact p -> BExp.zero
+    | Seq (exp1, exp2) -> BExp.b_and (epsilion exp1) (epsilion exp2)
+    | If (be, exp1, exp2) ->
+        BExp.b_or
+          (BExp.b_and be (epsilion exp1))
+          (BExp.b_and (BExp.b_not be) (epsilion exp2))
+    | Test be -> be
+    | While (be, exp) -> BExp.b_not be
 
   (** The derivative of a expression: δ ∈ exp -> (BExp ↛ exp × Σ)
   
   This uses the map representation of the derivative for the ease of implementation,
   and primitive action is encoded as a string *)
-  let derivative (exp : Exp.t) : (BExp.t_, Exp.t * string) map = _
+  let derivative (exp : Exp.t) : (BExp.t_, Exp.t * string) map = failwith " "
 end
 
 module Equiv = struct
-
   (** This module is DEPRECATED! Please disregard  *****)
   module LiveExps (Size : sig
     val size : int
@@ -237,9 +245,9 @@ module Equiv = struct
                Thus we update the `low_link` of `e`*)
             info_of_e.low_link <- min info_of_e.low_link info_of_e'.low_link
           else
-            (* if f explored but not on stack. 
-               This means that f is part of an explored scc. 
-              We will update the `e_to_live_scc` value *)
+            (* if f explored but not on stack.
+                This means that f is part of an explored scc.
+               We will update the `e_to_live_scc` value *)
             e_to_live_scc :=
               !e_to_live_scc || ExpHSet.mem (rep info_of_e') live_scc
       in
