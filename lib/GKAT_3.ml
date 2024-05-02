@@ -132,7 +132,15 @@ module Derivatives = struct
   
   This uses the map representation of the derivative for the ease of implementation,
   and primitive action is encoded as a string *)
-  let derivative (exp : Exp.t) : (BExp.t_, Exp.t * string) map = failwith " "
+   (* module BExpMap = Map.Make (BExp.t) *)
+
+type state_set_map = State.Set.t StateMap.t 
+
+(*Having trouble initialize the map*)
+  let derivative (exp : Exp.t) : (BExp.t_, Exp.t * string) map = 
+    match exp.node with
+    |Test be -> Hashcons.Hmap.empty
+    |Pact p -> Hashcons.Hmap.add
 end
 
 module Equiv = struct
