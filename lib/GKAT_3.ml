@@ -110,7 +110,7 @@ end
 module Derivatives = struct
   (** defines derivatives *)
 
-  type ('k, 'v) map = ('k, 'v) Hashcons.Hmap.t
+  module Hmap = Hashcons.Hmap
   (** a fast immutable map for hashconsed key *)
 
   (** The epsilon of the expression,
@@ -132,15 +132,10 @@ module Derivatives = struct
   
   This uses the map representation of the derivative for the ease of implementation,
   and primitive action is encoded as a string *)
-   (* module BExpMap = Map.Make (BExp.t) *)
-
-type state_set_map = State.Set.t StateMap.t 
-
-(*Having trouble initialize the map*)
-  let derivative (exp : Exp.t) : (BExp.t_, Exp.t * string) map = 
+  let derivative (exp : Exp.t) : (BExp.t_, Exp.t * string) Hmap.t = 
     match exp.node with
-    |Test be -> Hashcons.Hmap.empty
-    |Pact p -> Hashcons.Hmap.add
+    |Test be -> Hmap.empty
+    |Pact p -> Hmap.add
 end
 
 module Equiv = struct
