@@ -132,10 +132,14 @@ module Derivatives = struct
   
   This uses the map representation of the derivative for the ease of implementation,
   and primitive action is encoded as a string *)
-  let derivative (exp : Exp.t) : (BExp.t_, Exp.t * string) Hmap.t = 
+  let derivative_map=Hmap.empty
+  let rec derivative (exp : Exp.t) : (BExp.t_, Exp.t * string) Hmap.t = 
+    let temp=Hmap.empty in
     match exp.node with
-    |Test be -> Hmap.empty
-    |Pact p -> Hmap.add
+    |Test be -> derivative_map
+    |Pact p -> Hmap.add(BExp.one)(Exp.test(BExp.one),p) derivative_map
+    |If (be, exp1, exp2) -> derivative exp1 
+    |_->_
 end
 
 module Equiv = struct
