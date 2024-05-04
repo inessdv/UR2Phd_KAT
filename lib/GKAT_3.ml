@@ -133,16 +133,16 @@ module Derivatives = struct
   This uses the map representation of the derivative for the ease of implementation,
   and primitive action is encoded as a string *)
 
-  let combine_BE_with_a (be: BExp.t)(m: (BExp.t, Exp.t * string) Hmap.t):(BExp.t_, Exp.t * string) Hmap.t=
+  let combine_BE_with_a (be: BExp.t)(m: (BExp.t_, Exp.t * string) Hmap.t):(BExp.t_, Exp.t * string) Hmap.t=
       let to_list = Hmap.to_seq m in 
-      let to_seq=Seq.map (fun (a,b) -> (BExp.b_and a be,b) ) to_list in
+      let to_seq=Seq.map (fun (a,b) -> (BExp.b_and (a) (be),b) ) to_list in
       Hmap.of_seq to_seq
   
   let rec derivative (exp : Exp.t) : (BExp.t_, Exp.t * string) Hmap.t = 
     match exp.node with
-    |Test be -> Hmap.empty
+    |Test _ -> Hmap.empty
     |Pact p -> Hmap.singleton(BExp.one)(Exp.test(BExp.one),p)
-    |If (be, exp1, exp2) -> derivative exp1 
+    |If (be, exp1, exp2) -> Hmap.union(combine_BE_with_a (be) (derivative exp1) )(combine_BE_with_a (be) (derivative exp2) )
     |_->_
 end
 
