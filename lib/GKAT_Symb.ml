@@ -1,5 +1,5 @@
 module BExp = struct
-  
+
   (** Module for working with boolean expressions *)
 
   type t = t_ Hashcons.hash_consed
@@ -120,31 +120,41 @@ module Derivatives = struct
   that is accepted by the expression *)
   let rec epsilion (exp : Exp.t) : BExp.t =
     match exp.node with
-    | Pact p -> BExp.zero
-    | Seq (exp1, exp2) -> BExp.b_and (epsilion exp1) (epsilion exp2)
-    | If (be, exp1, exp2) ->
+    | Pact _ -> BExp.zero
+    | Seq (e, f) -> BExp.b_and (epsilion e) (epsilion f)
+    | If (be, e, f) ->
         BExp.b_or
-          (BExp.b_and be (epsilion exp1))
-          (BExp.b_and (BExp.b_not be) (epsilion exp2))
+          (BExp.b_and be (epsilion e))
+          (BExp.b_and (BExp.b_not be) (epsilion f))
     | Test be -> be
-    | While (be, exp) -> BExp.b_not be
+    | While (be, _) -> BExp.b_not be
 
   (** The derivative of a expression: δ ∈ exp -> (BExp ↛ exp × Σ)
-  
   This uses the map representation of the derivative for the ease of implementation,
   and primitive action is encoded as a string *)
 
-  let combine_BE_with_a (be: BExp.t)(m: (BExp.t_, Exp.t * string) Hmap.t):(BExp.t_, Exp.t * string) Hmap.t=
+  let combine_BE_with_a (be: BExp.t)(m: (BExp.t_, Exp.t * string) Hmap.t):(BExp.t_, Exp.t * string) Hmap.t =
       let to_list = Hmap.to_seq m in 
-      let to_seq=Seq.map (fun (a,b) -> (BExp.b_and (a) (be),b) ) to_list in
+      let to_seq = Seq.map (fun (a,b) -> (BExp.b_and (a) (be),b) ) to_list in
       Hmap.of_seq to_seq
   
   let rec derivative (exp : Exp.t) : (BExp.t_, Exp.t * string) Hmap.t = 
     match exp.node with
     |Test _ -> Hmap.empty
     |Pact p -> Hmap.singleton(BExp.one)(Exp.test(BExp.one),p)
-    |If (be, exp1, exp2) -> Hmap.union(combine_BE_with_a (be) (derivative exp1) )(combine_BE_with_a (be) (derivative exp2) )
-    |_->_
+    |If (be, e, f) -> 
+      let derive_e = derivative e in
+      let derive_f = derivative f in _
+
+      (*(BExp.b_or ()) (BExp.b_or())*)
+      (*Hmap.union(combine_BE_with_a (be) (derivative exp1) )(combine_BE_with_a (be) (derivative exp2) )*)
+    | Seq (e, f)-> failwith ""
+    | While (be,e) ->  
+      let derive_e = derivative e in
+      let e' = fst (Hmap.find derive_e) in
+      let e_pact = snd (Hmap.find derive_e) in
+      Hmap.singleton(be(*and a*)) ((seq(e',e)),e_pact)
+
 end
 
 module Equiv = struct
