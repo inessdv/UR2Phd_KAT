@@ -134,37 +134,45 @@ module Derivatives = struct
 
   let combine_BE_with_a (be : BExp.t) (m : (BExp.t_, Exp.t * string) Hmap.t) :
       (BExp.t_, Exp.t * string) Hmap.t =
-    let to_list = Hmap.to_seq m in
-    let to_seq = Seq.map (fun (a, b) -> (BExp.b_and a be, b)) to_list in
-    Hmap.of_seq to_seq
+    let to_list = Hmap.bindings m in
+    let mapped_list = List.map (fun (a, b) -> (BExp.b_and a be, b)) to_list in
+    List.fold_left
+      (fun acc (a, (b, c)) -> Hmap.add a (b, c) acc)
+      Hmap.empty mapped_list
 
   let while_helper (be : BExp.t) (exp : Exp.t)
       (m : (BExp.t_, Exp.t * string) Hmap.t) : (BExp.t_, Exp.t * string) Hmap.t
       =
-    let to_list = Hmap.to_seq m in
-    let to_seq =
-      Seq.map
+    let to_list = Hmap.bindings m in
+    let mapped_list =
+      List.map
         (fun (a, (e', p)) ->
           (BExp.b_and a be, (Exp.seq e' (Exp.while_do be exp), p)))
         to_list
     in
-    Hmap.of_seq to_seq
+    List.fold_left
+      (fun acc (a, (b, c)) -> Hmap.add a (b, c) acc)
+      Hmap.empty mapped_list
 
   let sequence_helper_without_epsilon (exp2 : Exp.t)
       (m : (BExp.t_, Exp.t * string) Hmap.t) : (BExp.t_, Exp.t * string) Hmap.t
       =
-    let to_list = Hmap.to_seq m in
-    let to_seq =
-      Seq.map (fun (b, (e', p)) -> (b, (Exp.seq e' exp2, p))) to_list
+    let to_list = Hmap.bindings m in
+    let mapped_list =
+      List.map (fun (b, (e', p)) -> (b, (Exp.seq e' exp2, p))) to_list
     in
-    Hmap.of_seq to_seq
+    List.fold_left
+      (fun acc (a, (b, c)) -> Hmap.add a (b, c) acc)
+      Hmap.empty mapped_list
 
   let sequence_helper_with_epsilon (eps : BExp.t)
       (m : (BExp.t_, Exp.t * string) Hmap.t) : (BExp.t_, Exp.t * string) Hmap.t
       =
-    let to_list = Hmap.to_seq m in
-    let to_seq = Seq.map (fun (b, pair) -> (BExp.b_and b eps, pair)) to_list in
-    Hmap.of_seq to_seq
+    let to_list = Hmap.bindings m in
+    let mapped_list = List.map (fun (b, pair) -> (BExp.b_and b eps, pair)) to_list in
+    List.fold_left
+      (fun acc (a, (b, c)) -> Hmap.add a (b, c) acc)
+      Hmap.empty mapped_list
 
   let rec derivative (exp : Exp.t) : (BExp.t_, Exp.t * string) Hmap.t =
     match exp.node with
