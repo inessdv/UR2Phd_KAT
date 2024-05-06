@@ -142,9 +142,7 @@ module Derivatives = struct
     match exp.node with
     |Test _ -> Hmap.empty
     |Pact p -> Hmap.singleton(BExp.one)(Exp.test(BExp.one),p)
-    |If (be, e, f) -> 
-      let derive_e = derivative e in
-      let derive_f = derivative f in _
+    |If (be, exp1, exp2) -> Hmap.union(fun _ _ _ -> None)(combine_BE_with_a (be)(derivative exp1) )(combine_BE_with_a (be) (derivative exp2) )
 
       (*(BExp.b_or ()) (BExp.b_or())*)
       (*Hmap.union(combine_BE_with_a (be) (derivative exp1) )(combine_BE_with_a (be) (derivative exp2) )*)
