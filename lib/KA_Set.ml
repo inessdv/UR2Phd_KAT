@@ -1,4 +1,5 @@
 (** a kleene datatype, represents regular expressions **)
+
 type 'a kleene =
   | Zero
   | One

@@ -257,7 +257,7 @@ end
 let test_equiv_deriv =
   QCheck_ounit.to_ounit2_test
   @@ Test.make ~count:1000 ~name:"testing KAT derivative based algorithm with generated equivalence"
-        (** We don't have a printer at this point*)
+        (* We don't have a printer at this point*)
        (* ~print:(fun (e1, e2, _) -> _ ) *)
        GenExp.gen_eq_exp
        (fun (e1, e2) ->

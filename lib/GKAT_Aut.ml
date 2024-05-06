@@ -1,7 +1,9 @@
 open Common
 open GKAT_2
 open PointedCoprod
+
 module PActSet = Set.Make (String)
+
 module StateMap = Map.Make (State)
 
 type state_set_map = State.Set.t StateMap.t
