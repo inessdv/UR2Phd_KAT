@@ -138,6 +138,34 @@ module Derivatives = struct
     let to_seq = Seq.map (fun (a, b) -> (BExp.b_and a be, b)) to_list in
     Hmap.of_seq to_seq
 
+  let while_helper (be : BExp.t) (exp : Exp.t)
+      (m : (BExp.t_, Exp.t * string) Hmap.t) : (BExp.t_, Exp.t * string) Hmap.t
+      =
+    let to_list = Hmap.to_seq m in
+    let to_seq =
+      Seq.map
+        (fun (a, (e', p)) ->
+          (BExp.b_and a be, (Exp.seq e' (Exp.while_do be exp), p)))
+        to_list
+    in
+    Hmap.of_seq to_seq
+
+  let sequence_helper_without_epsilon (exp2 : Exp.t)
+      (m : (BExp.t_, Exp.t * string) Hmap.t) : (BExp.t_, Exp.t * string) Hmap.t
+      =
+    let to_list = Hmap.to_seq m in
+    let to_seq =
+      Seq.map (fun (b, (e', p)) -> (b, (Exp.seq e' exp2, p))) to_list
+    in
+    Hmap.of_seq to_seq
+
+  let sequence_helper_with_epsilon (eps : BExp.t)
+      (m : (BExp.t_, Exp.t * string) Hmap.t) : (BExp.t_, Exp.t * string) Hmap.t
+      =
+    let to_list = Hmap.to_seq m in
+    let to_seq = Seq.map (fun (b, pair) -> (BExp.b_and b eps, pair)) to_list in
+    Hmap.of_seq to_seq
+
   let rec derivative (exp : Exp.t) : (BExp.t_, Exp.t * string) Hmap.t =
     match exp.node with
     | Test _ -> Hmap.empty
@@ -147,12 +175,17 @@ module Derivatives = struct
           (fun _ _ _ -> None)
           (combine_BE_with_a be (derivative exp1))
           (combine_BE_with_a be (derivative exp2))
-    | Seq (e, f) -> failwith ""
+    | Seq (e, f) ->
+        let eps_of_e = epsilion e in
+        let derivative_of_exp1 = derivative e in
+        let derivative_of_exp2 = derivative f in
+        Hmap.union
+          (fun _ _ _ -> None)
+          (sequence_helper_without_epsilon f derivative_of_exp1)
+          (sequence_helper_with_epsilon eps_of_e derivative_of_exp2)
     | While (be, e) ->
         let derive_e = derivative e in
-        let e' = fst (Hmap.find derive_e) in
-        let e_pact = snd (Hmap.find derive_e) in
-        Hmap.singleton be (*and a*) (seq (e', e), e_pact)
+        while_helper be e derive_e
 end
 
 module Equiv = struct
