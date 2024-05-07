@@ -53,6 +53,64 @@ module Print1 = struct
 end
 
 module Print2 = struct
+
+  (*Printer helper function for bexp expressions*)
+  let rec pprint_bexp (bexp : bExp) : string * int =
+    match bexp with
+    | Zero -> ("0", 0)
+    | One -> ("1", 0)
+    | PBool b -> (b, 0)
+    | Or (b1, b2) ->
+      let str1, prec1 = pprint_bexp b1 in
+      let str2, prec2 = pprint_bexp b2 in
+      let str1' = if prec1 > 2 then "(" ^ str1 ^ ")" else str1 in
+      let str2' = if prec2 > 2 then "(" ^ str2 ^ ")" else str2 in
+      (str1' ^ " or " ^ str2', 3)
+    | And (b1, b2) ->
+      let str1, prec1 = pprint_bexp b1 in
+      let str2, prec2 = pprint_bexp b2 in
+      let str1' = if prec1 > 2 then "(" ^ str1 ^ ")" else str1 in
+      let str2' = if prec2 > 2 then "(" ^ str2 ^ ")" else str2 in
+      (str1' ^ " and " ^ str2', 3)
+    | Not b ->
+      let str, prec = pprint_bexp b in
+      if prec > 0 then ("~(" ^ str ^ ")", 1) else ("~" ^ str, 1)
+
+      (*pretty printer for gkat*)
+  let pprint (exp : gkat) =
+    let rec helper (exp : gkat) : string * int =
+      match exp with
+      | Pact p -> (p, 0)
+      | Seq (e1, e2) ->
+        let s1, p1 = helper e1 in
+        let s2, p2 = helper e2 in
+        let s1' = if p1 < 2 then s1 else "(" ^ s1 ^ ")" in
+        let s2' = if p2 < 2 then s2 else "(" ^ s2 ^ ")" in
+        (s1' ^ " * " ^ s2', 2)
+      | If (b, e1, e2) ->
+        let bs, _ = pprint_bexp b in
+        let s1, p1 = helper e1 in
+        let s2, p2 = helper e2 in
+        let s1' = if p1 <= 3 then s1 else "(" ^ s1 ^ ")" in
+        let s2' = if p2 < 3 then s2 else "(" ^ s2 ^ ")" in
+        ("if " ^ bs ^ " then " ^ s1' ^ " else " ^ s2', 3)
+      | Test b ->
+        let bs, _ = pprint_bexp b in
+        (bs, 1)
+      | While (b, e) ->
+        let bs, _ = pprint_bexp b in
+        let s, p = helper e in
+        let s' = if p <= 1 then s else "(" ^ s ^ ")" in
+        ("while " ^ bs ^ " do " ^ s' ^ " done", 1)
+    in
+
+    let str, _ = helper exp in
+    str
+end
+
+
+
+(*
   let pprint (exp : gkat) =
     (*helper method, takes a expression, output the string,
           and **the precedence of the outer most expression** *)
@@ -114,11 +172,12 @@ module Print2 = struct
               let str, precedence = helper (from_BE_to_KAT bexp1) in
               if precedence <= 1 then ("~" ^ str, 1) else ("~(" ^ str ^ ")", 1) in
               ( str, 1)
-      | While (bexp, exp) -> _
-  
-    let pprint_sum (expset : KATSet.t) : string =
+      | While (bexp, exp) -> failwith ""
+            in failwith ""
+    (*let pprint_sum (expset : KATSet.t) : string =
       let exp_list = KATSet.to_list expset in
       (*I can do pipeline here*)
       let string_list = List.map pprint exp_list in
-      String.concat " " string_list
-  end
+      String.concat " " string_list 
+    in *)
+  end *)
