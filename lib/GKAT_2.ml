@@ -1,5 +1,5 @@
 open KAT_Set
-open KA_equiv.KAT_Set.Print
+open KAT_Set.Print
 
 type bExp =
   | Zero
