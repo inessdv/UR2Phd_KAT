@@ -64,6 +64,17 @@ module BExp = struct
     match Z3.Solver.check solver [ to_z3 b ] with
     | Z3.Solver.UNSATISFIABLE -> true
     | _ -> false
+
+  (** Test if two boolean expressions is semantically equivelant. *)
+  let equiv (b1: t) (b2: t): bool = 
+    let solver = Z3.Solver.mk_solver z3_empty_ctx None in
+    let iff_exp = Z3.Boolean.mk_iff z3_empty_ctx (to_z3 b1) (to_z3 b2) in 
+    let not_iff_exp = Z3.Boolean.mk_not z3_empty_ctx iff_exp in 
+    (* if ¬ (b1 ↔ b2) is unsatisfiable, then b1 ↔ b2 is a tautology,
+       thus b1 and b2 are semantically equivalent.*)
+    match Z3.Solver.check solver [ not_iff_exp ] with
+    | Z3.Solver.UNSATISFIABLE -> true
+    | _ -> false
 end
 
 module Exp = struct
