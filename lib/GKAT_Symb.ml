@@ -122,12 +122,30 @@ module Derivatives = struct
   (** defines derivatives *)
 
   module Hmap = Hashcons.Hmap
+  module HSet = Hashcons.Hset
   (** a fast immutable map for hashconsed key *)
 
   (** The epsilon of the expression,
       
   The boolean expression consists of all the atoms 
   that is accepted by the expression *)
+  module ExpTbl = Hashtbl.Make (struct
+  type t = Exp.t
+
+  let hash (e : t) = e.hkey
+  let equal e1 e2 = e1 == e2
+end)
+  module ExpHSet = struct
+    type t = unit ExpTbl.t
+
+    let create : int -> t = ExpTbl.create
+    let add (exp : Exp.t) (s : t) : unit = ExpTbl.add s exp ()
+    let remove (exp : Exp.t) (s : t) : unit = ExpTbl.remove s exp
+
+    let mem (exp : Exp.t) (s : t) : bool =
+      Option.is_some @@ ExpTbl.find_opt s exp
+  end
+
   let rec epsilion (exp : Exp.t) : BExp.t =
     match exp.node with
     | Pact _ -> BExp.zero
@@ -205,6 +223,32 @@ module Derivatives = struct
     | While (be, e) ->
         let derive_e = derivative e in
         while_helper be e derive_e
+
+  let rec dfs_for_check_dead(exp:Exp.t):(Exp.t_)HSet.t=
+      match exp.node with
+      | test_ -> HSet.empty
+      | _ -> let explored= HSet.singleton exp in 
+      let deriv = Hmap.bindings (derivative exp) in 
+      List.fold_left (fun (acc)(_,(exp',_))-> HSet.union (dfs_for_check_dead exp') (acc)) explored deriv
+
+  let rec check_dead (exp:Exp.t):(Exp.t_)HSet.t option =
+      match epsilion exp with
+      | zero-> 
+        Some (dfs_for_check_dead exp)
+      | _ -> None
+
+  (* let dead_states : ExpHSet.t = ExpHSet.create 251 whar size?? *)
+  let dead_states :  (Exp.t_)HSet.t= HSet.empty(* whar size??*)
+
+
+
+  let is_dead (exp:Exp.t):bool = 
+    if HSet.mem (exp) (dead_states) then true
+    else match check_dead exp with
+    (* | Some(s)-> let dead_states = ExpHSet.add s  *)
+    |Some(s)-> let dead_states=HSet.union dead_states s in true
+    | None -> false
+
 end
 
 module Equiv = struct
