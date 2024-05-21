@@ -144,6 +144,9 @@ end)
 
     let mem (exp : Exp.t) (s : t) : bool =
       Option.is_some @@ ExpTbl.find_opt s exp
+    
+    let add_to_fst (hset1:t) (hset2:Exp.t list):unit= 
+      List.iter(fun exp -> add exp hset1) hset2
   end
 
   let rec epsilion (exp : Exp.t) : BExp.t =
@@ -224,29 +227,44 @@ end)
         let derive_e = derivative e in
         while_helper be e derive_e
 
-  let rec dfs_for_check_dead(exp:Exp.t):(Exp.t_)HSet.t=
+  let explored : ExpHSet.t=ExpHSet.create 251
+        
+  (* let rec dfs_for_check_dead(exp:Exp.t):(Exp.t_)HSet.t=
       match exp.node with
-      | test_ -> HSet.empty
-      | _ -> let explored= HSet.singleton exp in 
+      | Test _ -> HSet.empty
+      | _ -> 
+      let explored= HSet.singleton exp in 
       let deriv = Hmap.bindings (derivative exp) in 
-      List.fold_left (fun (acc)(_,(exp',_))-> HSet.union (dfs_for_check_dead exp') (acc)) explored deriv
+      List.fold_left (fun (acc)(_,(exp',_))-> HSet.union (dfs_for_check_dead exp') (acc)) explored deriv *)
 
-  let rec check_dead (exp:Exp.t):(Exp.t_)HSet.t option =
+
+  let rec check_dead (exp:Exp.t):(Exp.t)HSet.t option =
+    if ExpHSet.mem exp explored then ()
+    else ExpHSet.add exp explored ;
       match epsilion exp with
-      | zero-> 
-        Some (dfs_for_check_dead exp)
+      | _zero -> 
+        let death_exp = HSet.empty in
+        let deriv = Hmap.bindings (derivative exp) in 
+        (* let exp_dead = List.fold_left (fun explore ele -> match check_dead ele with
+        | None -> None
+        | _ ->  Some (ExpHSet.add ele explored) ) explored deriv in Some(exp_dead) *)
+        List.fold_left(fun (acc)(_,(exp,_)) -> match check_dead exp with
+        | None -> acc
+        | Some states -> HSet.union states acc) death_exp deriv
       | _ -> None
 
   (* let dead_states : ExpHSet.t = ExpHSet.create 251 whar size?? *)
-  let dead_states :  (Exp.t_)HSet.t= HSet.empty(* whar size??*)
+  let dead_states : ExpHSet.t=ExpHSet.create 251(* whar size??*)
 
 
 
   let is_dead (exp:Exp.t):bool = 
-    if HSet.mem (exp) (dead_states) then true
+    if ExpHSet.mem (exp) (dead_states) then true
     else match check_dead exp with
     (* | Some(s)-> let dead_states = ExpHSet.add s  *)
-    |Some(s)-> let dead_states=HSet.union dead_states s in true
+    |Some(s)-> 
+      let exp_list=HSet.elements s in 
+      ExpHSet.add_to_fst dead_states exp_list ; true
     | None -> false
 
 end
