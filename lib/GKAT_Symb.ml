@@ -66,10 +66,10 @@ module BExp = struct
     | _ -> false
 
   (** Test if two boolean expressions is semantically equivelant. *)
-  let equiv (b1: t) (b2: t): bool = 
+  let equiv (b1 : t) (b2 : t) : bool =
     let solver = Z3.Solver.mk_solver z3_empty_ctx None in
-    let iff_exp = Z3.Boolean.mk_iff z3_empty_ctx (to_z3 b1) (to_z3 b2) in 
-    let not_iff_exp = Z3.Boolean.mk_not z3_empty_ctx iff_exp in 
+    let iff_exp = Z3.Boolean.mk_iff z3_empty_ctx (to_z3 b1) (to_z3 b2) in
+    let not_iff_exp = Z3.Boolean.mk_not z3_empty_ctx iff_exp in
     (* if ¬ (b1 ↔ b2) is unsatisfiable, then b1 ↔ b2 is a tautology,
        thus b1 and b2 are semantically equivalent.*)
     match Z3.Solver.check solver [ not_iff_exp ] with
@@ -122,6 +122,7 @@ module Derivatives = struct
   (** defines derivatives *)
 
   module Hmap = Hashcons.Hmap
+
   module HSet = Hashcons.Hset
   (** a fast immutable map for hashconsed key *)
 
@@ -130,11 +131,12 @@ module Derivatives = struct
   The boolean expression consists of all the atoms 
   that is accepted by the expression *)
   module ExpTbl = Hashtbl.Make (struct
-  type t = Exp.t
+    type t = Exp.t
 
-  let hash (e : t) = e.hkey
-  let equal e1 e2 = e1 == e2
-end)
+    let hash (e : t) = e.hkey
+    let equal e1 e2 = e1 == e2
+  end)
+
   module ExpHSet = struct
     type t = unit ExpTbl.t
 
@@ -144,9 +146,9 @@ end)
 
     let mem (exp : Exp.t) (s : t) : bool =
       Option.is_some @@ ExpTbl.find_opt s exp
-    
-    let add_to_fst (hset1:t) (hset2:Exp.t list):unit= 
-      List.iter(fun exp -> add exp hset1) hset2
+
+    let add_to_fst (hset1 : t) (hset2 : Exp.t list) : unit =
+      List.iter (fun exp -> add exp hset1) hset2
   end
 
   let rec epsilion (exp : Exp.t) : BExp.t =
@@ -201,7 +203,9 @@ end)
       (m : (BExp.t_, Exp.t * string) Hmap.t) : (BExp.t_, Exp.t * string) Hmap.t
       =
     let to_list = Hmap.bindings m in
-    let mapped_list = List.map (fun (b, pair) -> (BExp.b_and b eps, pair)) to_list in
+    let mapped_list =
+      List.map (fun (b, pair) -> (BExp.b_and b eps, pair)) to_list
+    in
     List.fold_left
       (fun acc (a, (b, c)) -> Hmap.add a (b, c) acc)
       Hmap.empty mapped_list
@@ -227,46 +231,64 @@ end)
         let derive_e = derivative e in
         while_helper be e derive_e
 
-  let explored : ExpHSet.t=ExpHSet.create 251
-        
   (* let rec dfs_for_check_dead(exp:Exp.t):(Exp.t_)HSet.t=
       match exp.node with
       | Test _ -> HSet.empty
-      | _ -> 
-      let explored= HSet.singleton exp in 
-      let deriv = Hmap.bindings (derivative exp) in 
+      | _ ->
+      let explored= HSet.singleton exp in
+      let deriv = Hmap.bindings (derivative exp) in
       List.fold_left (fun (acc)(_,(exp',_))-> HSet.union (dfs_for_check_dead exp') (acc)) explored deriv *)
 
+  (* let explored : ExpHSet.t=ExpHSet.create 251 *)
 
-  let rec check_dead (exp:Exp.t):(Exp.t)HSet.t option =
-    if ExpHSet.mem exp explored then ()
-    else ExpHSet.add exp explored ;
-      match epsilion exp with
-      | _zero -> 
-        let death_exp = HSet.empty in
-        let deriv = Hmap.bindings (derivative exp) in 
-        (* let exp_dead = List.fold_left (fun explore ele -> match check_dead ele with
+  let rec check_dead_many (explored : Exp.t_ HSet.t) (exps : Exp.t list) :
+      Exp.t_ HSet.t option =
+    match exps with
+    | [] -> Some explored
+    | x1 :: xs -> (
+        match check_dead explored x1 with
         | None -> None
-        | _ ->  Some (ExpHSet.add ele explored) ) explored deriv in Some(exp_dead) *)
-        List.fold_left(fun (acc)(_,(exp,_)) -> match check_dead exp with
-        | None -> acc
-        | Some states -> HSet.union states acc) death_exp deriv
-      | _ -> None
+        | Some states -> check_dead_many (HSet.union explored states) xs)
+
+  and check_dead (explored : Exp.t_ HSet.t) (exp : Exp.t) : Exp.t_ HSet.t option
+      =
+    if HSet.mem exp explored then Some explored
+    else
+      let explored = HSet.add exp explored in
+      if BExp.is_false @@ epsilion exp then
+        let deriv = Hmap.bindings (derivative exp) in
+        let next_exps = List.map (fun (_, (exp, _)) -> exp) deriv in
+        check_dead_many explored next_exps
+      else None
 
   (* let dead_states : ExpHSet.t = ExpHSet.create 251 whar size?? *)
-  let dead_states : ExpHSet.t=ExpHSet.create 251(* whar size??*)
+  let dead_states : ExpHSet.t = ExpHSet.create 251 (* whar size??*)
 
+  let is_dead (exp : Exp.t) : bool =
+    if ExpHSet.mem exp dead_states then true
+    else
+      match check_dead HSet.empty exp with
+      (* | Some(s)-> let dead_states = ExpHSet.add s  *)
+      | Some s ->
+          let exp_list = HSet.elements s in
+          ExpHSet.add_to_fst dead_states exp_list;
+          true
+      | None -> false
 
+  let hash_table = ExpTbl.create 251
 
-  let is_dead (exp:Exp.t):bool = 
-    if ExpHSet.mem (exp) (dead_states) then true
-    else match check_dead exp with
-    (* | Some(s)-> let dead_states = ExpHSet.add s  *)
-    |Some(s)-> 
-      let exp_list=HSet.elements s in 
-      ExpHSet.add_to_fst dead_states exp_list ; true
-    | None -> false
+  let exp_ele (exp : Exp.t) : Exp.t UnionFind.elem =
+    match ExpTbl.find_opt hash_table exp with
+    | Some exp_ele -> exp_ele
+    | None ->
+        let exp_ele = UnionFind.make exp in
+        ExpTbl.add hash_table exp exp_ele;
+        exp_ele
 
+  let equiv (exp1 : Exp.t) (exp2 : Exp.t) : bool =
+    let exp1_ele = exp_ele exp1 in
+    let exp2_ele = exp_ele exp2 in
+    if UnionFind.eq exp1_ele exp2_ele then true else _
 end
 
 module Equiv = struct
