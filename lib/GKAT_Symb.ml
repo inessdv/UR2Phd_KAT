@@ -151,14 +151,14 @@ module Derivatives = struct
       List.iter (fun exp -> add exp hset1) hset2
   end
 
-  let rec epsilion (exp : Exp.t) : BExp.t =
+  let rec epsilon (exp : Exp.t) : BExp.t =
     match exp.node with
     | Pact _ -> BExp.zero
-    | Seq (e, f) -> BExp.b_and (epsilion e) (epsilion f)
+    | Seq (e, f) -> BExp.b_and (epsilon e) (epsilon f)
     | If (be, e, f) ->
         BExp.b_or
-          (BExp.b_and be (epsilion e))
-          (BExp.b_and (BExp.b_not be) (epsilion f))
+          (BExp.b_and be (epsilon e))
+          (BExp.b_and (BExp.b_not be) (epsilon f))
     | Test be -> be
     | While (be, _) -> BExp.b_not be
 
@@ -220,7 +220,7 @@ module Derivatives = struct
           (combine_BE_with_a be (derivative exp1))
           (combine_BE_with_a be (derivative exp2))
     | Seq (e, f) ->
-        let eps_of_e = epsilion e in
+        let eps_of_e = epsilon e in
         let derivative_of_exp1 = derivative e in
         let derivative_of_exp2 = derivative f in
         Hmap.union
@@ -255,7 +255,7 @@ module Derivatives = struct
     if HSet.mem exp explored then Some explored
     else
       let explored = HSet.add exp explored in
-      if BExp.is_false @@ epsilion exp then
+      if BExp.is_false @@ epsilon exp then
         let deriv = Hmap.bindings (derivative exp) in
         let next_exps = List.map (fun (_, (exp, _)) -> exp) deriv in
         check_dead_many explored next_exps
@@ -277,6 +277,7 @@ module Derivatives = struct
 
   let hash_table = ExpTbl.create 251
 
+  (** Add expression to hash table if it has not yet been added **)
   let exp_ele (exp : Exp.t) : Exp.t UnionFind.elem =
     match ExpTbl.find_opt hash_table exp with
     | Some exp_ele -> exp_ele
@@ -288,7 +289,18 @@ module Derivatives = struct
   let equiv (exp1 : Exp.t) (exp2 : Exp.t) : bool =
     let exp1_ele = exp_ele exp1 in
     let exp2_ele = exp_ele exp2 in
-    if UnionFind.eq exp1_ele exp2_ele then true else _
+    (** Check if the expressions have already been marked as equiv **)
+    if UnionFind.eq exp1_ele exp2_ele then true else
+    (**  assert ϵ(e) = ϵ(f) **)
+      if epsilon exp1 != epsilon exp2 then false else 
+        (**  Check for rejection, rejection cannot overlap with any transitions **)
+        (** forall ψ_f ↦ (f', q) ∈ δ(f), (ρ(e) ∧ ψ_f = 0) **)
+        let reject_e = _ in
+        let f_derivatives = derivative exp2 in
+        
+        (** forall ψ_e ↦ (e', q) ∈ δ(f), (ρ(f) ∧ ψ_e = 0) **)
+
+
 end
 
 module Equiv = struct
@@ -428,7 +440,7 @@ module Equiv = struct
         (* whether the scc has a transition to live *)
         HSet.exists (fun e -> ExpHSet.mem e to_live_scc) popped
         (* whether the scc has an accepting transition *)
-        || HSet.exists (fun e -> not @@ BExp.is_false @@ epsilion e) popped
+        || HSet.exists (fun e -> not @@ BExp.is_false @@ epsilon e) popped
       in
       let info_of_e = info_of e in
       (* union all the popped expression into a *)
