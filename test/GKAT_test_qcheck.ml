@@ -269,22 +269,20 @@ let test_equiv_aut =
 QCheck_ounit.to_ounit2_test
 @@ Test.make ~count:1000 ~name:"testing thompson's construction based algorithm with generated equivalence"
       (* We don't have a printer at this point*)
-      (* ~print:(fun (e1, e2) -> _ ) *)
+      ~print:(fun (e1, e2) -> _ )
       GenExp.gen_eq_exp
       (fun (e1, e2) ->
-        (* HACK: ignore generated result with duplicate labels,
-          I cannot deal with labels any more...*)
         GKAT_Aut.equiv e1 e2)
 
 let test_both_method =
   QCheck_ounit.to_ounit2_test
   @@ Test.make ~count:1000 ~name:"the KAT derivative based algorithm and thompson's construction based algorithm should return the same result"
         (* We don't have a printer at this point*)
-        (* ~print:(fun (e1, e2) -> _ ) *)
+        ~print:(fun (e1, e2) -> _ )
         (Gen.pair 
           (GenExp.exp_sized bexp_max_size exp_max_size)
           (GenExp.exp_sized bexp_max_size exp_max_size))
         (fun (e1, e2) ->
-          (* HACK: ignore generated result with duplicate labels,
-            I cannot deal with labels any more...*)
           GKAT_Aut.equiv e1 e2 = GKAT_2.gKat_equiv e1 e2)
+
+(*A recursion function to change from gkat to gkat hashcon*)

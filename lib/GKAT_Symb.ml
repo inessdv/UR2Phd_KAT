@@ -192,9 +192,9 @@ module Derivatives = struct
     | Test _ -> []
     | Pact p -> [BExp.one,( Exp.test(BExp.one) , p)]
     | If (be, exp1, exp2) ->
-        (** get rid of repetitions**)
+        (** get rid of repetitions--> do List.sort_uniq**)
         (combine_BE_with_a be (derivative exp1)) @
-        (combine_BE_with_a be (derivative exp2))
+        (combine_BE_with_a (BExp.b_not be) (derivative exp2))
     | Seq (e, f) ->
         let eps_of_e = epsilon e in
         let derivative_of_exp1 = derivative e in
@@ -291,7 +291,7 @@ let product (psi_e:(BExp.t_ Hashcons.hash_consed * (Exp.t * string)) list) (psi_
           if ExpHSet.mem exp1 dead_states then is_dead exp2 else
           if ExpHSet.mem exp2 dead_states then is_dead exp1 else
           
-          (**  assert ϵ(e) = ϵ(f)   assert and try catch  design custom exception **)
+          (**  Logical connection here instead of if **)
             if not (BExp.equiv (epsilon exp1) (epsilon exp2)) then false else
               let reject_atoms_of_exp1 = reject exp1 in 
               let reject_atoms_of_exp2 = reject exp2 in 
@@ -304,11 +304,11 @@ let product (psi_e:(BExp.t_ Hashcons.hash_consed * (Exp.t * string)) list) (psi_
               List.for_all (fun(be,(exp,_))-> 
                 is_dead exp  || BExp.is_false (BExp.b_and reject_atoms_of_exp2 be))  e_derivatives
               &&
-              
+              (*only use once, no need to define*)
               let cross_product = product e_derivatives f_derivatives in 
               List.for_all(fun ((be1,(next_exp1,p)),(be2,(next_exp2,q)))->
                 BExp.is_false (BExp.b_and be1 be2) ||
-              if p == q then (ignore @@UnionFind.union exp1_ele exp2_ele;
+              if p = q then (ignore @@UnionFind.union exp1_ele exp2_ele;
               if equiv next_exp1 next_exp2 then true else false)
             else 
               (if (is_dead(next_exp1) && is_dead(next_exp2)) then true else false))cross_product

@@ -1,4 +1,4 @@
-open GKAT_2
+(* open GKAT_2
 
 module BExp = struct
   (** Module for working with boolean expressions *)
@@ -520,4 +520,4 @@ module Equiv = struct
       (* `e` has been explored *)
       | Some info_of_e -> ExpHSet.mem (rep info_of_e) live_scc
   end
-end
+end *)
