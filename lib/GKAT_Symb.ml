@@ -205,16 +205,6 @@ module Derivatives = struct
         let derive_e = derivative e in
         while_helper be e derive_e
 
-  (* let rec dfs_for_check_dead(exp:Exp.t):(Exp.t_)HSet.t=
-      match exp.node with
-      | Test _ -> HSet.empty
-      | _ ->
-      let explored= HSet.singleton exp in
-      let deriv = Hmap.bindings (derivative exp) in
-      List.fold_left (fun (acc)(_,(exp',_))-> HSet.union (dfs_for_check_dead exp') (acc)) explored deriv *)
-
-  (* let explored : ExpHSet.t=ExpHSet.create 251 *)
-
   let rec check_dead_many (explored : Exp.t_ HSet.t) (exps : Exp.t list) :
       Exp.t_ HSet.t option =
     match exps with
@@ -273,13 +263,6 @@ let product (psi_e:(BExp.t_ Hashcons.hash_consed * (Exp.t * string)) list) (psi_
       BExp.b_and (BExp.b_not epsilon) (BExp.b_not transitions)
 
 
-  (**cshould we call reject beforehand? if so:
-      let rec equiv_helper (exp1 : Exp.t) (exp2 : Exp.t) : bool =
-        let r1 = reject exp1 in
-        let r2 = reject exp2 in
-        equiv exp1 exp2 r1 r2
-        (change input of equiv to include r1 and r2)
-        **)
   let rec equiv (exp1 : Exp.t) (exp2 : Exp.t) : bool =
           let exp1_ele = exp_ele exp1 in
           let exp2_ele = exp_ele exp2 in
@@ -290,27 +273,27 @@ let product (psi_e:(BExp.t_ Hashcons.hash_consed * (Exp.t * string)) list) (psi_
           (** if both are dead, then they are equivalent **)
           if ExpHSet.mem exp1 dead_states then is_dead exp2 else
           if ExpHSet.mem exp2 dead_states then is_dead exp1 else
-          
+  
           (**  Logical connection here instead of if **)
-            if not (BExp.equiv (epsilon exp1) (epsilon exp2)) then false else
+            (BExp.equiv (epsilon exp1) (epsilon exp2)) &&
+
               let reject_atoms_of_exp1 = reject exp1 in 
               let reject_atoms_of_exp2 = reject exp2 in 
               let f_derivatives = derivative exp2 in
               let e_derivatives = derivative exp1 in
-              (**ASSERT**)
+              
               List.for_all (fun(be,(exp,_))-> 
                 is_dead exp  || BExp.is_false (BExp.b_and reject_atoms_of_exp1 be))  f_derivatives
               &&
               List.for_all (fun(be,(exp,_))-> 
                 is_dead exp  || BExp.is_false (BExp.b_and reject_atoms_of_exp2 be))  e_derivatives
               &&
-              (*only use once, no need to define*)
-              let cross_product = product e_derivatives f_derivatives in 
+
               List.for_all(fun ((be1,(next_exp1,p)),(be2,(next_exp2,q)))->
                 BExp.is_false (BExp.b_and be1 be2) ||
-              if p = q then (ignore @@UnionFind.union exp1_ele exp2_ele;
-              if equiv next_exp1 next_exp2 then true else false)
-            else 
-              (if (is_dead(next_exp1) && is_dead(next_exp2)) then true else false))cross_product
-              
+                if p = q then (ignore @@UnionFind.union exp1_ele exp2_ele;
+                if equiv next_exp1 next_exp2 then true else false)
+              else 
+                (if (is_dead(next_exp1) && is_dead(next_exp2)) then true else false)) (product e_derivatives f_derivatives)
+                
       end
