@@ -293,22 +293,12 @@ let product (psi_e:(BExp.t_ Hashcons.hash_consed * (Exp.t * string)) list) (psi_
        
   (**Ask about p(e) fucntion**)
   let rec reject (exp : Exp.t) : BExp.t =
-     match exp.node with
-    | Pact _ -> BExp.zero
-    | Seq (e, f) -> BExp.b_and (reject e) (reject f)
-    | If (be, e, f) ->
-        BExp.b_or
-        (BExp.b_and be (reject e))
-        (BExp.b_and (BExp.b_not be) (reject f))
-    | Test be -> be
-    | While (be, _) -> BExp.b_not be
+    let exp_derivatives = Hmap.bindings (derivative exp) in
+    let epsilon = epsilon exp in
+    let transitions = List.map (fun(be,(_,_))-> be) exp_derivatives in
+      epsilon @ transitions
 
-  (**let rec check_disjoint (psi_e:(BExp.t_ Hashcons.hash_consed * (Exp.t * string)) list) (psi_f:(BExp.t_ Hashcons.hash_consed * (Exp.t * string)) list): bool =
-    match psi_e with
-    |[] -> true
-    |(be1,(exp1,p))::xs -> List.exists ((fun(be2,(exp2,q)) -> (BExp.is_false be1 be2) || if p = q )) psi_f
-    
-  **)
+
   
   let rec equiv (exp1 : Exp.t) (exp2 : Exp.t) : bool =
     let exp1_ele = exp_ele exp1 in
@@ -327,12 +317,10 @@ let product (psi_e:(BExp.t_ Hashcons.hash_consed * (Exp.t * string)) list) (psi_
         let f_derivatives = Hmap.bindings (derivative exp2) in
         let e_derivatives = Hmap.bindings (derivative exp1) in
 
-        (** do we need an OR or AND **)
-        (**ASSERT**)
-        (* List.exists (fun(be,(exp,_))-> not (is_dead exp ) && not (BExp.is_false (BExp.b_and(reject_atoms_of_exp1) (be))))  f_derivatives
+        List.for_all (fun(be,(exp,_))-> (is_dead exp ) && (BExp.is_false (BExp.b_and(reject_atoms_of_exp1) (be))))  f_derivatives
         &&
-        List.exists (fun(be,(exp,_))-> not (is_dead exp ) && not (BExp.is_false (BExp.b_and(reject_atoms_of_exp2) (be))))  e_derivatives *)
-        
+        List.for_all (fun(be,(exp,_))-> (is_dead exp ) && (BExp.is_false (BExp.b_and(reject_atoms_of_exp2) (be))))  e_derivatives
+        &&
         let cross_product = product e_derivatives f_derivatives in 
         let rec check_disjoint (cross_product: 
           ((BExp.t_ Hashcons.hash_consed * (Exp.t * string))
@@ -341,7 +329,7 @@ let product (psi_e:(BExp.t_ Hashcons.hash_consed * (Exp.t * string)) list) (psi_
         match cross_product with
         | [] -> true
         | ((be1,(next_exp1,p)),(be2,(next_exp2,q)))::xs -> BExp.is_false (BExp.b_and be1 be2) ||
-          if p == q then (ignore @@UnionFind.union exp1_ele exp2_ele;
+          if p = q then (ignore @@UnionFind.union exp1_ele exp2_ele;
           if equiv next_exp1 next_exp2 == true then check_disjoint xs else false)
         else 
           (if (is_dead(next_exp1) && is_dead(next_exp2)==true) then check_disjoint xs else false) in
