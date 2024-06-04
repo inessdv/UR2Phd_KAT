@@ -263,7 +263,10 @@ let product (psi_e:(BExp.t_ Hashcons.hash_consed * (Exp.t * string)) list) (psi_
       BExp.b_and (BExp.b_not epsilon) (BExp.b_not transitions)
 
 
-  let rec equiv (exp1 : Exp.t) (exp2 : Exp.t) : bool =
+
+
+
+  let rec equiv (exp1 : Exp.t) (exp2 : Exp.t) (reject1: BExp.t) (reject2: BExp.t) : bool =
           let exp1_ele = exp_ele exp1 in
           let exp2_ele = exp_ele exp2 in
       
@@ -277,23 +280,25 @@ let product (psi_e:(BExp.t_ Hashcons.hash_consed * (Exp.t * string)) list) (psi_
           (**  Logical connection here instead of if **)
             (BExp.equiv (epsilon exp1) (epsilon exp2)) &&
 
-              let reject_atoms_of_exp1 = reject exp1 in 
-              let reject_atoms_of_exp2 = reject exp2 in 
               let f_derivatives = derivative exp2 in
               let e_derivatives = derivative exp1 in
               
               List.for_all (fun(be,(exp,_))-> 
-                is_dead exp  || BExp.is_false (BExp.b_and reject_atoms_of_exp1 be))  f_derivatives
+                is_dead exp  || BExp.is_false (BExp.b_and reject1 be))  f_derivatives
               &&
               List.for_all (fun(be,(exp,_))-> 
-                is_dead exp  || BExp.is_false (BExp.b_and reject_atoms_of_exp2 be))  e_derivatives
+                is_dead exp  || BExp.is_false (BExp.b_and reject2 be))  e_derivatives
               &&
 
               List.for_all(fun ((be1,(next_exp1,p)),(be2,(next_exp2,q)))->
                 BExp.is_false (BExp.b_and be1 be2) ||
                 if p = q then (ignore @@UnionFind.union exp1_ele exp2_ele;
-                if equiv next_exp1 next_exp2 then true else false)
+                if equiv next_exp1 next_exp2 reject1 reject2 then true else false)
               else 
                 (if (is_dead(next_exp1) && is_dead(next_exp2)) then true else false)) (product e_derivatives f_derivatives)
-                
-      end
+  let rec equiv_helper (exp1 : Exp.t) (exp2 : Exp.t) : bool =
+    let reject1 = reject exp1 in
+    let reject2 = reject exp2 in
+      equiv exp1 exp2 reject1 reject2
+
+    end
