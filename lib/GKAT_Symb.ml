@@ -291,15 +291,21 @@ let product (psi_e:(BExp.t_ Hashcons.hash_consed * (Exp.t * string)) list) (psi_
        (fun x a -> List.fold_left (fun y b -> (a, b) :: y) x psi_f)
        [] psi_e)
        
-  (**Ask about p(e) fucntion**)
+  (** p(e) fucntion ρ(e) = ¬ ϵ(e) ∧ ¬ (⋁_{ψ ↦ (e', p) ∈ δ(e)} ψ)**)
   let rec reject (exp : Exp.t) : BExp.t =
     let exp_derivatives = Hmap.bindings (derivative exp) in
     let epsilon = epsilon exp in
-    let transitions = List.map (fun(be,(_,_))-> be) exp_derivatives in
-      epsilon @ transitions
+    let transitions = List.fold_left (fun acc (be,(_,_)) -> BExp.b_or acc be ) BExp.zero exp_derivatives in
+      BExp.b_and (BExp.b_not epsilon) (BExp.b_not transitions)
 
 
-  
+  (**cshould we call reject beforehand? if so:
+      let rec equiv_helper (exp1 : Exp.t) (exp2 : Exp.t) : bool =
+        let r1 = reject exp1 in
+        let r2 = reject exp2 in
+        equiv exp1 exp2 r1 r2
+        (change input of equiv to include r1 and r2)
+        **)
   let rec equiv (exp1 : Exp.t) (exp2 : Exp.t) : bool =
     let exp1_ele = exp_ele exp1 in
     let exp2_ele = exp_ele exp2 in
