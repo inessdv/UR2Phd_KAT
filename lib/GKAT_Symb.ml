@@ -306,17 +306,11 @@ let product (psi_e:(BExp.t_ Hashcons.hash_consed * (Exp.t * string)) list) (psi_
               &&
               
               let cross_product = product e_derivatives f_derivatives in 
-              let rec check_disjoint (cross_product: 
-                ((BExp.t_ Hashcons.hash_consed * (Exp.t * string))
-                * (BExp.t_ Hashcons.hash_consed * (Exp.t * string)))
-                list): bool =
-              match cross_product with
-              | [] -> true
-              | ((be1,(next_exp1,p)),(be2,(next_exp2,q)))::xs -> BExp.is_false (BExp.b_and be1 be2) ||
-                if p == q then (ignore @@UnionFind.union exp1_ele exp2_ele;
-                if equiv next_exp1 next_exp2 then check_disjoint xs else false)
-              else 
-                (if (is_dead(next_exp1) && is_dead(next_exp2)) then check_disjoint xs else false) in
-               check_disjoint cross_product
+              List.for_all(fun ((be1,(next_exp1,p)),(be2,(next_exp2,q)))->
+                BExp.is_false (BExp.b_and be1 be2) ||
+              if p == q then (ignore @@UnionFind.union exp1_ele exp2_ele;
+              if equiv next_exp1 next_exp2 then true else false)
+            else 
+              (if (is_dead(next_exp1) && is_dead(next_exp2)) then true else false))cross_product
               
       end
