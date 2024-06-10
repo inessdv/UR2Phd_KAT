@@ -256,9 +256,11 @@ end
 
 let test_equiv_deriv =
   QCheck_ounit.to_ounit2_test
-  @@ Test.make ~count:1000 ~name:"testing KAT derivative based algorithm with generated equivalence"
-        (* We don't have a printer at this point*)
-       ~print:(fun (e1, e2) -> GKAT_2.Print2.pprint e1 ^" EXP2: "^GKAT_2.Print2.pprint e2)
+  @@ Test.make ~count:1000
+       ~name:"testing KAT derivative based algorithm with generated equivalence"
+         (* We don't have a printer at this point*)
+       ~print:(fun (e1, e2) ->
+         GKAT_2.Print2.pprint e1 ^ " EXP2: " ^ GKAT_2.Print2.pprint e2)
        GenExp.gen_eq_exp
        (fun (e1, e2) ->
          (* HACK: ignore generated result with duplicate labels,
@@ -266,23 +268,62 @@ let test_equiv_deriv =
          GKAT_2.gKat_equiv e1 e2)
 
 let test_equiv_aut =
-QCheck_ounit.to_ounit2_test
-@@ Test.make ~count:1000 ~name:"testing thompson's construction based algorithm with generated equivalence"
-      (* We don't have a printer at this point*)
-      ~print:(fun (e1, e2) -> GKAT_2.Print2.pprint e1 ^" EXP2: "^GKAT_2.Print2.pprint e2)
-      GenExp.gen_eq_exp
-      (fun (e1, e2) ->
-        GKAT_Aut.equiv e1 e2)
+  QCheck_ounit.to_ounit2_test
+  @@ Test.make ~count:1000
+       ~name:
+         "testing thompson's construction based algorithm with generated \
+          equivalence"
+         (* We don't have a printer at this point*)
+       ~print:(fun (e1, e2) ->
+         GKAT_2.Print2.pprint e1 ^ " EXP2: " ^ GKAT_2.Print2.pprint e2)
+       GenExp.gen_eq_exp
+       (fun (e1, e2) -> GKAT_Aut.equiv e1 e2)
 
 let test_both_method =
   QCheck_ounit.to_ounit2_test
-  @@ Test.make ~count:1000 ~name:"the KAT derivative based algorithm and thompson's construction based algorithm should return the same result"
-        (* We don't have a printer at this point*)
-        ~print:(fun (e1, e2) -> GKAT_2.Print2.pprint e1 ^" EXP2: "^GKAT_2.Print2.pprint e2)
-        (Gen.pair 
+  @@ Test.make ~count:1000
+       ~name:
+         "the KAT derivative based algorithm and thompson's construction based \
+          algorithm should return the same result"
+         (* We don't have a printer at this point*)
+       ~print:(fun (e1, e2) ->
+         GKAT_2.Print2.pprint e1 ^ " EXP2: " ^ GKAT_2.Print2.pprint e2)
+       (Gen.pair
           (GenExp.exp_sized bexp_max_size exp_max_size)
           (GenExp.exp_sized bexp_max_size exp_max_size))
-        (fun (e1, e2) ->
-          GKAT_Aut.equiv e1 e2 = GKAT_2.gKat_equiv e1 e2)
+       (fun (e1, e2) -> GKAT_Aut.equiv e1 e2 = GKAT_2.gKat_equiv e1 e2)
 
 (*A recursion function to change from gkat to gkat hashcon*)
+
+let rec from_be_to_hashcons (be : GKAT_2.bExp) : GKAT_Symb.BExp.t =
+  match be with
+  | Zero -> GKAT_Symb.BExp.zero
+  | One -> GKAT_Symb.BExp.one
+  | PBool str -> GKAT_Symb.BExp.pBool str
+  | Or (b1, b2) ->
+      GKAT_Symb.BExp.b_or (from_be_to_hashcons b1) (from_be_to_hashcons b2)
+  | And (b1, b2) ->
+      GKAT_Symb.BExp.b_and (from_be_to_hashcons b1) (from_be_to_hashcons b2)
+  | Not b1 -> GKAT_Symb.BExp.b_not (from_be_to_hashcons b1)
+
+let rec from_gkat_to_hashcon (exp1 : GKAT_2.gkat) : GKAT_Symb.Exp.t =
+  match exp1 with
+  | Pact p -> GKAT_Symb.Exp.p_act p
+  | Seq (e, f) ->
+      GKAT_Symb.Exp.seq (from_gkat_to_hashcon e) (from_gkat_to_hashcon f)
+  | If (be, e, f) ->
+      GKAT_Symb.Exp.if_then_else (from_be_to_hashcons be)
+        (from_gkat_to_hashcon e) (from_gkat_to_hashcon f)
+  | Test be -> GKAT_Symb.Exp.test (from_be_to_hashcons be)
+  | While (be, e) ->
+      GKAT_Symb.Exp.while_do (from_be_to_hashcons be) (from_gkat_to_hashcon e)
+
+let test_equiv_symb =
+  QCheck_ounit.to_ounit2_test
+  @@ Test.make ~count:1000
+       ~name:"testing symbolic based algorithm with generated equivalence"
+         (* We don't have a printer at this point*)
+       ~print:(fun (e1, e2) ->
+         GKAT_2.Print2.pprint e1 ^ " EXP2: " ^ GKAT_2.Print2.pprint e2)
+       GenExp.gen_eq_exp
+       (fun (e1, e2) -> GKAT_Symb.Derivatives.equiv (from_gkat_to_hashcon e1) (from_gkat_to_hashcon e2))
