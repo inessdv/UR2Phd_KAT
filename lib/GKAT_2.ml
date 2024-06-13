@@ -16,6 +16,30 @@ type gkat =
   | Test of bExp
   | While of bExp * gkat
 
+
+  let p_act (p : string) :gkat= Pact p
+  let test (b : bExp) : gkat = Test b
+  let skip : gkat = test One
+  let fail : gkat = test Zero
+
+  (* let seq (e : gkat) (f : gkat) : gkat =
+    match (e, f) with
+    | Test a, Test b -> test (BExp.b_and a b)
+    | _ ->
+        if e == skip then f
+        else if f == skip then e
+        else if e == fail then fail
+        else if f == fail then fail
+        else Seq (e, f)
+
+  let if_then_else (b : bExp.t) (e : t) (f : t) : t =
+    if b == BExp.one then e
+    else if b == BExp.zero then f
+    else if e == fail then seq (test @@ BExp.b_not b) f
+    else if f == fail then seq (test b) f
+    else hashcons @@ If (b, e, f)
+
+  let while_do (b : BExp.t) (e : t) : t = hashcons @@ While (b, e) *)
 let rec from_BE_to_KAT (exp : bExp) : kat =
   match exp with
   | Zero -> Zero

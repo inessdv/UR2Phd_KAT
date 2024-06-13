@@ -91,7 +91,7 @@ module Exp = struct
   (** table used for hash consing 
   notice because of hash consing, we can build *)
   let tbl = Hashcons.create 251
-
+  
   let hashcons : t_ -> t = Hashcons.hashcons tbl
   let p_act (p : string) : t = hashcons @@ Pact p
   let test (b : BExp.t) : t = hashcons @@ Test b
@@ -127,9 +127,14 @@ module Derivatives = struct
   (** a fast immutable map for hashconsed key *)
 
   (** The epsilon of the expression,
-      
   The boolean expression consists of all the atoms 
   that is accepted by the expression *)
+
+  (*b1 * (p0 * (if b2 then p0 else p0))*)
+  let example1= Exp.seq (Exp.test (BExp.pBool "b1") )
+  (Exp.seq (Exp.p_act "p0")(Exp.if_then_else (BExp.pBool "b2")(Exp.p_act "p0")(Exp.p_act "p0")))
+
+  let example2= Exp.seq (Exp.seq (Exp.test (BExp.pBool "b1"))(Exp.p_act "p0"))((Exp.p_act "p0"))
   module ExpTbl = Hashtbl.Make (struct
     type t = Exp.t
 
