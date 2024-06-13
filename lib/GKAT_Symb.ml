@@ -134,6 +134,7 @@ module Derivatives = struct
   let example1= Exp.seq (Exp.test (BExp.pBool "b1") )
   (Exp.seq (Exp.p_act "p0")(Exp.if_then_else (BExp.pBool "b2")(Exp.p_act "p0")(Exp.p_act "p0")))
 
+  (*(b1 * p0) * p0*)
   let example2= Exp.seq (Exp.seq (Exp.test (BExp.pBool "b1"))(Exp.p_act "p0"))((Exp.p_act "p0"))
   module ExpTbl = Hashtbl.Make (struct
     type t = Exp.t
