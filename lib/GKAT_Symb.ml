@@ -1,3 +1,5 @@
+open KA_equiv
+
 module BExp = struct
   (** Module for working with boolean expressions *)
 
@@ -130,12 +132,6 @@ module Derivatives = struct
   The boolean expression consists of all the atoms 
   that is accepted by the expression *)
 
-  (*b1 * (p0 * (if b2 then p0 else p0))*)
-  let example1= Exp.seq (Exp.test (BExp.pBool "b1") )
-  (Exp.seq (Exp.p_act "p0")(Exp.if_then_else (BExp.pBool "b2")(Exp.p_act "p0")(Exp.p_act "p0")))
-
-  (*(b1 * p0) * p0*)
-  let example2= Exp.seq (Exp.seq (Exp.test (BExp.pBool "b1"))(Exp.p_act "p0"))((Exp.p_act "p0"))
   module ExpTbl = Hashtbl.Make (struct
     type t = Exp.t
 
@@ -307,4 +303,30 @@ let product (psi_e:(BExp.t_ Hashcons.hash_consed * (Exp.t * string)) list) (psi_
     let reject2 = reject exp2 in
       equiv_helper exp1 exp2 reject1 reject2
 
-    end
+  
+  (**Testing purposes**)
+      (*b1 * (p0 * (if b2 then p0 else p0))*)
+    let example1= Exp.seq (Exp.test (BExp.pBool "b1") )
+    (Exp.seq (Exp.p_act "p0")(Exp.if_then_else (BExp.pBool "b2")(Exp.p_act "p0")(Exp.p_act "p0")))
+
+    (*(b1 * p0) * p0*)
+    let example2= Exp.seq (Exp.seq (Exp.test (BExp.pBool "b1"))(Exp.p_act "p0"))((Exp.p_act "p0"))
+
+    let debug (exp1 : gkat): bool =
+      let e1 = from_GKAT_to_KAT exp1 in
+      
+      (** checking if conversion is correct**)
+      print_string "GKAT expression! = ";
+      print_string (Print2.pprint exp1);
+      print_endline "KAT expression! = ";
+      print_string (pprint e1);
+      
+      let e2 = from_GKAT_to_KAT exp2 in
+      print_string "GKAT expression! = ";
+      print_string (Print2.pprint exp2);
+      print_endline "KAT expression! = ";
+      print_string (pprint e2);
+      equiv e1 e2
+
+
+  end
