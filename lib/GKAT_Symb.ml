@@ -1,5 +1,3 @@
-open KA_equiv
-
 module BExp = struct
   (** Module for working with boolean expressions *)
 
@@ -280,6 +278,98 @@ let product (psi_e:(BExp.t_ Hashcons.hash_consed * (Exp.t * string)) list) (psi_
           if ExpHSet.mem exp2 dead_states then is_dead exp1 else
   
           (**  Logical connection here instead of if **)
+            let epsilon_assert = (BExp.equiv (epsilon exp1) (epsilon exp2)) in
+            print_endline ("Checking same espilon: ");
+            print_string (string_of_bool epsilon_assert);
+            print_newline ();
+            epsilon_assert &&
+
+              let f_derivatives = derivative exp2 in
+              let e_derivatives = derivative exp1 in
+
+              let assert1 = List.for_all (fun(be,(exp,_)) -> 
+                let dead = is_dead exp in
+                print_endline ("dead?: ");
+                print_string (string_of_bool dead);
+                print_newline ();
+                dead  || BExp.is_false (BExp.b_and reject1 be))  f_derivatives
+              in
+              print_endline ("assertion1 for: forall ψ_f ↦ (f', q) ∈ δ(f), ( ρ(e) ∧ ψ_f = 0 || is_dead(f')) ");
+              print_string (string_of_bool assert1);
+              print_newline ();
+              assert1 
+
+              &&
+              let assert2 = (List.for_all (fun(be,(exp,_))-> 
+                is_dead exp  || BExp.is_false (BExp.b_and reject2 be))  e_derivatives) 
+              in
+              print_endline ("assertion2 for: forall ψ_e ↦ (e', q) ∈ δ(f), ( ρ(e) ∧ ψ_f = 0 || is_dead(e')) ");
+              print_string (string_of_bool assert2);
+              print_newline ();
+              
+              assert2
+              &&
+              
+              let assert3 = (
+              List.for_all(fun ((be1,(next_exp1,p)),(be2,(next_exp2,q)))->
+                BExp.is_false (BExp.b_and be1 be2) ||
+                if p = q then (ignore @@UnionFind.union exp1_ele exp2_ele;
+                if equiv_helper next_exp1 next_exp2 reject1 reject2 then true else false)
+              else 
+                (if (is_dead(next_exp1) && is_dead(next_exp2)) then true else false)) (product e_derivatives f_derivatives)
+              ) 
+            in
+            print_endline ("assertion3 for: forall ψ_e ↦ (e', p) ∈ δ(e), ψ_f ↦ (f', q) ∈ δ(f) ") ;
+            print_string (string_of_bool assert3); 
+            print_newline ();
+            assert3
+
+  let rec equiv (exp1 : Exp.t) (exp2 : Exp.t) : bool =
+    let reject1 = reject exp1 in
+    let reject2 = reject exp2 in
+      equiv_helper exp1 exp2 reject1 reject2
+
+  
+  (**Testing purposes**)
+      (*b1 * (p0 * (if b2 then p0 else p0))*)
+    
+    let example1 = Exp.seq (Exp.test (BExp.pBool "b1") )
+    (Exp.seq (Exp.p_act "p0")(Exp.if_then_else (BExp.pBool "b2")(Exp.p_act "p0")(Exp.p_act "p0")))
+
+    (*(b1 * p0) * p0*)
+    let example2 = Exp.seq (Exp.seq (Exp.test (BExp.pBool "b1"))(Exp.p_act "p0"))((Exp.p_act "p0"))
+(*
+    let debug (exp1 : gkat): bool =
+      let e1 = from_GKAT_to_KAT exp1 in
+      
+      (** checking if conversion is correct**)
+      print_string "GKAT expression! = ";
+      print_string (Print2.pprint exp1);
+      print_endline "KAT expression! = ";
+      print_string (pprint e1);
+      
+      let e2 = from_GKAT_to_KAT exp2 in
+      print_string "GKAT expression! = ";
+      print_string (Print2.pprint exp2);
+      print_endline "KAT expression! = ";
+      print_string (pprint e2);
+      equiv e1 e2
+*)
+  end
+
+
+(* let rec equiv_helper (exp1 : Exp.t) (exp2 : Exp.t) (reject1: BExp.t) (reject2: BExp.t) : bool =
+          let exp1_ele = exp_ele exp1 in
+          let exp2_ele = exp_ele exp2 in
+      
+          (** Check if the expressions have already been marked as equiv **)
+          if UnionFind.eq exp1_ele exp2_ele then true else
+      
+          (** if both are dead, then they are equivalent **)
+          if ExpHSet.mem exp1 dead_states then is_dead exp2 else
+          if ExpHSet.mem exp2 dead_states then is_dead exp1 else
+  
+          (**  Logical connection here instead of if **)
             (BExp.equiv (epsilon exp1) (epsilon exp2)) &&
 
               let f_derivatives = derivative exp2 in
@@ -302,31 +392,4 @@ let product (psi_e:(BExp.t_ Hashcons.hash_consed * (Exp.t * string)) list) (psi_
     let reject1 = reject exp1 in
     let reject2 = reject exp2 in
       equiv_helper exp1 exp2 reject1 reject2
-
-  
-  (**Testing purposes**)
-      (*b1 * (p0 * (if b2 then p0 else p0))*)
-    let example1= Exp.seq (Exp.test (BExp.pBool "b1") )
-    (Exp.seq (Exp.p_act "p0")(Exp.if_then_else (BExp.pBool "b2")(Exp.p_act "p0")(Exp.p_act "p0")))
-
-    (*(b1 * p0) * p0*)
-    let example2= Exp.seq (Exp.seq (Exp.test (BExp.pBool "b1"))(Exp.p_act "p0"))((Exp.p_act "p0"))
-
-    let debug (exp1 : gkat): bool =
-      let e1 = from_GKAT_to_KAT exp1 in
-      
-      (** checking if conversion is correct**)
-      print_string "GKAT expression! = ";
-      print_string (Print2.pprint exp1);
-      print_endline "KAT expression! = ";
-      print_string (pprint e1);
-      
-      let e2 = from_GKAT_to_KAT exp2 in
-      print_string "GKAT expression! = ";
-      print_string (Print2.pprint exp2);
-      print_endline "KAT expression! = ";
-      print_string (pprint e2);
-      equiv e1 e2
-
-
-  end
+*)
