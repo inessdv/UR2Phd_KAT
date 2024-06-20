@@ -264,22 +264,25 @@ let product (psi_e:(BExp.t_ Hashcons.hash_consed * (Exp.t * string)) list) (psi_
     let transitions = List.fold_left (fun acc (be,(_,_)) -> BExp.b_or acc be ) BExp.zero exp_derivatives in
       BExp.b_and (BExp.b_not epsilon) (BExp.b_not transitions)
 
-(* attempt to convert hashcons to gkat: in progress)
+
 (*Function to convert hashtype to bExp*)
+  let rec dehashcons_bexp (hc_bexp : BExp.t) : bExp =
+      match hc_bexp.node with
+      | Zero -> Zero
+      | One -> One
+      | PBool be ->  PBool be
+      | Or (be1,be2) -> Or (dehashcons_bexp be1, dehashcons_bexp be2)
+      | And (be1,be2) -> And (dehashcons_bexp be1, dehashcons_bexp be2)
+      | Not be -> Not (dehashcons_bexp be)
+
 (*Function to convert hashtype to gkat*)
-  let rec dehashcons_gkat (hc_exp : Exp.t) : gkat =
+  let rec dehashcons_gkat (hc_exp : Exp.t): gkat =
     match hc_exp.node with
-    | Pact _ -> Zero
-    | Seq (e, f) ->  (*seq constructor for gkat*) (dehashcons_gkat e) (dehashcons_gkat f)
-    | If (be, e, f) ->
-        BExp.b_or
-          (BExp.b_and be (dehashcons_gkat e))
-          (BExp.b_and (BExp.b_not be) (dehashcons_gkat f))
-    | Test be -> be
-    | While (be, _) -> BExp.b_not be
-*)
-
-
+    | Pact p -> Pact p
+    | Seq (e, f) ->  Seq (dehashcons_gkat e, dehashcons_gkat f)
+    | If (be, e, f) -> If (dehashcons_bexp be, dehashcons_gkat e, dehashcons_gkat f)
+    | Test be -> Test (dehashcons_bexp be)
+    | While (be, e) -> While (dehashcons_bexp be, dehashcons_gkat e)
 
   let rec equiv_helper (exp1 : Exp.t) (exp2 : Exp.t) (reject1: BExp.t) (reject2: BExp.t) : bool =
           let exp1_ele = exp_ele exp1 in
