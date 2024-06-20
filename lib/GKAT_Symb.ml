@@ -1,3 +1,5 @@
+open GKAT_2
+
 module BExp = struct
   (** Module for working with boolean expressions *)
 
@@ -262,7 +264,20 @@ let product (psi_e:(BExp.t_ Hashcons.hash_consed * (Exp.t * string)) list) (psi_
     let transitions = List.fold_left (fun acc (be,(_,_)) -> BExp.b_or acc be ) BExp.zero exp_derivatives in
       BExp.b_and (BExp.b_not epsilon) (BExp.b_not transitions)
 
-
+(* attempt to convert hashcons to gkat: in progress)
+(*Function to convert hashtype to bExp*)
+(*Function to convert hashtype to gkat*)
+  let rec dehashcons_gkat (hc_exp : Exp.t) : gkat =
+    match hc_exp.node with
+    | Pact _ -> Zero
+    | Seq (e, f) ->  (*seq constructor for gkat*) (dehashcons_gkat e) (dehashcons_gkat f)
+    | If (be, e, f) ->
+        BExp.b_or
+          (BExp.b_and be (dehashcons_gkat e))
+          (BExp.b_and (BExp.b_not be) (dehashcons_gkat f))
+    | Test be -> be
+    | While (be, _) -> BExp.b_not be
+*)
 
 
 
