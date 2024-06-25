@@ -311,6 +311,12 @@ let product (psi_e:(BExp.t_ Hashcons.hash_consed * (Exp.t * string)) list) (psi_
                 print_string (string_of_bool dead);
                 print_newline ();
                 dead  || BExp.is_false (BExp.b_and reject1 be))  f_derivatives
+
+                (*second_exp1:if b1 then p0 else p0*)
+                (*derivative of second_exp1: b1 ->(1,p0) union not b1 ->(1,p0)*)
+                (*second_exp2: p0*)
+                (*rejct1/ reject 2= not b1 , be= b1,not b1, it has conjunction for not b1 and not b1, so this returns false*)
+                (*original expressions: b1 * (p0 * (if b2 then p0 else p0)) EXP2: (b1 * p0) * p0 *)
               in
               print_endline ("assertion1 for: forall ψ_f ↦ (f', q) ∈ δ(f), ( ρ(e) ∧ ψ_f = 0 || is_dead(f')) ");
               print_string (string_of_bool assert1);
@@ -341,7 +347,7 @@ let product (psi_e:(BExp.t_ Hashcons.hash_consed * (Exp.t * string)) list) (psi_
             print_string (string_of_bool assert3); 
             print_newline ();
             assert3
-
+  
   let rec equiv (exp1 : Exp.t) (exp2 : Exp.t) : bool =
     let reject1 = reject exp1 in
     let reject2 = reject exp2 in
@@ -351,12 +357,26 @@ let product (psi_e:(BExp.t_ Hashcons.hash_consed * (Exp.t * string)) list) (psi_
   (**Testing purposes**)
       (*b1 * (p0 * (if b2 then p0 else p0))*)
     
+    let from_hash_to_GKAT(exp: (BExp.t * (Exp.t * string)) list):(bExp * (gkat * string)) list =
+     List.map(fun (be,(next_exp,p))->(dehashcons_bexp be,(dehashcons_gkat next_exp,p))) exp
+
+    let from_product_to_GKAT(exp)= List.map(fun ((be1,(next_exp1,p)),(be2,(next_exp2,q))) ->
+      (dehashcons_bexp be1,(dehashcons_gkat next_exp1,p)),(dehashcons_bexp be2,(dehashcons_gkat next_exp2,q))) (exp)
+
     let example1 = Exp.seq (Exp.test (BExp.pBool "b1") )
     (Exp.seq (Exp.p_act "p0")(Exp.if_then_else (BExp.pBool "b2")(Exp.p_act "p0")(Exp.p_act "p0")))
 
     (*(b1 * p0) * p0*)
     let example2 = Exp.seq (Exp.seq (Exp.test (BExp.pBool "b1"))(Exp.p_act "p0"))((Exp.p_act "p0"))
-(*
+
+    let example3= (Exp.seq (Exp.p_act "p0")(Exp.if_then_else (BExp.pBool "b2")(Exp.p_act "p0")(Exp.p_act "p0")))
+
+    let example5 = Exp.if_then_else (BExp.pBool "b2")(Exp.p_act "p0")(Exp.p_act "p0")
+    let example4 =Exp.test (BExp.pBool "b1")
+  
+    let second_example1=Exp.if_then_else (BExp.pBool "b2")(Exp.p_act "p0")(Exp.p_act "p0")
+    let second_example2=Exp.p_act "p0"
+  (*  
     let debug (exp1 : gkat): bool =
       let e1 = from_GKAT_to_KAT exp1 in
       
