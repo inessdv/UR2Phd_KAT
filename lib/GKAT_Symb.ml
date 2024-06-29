@@ -256,13 +256,7 @@ let product (psi_e:(BExp.t_ Hashcons.hash_consed * (Exp.t * string)) list) (psi_
     (List.fold_left
        (fun x a -> List.fold_left (fun y b -> (a, b) :: y) x psi_f)
        [] psi_e)
-       
-  (** p(e) fucntion ρ(e) = ¬ ϵ(e) ∧ ¬ (⋁_{ψ ↦ (e', p) ∈ δ(e)} ψ)**)
-  let rec reject (exp : Exp.t) : BExp.t =
-    let exp_derivatives = derivative exp in
-    let epsilon = epsilon exp in
-    let transitions = List.fold_left (fun acc (be,(_,_)) -> BExp.b_or acc be ) BExp.zero exp_derivatives in
-      BExp.b_and (BExp.b_not epsilon) (BExp.b_not transitions)
+
 
 
 (*Function to convert hashtype to bExp*)
@@ -283,6 +277,22 @@ let product (psi_e:(BExp.t_ Hashcons.hash_consed * (Exp.t * string)) list) (psi_
     | If (be, e, f) -> If (dehashcons_bexp be, dehashcons_gkat e, dehashcons_gkat f)
     | Test be -> Test (dehashcons_bexp be)
     | While (be, e) -> While (dehashcons_bexp be, dehashcons_gkat e)
+
+  let print_tuple tup =
+    let (s, i) = tup in
+    Printf.printf "(%s, %d)\n" s i;;
+
+  (** p(e) fucntion ρ(e) = ¬ ϵ(e) ∧ ¬ (⋁_{ψ ↦ (e', p) ∈ δ(e)} ψ)**)
+  let rec reject (exp : Exp.t) : BExp.t =
+    let exp_derivatives = derivative exp in
+    let epsilon = epsilon exp in
+    let transitions = List.fold_left (fun acc (be,(_,_)) -> BExp.b_or acc be ) BExp.zero exp_derivatives in
+    print_endline ("Checking reject for ");
+    print_string (Print2.pprint (dehashcons_gkat exp));
+    print_newline ();
+    print_tuple (Print2.pprint_bexp (dehashcons_bexp epsilon));
+    print_newline ();
+    BExp.b_and (BExp.b_not epsilon) (BExp.b_not transitions)
 
   let rec equiv_helper (exp1 : Exp.t) (exp2 : Exp.t) (reject1: BExp.t) (reject2: BExp.t) : bool =
           let exp1_ele = exp_ele exp1 in
