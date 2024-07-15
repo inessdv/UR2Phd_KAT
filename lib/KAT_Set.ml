@@ -1,3 +1,5 @@
+open Common
+
 type kat =
   | Zero
   | One
@@ -13,6 +15,16 @@ module KATSet = Set.Make (struct
 
   let compare = compare
 end)
+
+module AtPactMap = Map.Make (struct
+  type t = Atom.t * string (*change to Atom.t*)
+
+  let compare = compare
+end)
+
+type linearForm = KATSet.t AtPactMap.t
+(** The linear form of a expression, which is a (StringSet (atoms), String(pact)) mapped to as set of KAT expressions*)
+
 
 module Print = struct
   let pprint (exp : kat) =
@@ -51,6 +63,11 @@ module Print = struct
     (*I can do pipeline here*)
     let string_list = List.map pprint exp_list in
     String.concat " " string_list
+
+  let pprint_linear_form (linear: linearForm) : string = 
+    let linear_list = AtPactMap.to_list linear in
+      let linear_str = List.map (fun ((atom,pact), kat) -> Atom.pprint atom ^ ", " ^ pact ^ " -> " ^ pprint_sum kat) linear_list in 
+      String.concat "\n" linear_str 
 end
 
 type katI =
@@ -101,7 +118,7 @@ module KATISet = Set.Make (struct
   let compare = compare
 end)
 
-module StringSet = Set.Make (String)
+
 (**examples to type check /tests**)
 (* let rec pBoolOf((exp, expIsBExp): kat * bool):StringSet.t =
      if expIsBExp then
@@ -152,7 +169,7 @@ let rec epsilon (atom : StringSet.t) (exp : kat) : bool =
   | Not a -> not (epsilon atom a)
 
 (** empty word for KATset**)
-let eps (atom : StringSet.t) (sum : KATSet.t) : bool =
+let epsilon_sum (atom : StringSet.t) (sum : KATSet.t) : bool =
   KATSet.exists (fun exp -> epsilon atom exp) sum
 
 (* Linearization function
@@ -173,14 +190,6 @@ module StringMap = Map.Make (String)
 
 (*Use StringSet to replace Atom*)
 
-module AtPactMap = Map.Make (struct
-  type t = StringSet.t * string
-
-  let compare = compare
-end)
-
-type linearForm = KATSet.t AtPactMap.t
-(** The linear form of a expression, which is string mapped to as set of KA expressions*)
 
 module DerMapSet = Set.Make (struct
   type t = linearForm
@@ -259,6 +268,7 @@ let getAtomsof (exp : kat) : SStringSet.t =
   let primitives = pBoolOf (exp, true) in
   atOf primitives
 
+
 let linearization (exp : kat) : linearForm =
   let rec linearization_helper (at : SStringSet.t) (exp : kat) : linearForm =
     match exp with
@@ -269,8 +279,16 @@ let linearization (exp : kat) : linearForm =
           (linearization_helper at e1)
           (linearization_helper at e2)
     | Conc (e1, e2) ->
+        print_string " e1 = ";
+        (*Print.pprint e1;*)
+        print_endline " e2 = ";
+        (*Print.pprint e2;*)
+        let linear1 = linearization_helper at e1 in
+       (** let atomp_list = AtPactMap.map Print.pprint_sum linear1 in finish printing list!!!**)
+
+        (*Print.pprint atomp_list; turn inner into list*)
         unionLinearForm
-          (concLinearForm (linearization_helper at e1) e2)
+          (concLinearForm (linear1) e2)
           (atomExists (linearization_helper at e2) e1)
     | Star e -> concLinearForm (linearization_helper at e) (Star e)
     | _ -> AtPactMap.empty
@@ -324,10 +342,11 @@ let rec hAll_sum (e1 : KATSet.t) (e2 : KATSet.t) (at : SStringSet.t) : bool =
   if SStringSet.is_empty at then true
   else
     let ele = SStringSet.min_elt at in
-    if eps ele e1 == eps ele e2 then hAll_sum e1 e2 (SStringSet.remove ele at)
+    if epsilon_sum ele e1 == epsilon_sum ele e2 then hAll_sum e1 e2 (SStringSet.remove ele at)
     else false
 (* check if correct???**)
 
+(*
 let rec epsilon_2 (prim_bools : StringSet.t) (e : kat) : SStringSet.t =
   (*set of atoms*)
   match e with
@@ -363,6 +382,7 @@ let rec h_all_2 (prim_bools:StringSet.t)(s1: KATSet.t)(s2:KATSet.t): bool =
     let ele = StringSet.min_elt prim_bools in 
     if h_all_2 ele e1 e2  then h_all_2_sum e1 e2 (StringSet.remove ele prim_bools)
     else false 
+*)
 *)
 
 let derivatives ((r1, r2) : KATSet.t * KATSet.t) : PDerivPairSet.t =
@@ -403,11 +423,6 @@ let equiv (e1 : kat) (e2 : kat) : bool =
     ( PDerivPairSet.singleton (KATSet.singleton e1, KATSet.singleton e2),
       PDerivPairSet.empty )
 
-(*Examples for testing*)
-
-let example1 = StringSet.of_list [ "b"; "c"; "d" ]
-let example1 = atOf example1
-let example2 = SStringSet.to_list
 
 module Parser = struct
   open Parser.Combinators
@@ -493,3 +508,15 @@ module Parser = struct
 
   let parse_kat_unsafe (s : string) : kat = Option.get (parse_kat s)
 end
+
+(*Examples for testing*)
+let fromStr str = (Parser.parse_kat_unsafe str)
+
+let example_kat = fromStr "bpc"
+(*let atom = SStringSet.singleton (Parser.p_bool_parser 'b')*)
+
+let example_atoms  = pBoolOf (example_kat,true)
+
+let example1 = StringSet.of_list [ "b"; "c"; "d" ]
+let example1 = atOf example1
+let example2 = SStringSet.to_list
