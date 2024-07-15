@@ -258,7 +258,6 @@ let product (psi_e:(BExp.t_ Hashcons.hash_consed * (Exp.t * string)) list) (psi_
        [] psi_e)
 
 
-
 (*Function to convert hashtype to bExp*)
   let rec dehashcons_bexp (hc_bexp : BExp.t) : bExp =
       match hc_bexp.node with
@@ -283,18 +282,32 @@ let product (psi_e:(BExp.t_ Hashcons.hash_consed * (Exp.t * string)) list) (psi_
     Printf.printf "(%s, %d)\n" s i;;
 
   (** p(e) fucntion ρ(e) = ¬ ϵ(e) ∧ ¬ (⋁_{ψ ↦ (e', p) ∈ δ(e)} ψ)**)
+
   let rec reject (exp : Exp.t) : BExp.t =
     let exp_derivatives = derivative exp in
     let epsilon = epsilon exp in
     let transitions = List.fold_left (fun acc (be,(_,_)) -> BExp.b_or acc be ) BExp.zero exp_derivatives in
-    print_endline ("Checking reject for ");
+    (*print_endline ("Checking reject for ");
     print_string (Print2.pprint (dehashcons_gkat exp));
     print_newline ();
     print_tuple (Print2.pprint_bexp (dehashcons_bexp epsilon));
-    print_newline ();
-    BExp.b_and (BExp.b_not epsilon) (BExp.b_not transitions)
+    print_newline ();*)
+    let result = (BExp.b_and (BExp.b_not epsilon) (BExp.b_not transitions)) in
+    (*let result_dehash = dehashcons_bexp result in
+    print_tuple (Print2.pprint_bexp  result_dehash);*)
+    result
 
-  let rec equiv_helper (exp1 : Exp.t) (exp2 : Exp.t) (reject1: BExp.t) (reject2: BExp.t) : bool =
+  let rec equiv_helper (exp1 : Exp.t) (exp2 : Exp.t) : bool =
+          let reject1 = reject exp1 in
+          let reject2 = reject exp2 in
+
+          print_string ( "Exp 1: " ^Print2.pprint (dehashcons_gkat exp1));
+          print_newline ();
+          print_newline ();
+          print_string ( "Exp 2: " ^Print2.pprint (dehashcons_gkat exp2));
+          print_newline ();
+          print_newline ();
+
           let exp1_ele = exp_ele exp1 in
           let exp2_ele = exp_ele exp2 in
       
@@ -307,9 +320,9 @@ let product (psi_e:(BExp.t_ Hashcons.hash_consed * (Exp.t * string)) list) (psi_
   
           (**  Logical connection here instead of if **)
             let epsilon_assert = (BExp.equiv (epsilon exp1) (epsilon exp2)) in
-            print_endline ("Checking same espilon: ");
+            (*print_endline ("Checking same espilon: ");
             print_string (string_of_bool epsilon_assert);
-            print_newline ();
+            print_newline ();*)
             epsilon_assert &&
 
               let f_derivatives = derivative exp2 in
@@ -317,9 +330,9 @@ let product (psi_e:(BExp.t_ Hashcons.hash_consed * (Exp.t * string)) list) (psi_
 
               let assert1 = List.for_all (fun(be,(exp,_)) -> 
                 let dead = is_dead exp in
-                print_endline ("dead?: ");
+                (*print_endline ("dead?: ");
                 print_string (string_of_bool dead);
-                print_newline ();
+                print_newline ();*)
                 dead  || BExp.is_false (BExp.b_and reject1 be))  f_derivatives
 
                 (*second_exp1:if b1 then p0 else p0*)
@@ -328,18 +341,19 @@ let product (psi_e:(BExp.t_ Hashcons.hash_consed * (Exp.t * string)) list) (psi_
                 (*rejct1/ reject 2= not b1 , be= b1,not b1, it has conjunction for not b1 and not b1, so this returns false*)
                 (*original expressions: b1 * (p0 * (if b2 then p0 else p0)) EXP2: (b1 * p0) * p0 *)
               in
-              print_endline ("assertion1 for: forall ψ_f ↦ (f', q) ∈ δ(f), ( ρ(e) ∧ ψ_f = 0 || is_dead(f')) ");
+              (*print_endline ("assertion1 for: forall ψ_f ↦ (f', q) ∈ δ(f), ( ρ(e) ∧ ψ_f = 0 || is_dead(f')) ");
               print_string (string_of_bool assert1);
-              print_newline ();
+              print_newline ();*)
               assert1 
 
               &&
               let assert2 = (List.for_all (fun(be,(exp,_))-> 
                 is_dead exp  || BExp.is_false (BExp.b_and reject2 be))  e_derivatives) 
               in
-              print_endline ("assertion2 for: forall ψ_e ↦ (e', q) ∈ δ(f), ( ρ(e) ∧ ψ_f = 0 || is_dead(e')) ");
+              (*
+              print_endline ("assertion2 for: forall ψ_e ↦ (e', q) ∈ δ(f), ( ρ(f) ∧ ψ_f = 0 || is_dead(e')) ");
               print_string (string_of_bool assert2);
-              print_newline ();
+              print_newline (); *)
               
               assert2
               &&
@@ -348,20 +362,21 @@ let product (psi_e:(BExp.t_ Hashcons.hash_consed * (Exp.t * string)) list) (psi_
               List.for_all(fun ((be1,(next_exp1,p)),(be2,(next_exp2,q)))->
                 BExp.is_false (BExp.b_and be1 be2) ||
                 if p = q then (ignore @@UnionFind.union exp1_ele exp2_ele;
-                if equiv_helper next_exp1 next_exp2 reject1 reject2 then true else false)
+                if equiv_helper next_exp1 next_exp2 then true else false)
               else 
                 (if (is_dead(next_exp1) && is_dead(next_exp2)) then true else false)) (product e_derivatives f_derivatives)
               ) 
             in
+            (*
             print_endline ("assertion3 for: forall ψ_e ↦ (e', p) ∈ δ(e), ψ_f ↦ (f', q) ∈ δ(f) ") ;
             print_string (string_of_bool assert3); 
-            print_newline ();
+            print_newline ();*)
             assert3
   
-  let rec equiv (exp1 : Exp.t) (exp2 : Exp.t) : bool =
+  (*let rec equiv (exp1 : Exp.t) (exp2 : Exp.t) : bool =
     let reject1 = reject exp1 in
     let reject2 = reject exp2 in
-      equiv_helper exp1 exp2 reject1 reject2
+      equiv_helper exp1 exp2 reject1 reject2 *)
 
   
   (**Testing purposes**)
@@ -375,18 +390,26 @@ let product (psi_e:(BExp.t_ Hashcons.hash_consed * (Exp.t * string)) list) (psi_
 
     let example1 = Exp.seq (Exp.test (BExp.pBool "b1") )
     (Exp.seq (Exp.p_act "p0")(Exp.if_then_else (BExp.pBool "b2")(Exp.p_act "p0")(Exp.p_act "p0")))
-
+  
     (*(b1 * p0) * p0*)
     let example2 = Exp.seq (Exp.seq (Exp.test (BExp.pBool "b1"))(Exp.p_act "p0"))((Exp.p_act "p0"))
 
-    let example3= (Exp.seq (Exp.p_act "p0")(Exp.if_then_else (BExp.pBool "b2")(Exp.p_act "p0")(Exp.p_act "p0")))
+    let example3 = (Exp.seq (Exp.p_act "p0")(Exp.if_then_else (BExp.pBool "b2")(Exp.p_act "p0")(Exp.p_act "p0")))
 
     let example5 = Exp.if_then_else (BExp.pBool "b2")(Exp.p_act "p0")(Exp.p_act "p0")
-    let example4 =Exp.test (BExp.pBool "b1")
+    let example4 = Exp.test (BExp.pBool "b1")
   
     let second_example1=Exp.if_then_else (BExp.pBool "b2")(Exp.p_act "p0")(Exp.p_act "p0")
-    let second_example2=Exp.p_act "p0"
-  (*  
+    let second_example2= Exp.p_act "p0"
+
+    (*b1 * (p0 * (if b2 then p0 else p0))*)
+    let third1 = Exp.seq (Exp.test (BExp.pBool "b1")) (Exp.seq (Exp.p_act "p0") (Exp.if_then_else (BExp.pBool "b2") (Exp.p_act "p0") (Exp.p_act "p0"))) 
+    
+    (* (b1 * p0) * p0 *)
+    let third2 = Exp.seq (Exp.seq (Exp.test (BExp.pBool "b1")) (Exp.p_act "p0")) (Exp.p_act "p0")
+    let third3=   Exp.seq (Exp.seq (Exp.p_act "p0") (Exp.test (BExp.pBool "b1"))) (Exp.p_act "p0")
+    
+    (*
     let debug (exp1 : gkat): bool =
       let e1 = from_GKAT_to_KAT exp1 in
       
@@ -394,7 +417,7 @@ let product (psi_e:(BExp.t_ Hashcons.hash_consed * (Exp.t * string)) list) (psi_
       print_string "GKAT expression! = ";
       print_string (Print2.pprint exp1);
       print_endline "KAT expression! = ";
-      print_string (pprint e1);
+      print_string (Print2.pprint e1);
       
       let e2 = from_GKAT_to_KAT exp2 in
       print_string "GKAT expression! = ";
