@@ -254,6 +254,7 @@ module GenExp = struct
   (* default size of two expression *)
 end
 
+
 let test_equiv_deriv =
   QCheck_ounit.to_ounit2_test
   @@ Test.make ~count:1000
@@ -326,4 +327,4 @@ let test_equiv_symb =
        ~print:(fun (e1, e2) ->
          GKAT_2.Print2.pprint e1 ^ " EXP2: " ^ GKAT_2.Print2.pprint e2)
        GenExp.gen_eq_exp
-       (fun (e1, e2) -> GKAT_Symb.Derivatives.equiv (from_gkat_to_hashcon e1) (from_gkat_to_hashcon e2))
+       (fun (e1, e2) -> GKAT_Symb.Derivatives.equiv_helper (from_gkat_to_hashcon e1) (from_gkat_to_hashcon e2))

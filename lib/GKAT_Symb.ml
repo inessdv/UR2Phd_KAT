@@ -301,10 +301,10 @@ let product (psi_e:(BExp.t_ Hashcons.hash_consed * (Exp.t * string)) list) (psi_
           let reject1 = reject exp1 in
           let reject2 = reject exp2 in
 
-          print_string ( "Exp 1: " ^Print2.pprint (dehashcons_gkat exp1));
+          print_string ( "Exp 1: " ^ Print2.pprint (dehashcons_gkat exp1));
           print_newline ();
           print_newline ();
-          print_string ( "Exp 2: " ^Print2.pprint (dehashcons_gkat exp2));
+          print_string ( "Exp 2: " ^ Print2.pprint (dehashcons_gkat exp2));
           print_newline ();
           print_newline ();
 

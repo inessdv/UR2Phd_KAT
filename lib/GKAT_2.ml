@@ -100,6 +100,7 @@ module Print2 = struct
       let str, prec = pprint_bexp_with_p b in
 
       if prec > 0 then ("~(" ^ str ^ ")", 1) else ("~" ^ str, 1)
+    
     (* Print bexp without precedence number *)
     let pprint_bexp (bexp : bExp) =
     let str, _ = pprint_bexp_with_p bexp in
