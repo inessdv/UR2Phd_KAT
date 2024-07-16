@@ -1,5 +1,7 @@
 open Common
 
+(*Defining necessary types and modules*)
+
 type kat =
   | Zero
   | One
@@ -22,9 +24,35 @@ module AtPactMap = Map.Make (struct
   let compare = compare
 end)
 
+module SStringSet = Set.Make (Atom)
+(** new type of set, set of string set to be produce power sets**)
+
 type linearForm = KATSet.t AtPactMap.t
 (** The linear form of a expression, which is a (StringSet (atoms), String(pact)) mapped to as set of KAT expressions*)
 
+module StringMap = Map.Make (String)
+(** A map from string*)
+
+module DerMapSet = Set.Make (struct
+  type t = linearForm
+
+  let compare = compare
+end)
+
+type atPact = Atom.t * string
+
+module AtPactSet = Set.Make (struct
+  type t = Atom.t * string
+
+  let compare = compare
+end)
+
+module PDerivPairSet = Set.Make (struct
+  (* set of pairs of partial derivitives*)
+  type t = KATSet.t * KATSet.t
+
+  let compare = compare
+end)
 
 module Print = struct
   let pprint (exp : kat) =
@@ -118,105 +146,47 @@ module KATISet = Set.Make (struct
   let compare = compare
 end)
 
-
-(**examples to type check /tests**)
-(* let rec pBoolOf((exp, expIsBExp): kat * bool):StringSet.t =
-     if expIsBExp then
-       match exp with           (*At*)
-       |One -> StringSet.empty
-       |PBool b-> StringSet.singleton b
-       |Conc(a,b)-> StringSet.union (pBoolOf (a,true)) (pBoolOf (b,true))
-       |Union(a,b)-> StringSet.union (pBoolOf (a,true)) (pBoolOf (b,true))
-       |Not(b) -> pBoolOf (b,true)
-       (*TODO: Just to surpress the warning for now, remove when finished*)
-       | _ -> failwith "We want boolean expressions but KA expression is given"
-   else raise (Invalid_argument "pBool only takes bool expressions") *)
-
-let rec pBoolOf (exp : katI) : StringSet.t =
+let rec pBoolOf (exp : katI) : Atom.t =
   match exp with
   (*At*)
-  | _, false -> StringSet.empty
+  | _, false -> Atom.empty
   | bExp, true -> (
       match bExp with
-      | One -> StringSet.empty
-      | PBool b -> StringSet.singleton b
-      | Conc (a, b) -> StringSet.union (pBoolOf (a, true)) (pBoolOf (b, true))
-      | Union (a, b) -> StringSet.union (pBoolOf (a, true)) (pBoolOf (b, true))
+      | One -> Atom.empty
+      | PBool b -> Atom.singleton b
+      | Conc (a, b) -> Atom.union (pBoolOf (a, true)) (pBoolOf (b, true))
+      | Union (a, b) -> Atom.union (pBoolOf (a, true)) (pBoolOf (b, true))
       | Not b -> pBoolOf (b, true)
-      | _ -> StringSet.empty)
-
-module SStringSet = Set.Make (StringSet)
-(** new type of set, set of string set to be produce power sets**)
+      | _ -> Atom.empty)
 
 (** function to get the atoms of the primitive bools through power set**)
-let atOf (primitive_boolset : StringSet.t) : SStringSet.t =
-  StringSet.fold
+let atOf (primitive_boolset : Atom.t) : SStringSet.t =
+  Atom.fold
     (fun x ps ->
-      SStringSet.fold (fun ss -> SStringSet.add (StringSet.add x ss)) ps ps)
+      SStringSet.fold (fun ss -> SStringSet.add (Atom.add x ss)) ps ps)
     primitive_boolset
-    (SStringSet.singleton StringSet.empty)
+    (SStringSet.singleton Atom.empty)
 
 (** empty word for KAT expressions**)
-let rec epsilon (atom : StringSet.t) (exp : kat) : bool =
+let rec epsilon (atom : Atom.t) (exp : kat) : bool =
   match exp with
   | Zero -> false
   | One -> false
   | PAct _ -> false
-  | PBool b -> StringSet.mem b atom (*if b<= atom, then b must in the atom *)
+  | PBool b -> Atom.mem b atom (*if b<= atom, then b must in the atom *)
   | Union (a, b) -> epsilon atom a || epsilon atom b
   | Conc (a, b) -> epsilon atom a && epsilon atom b
   | Star _ -> true
   | Not a -> not (epsilon atom a)
 
 (** empty word for KATset**)
-let epsilon_sum (atom : StringSet.t) (sum : KATSet.t) : bool =
+let epsilon_sum (atom : Atom.t) (sum : KATSet.t) : bool =
   KATSet.exists (fun exp -> epsilon atom exp) sum
 
-(* Linearization function
-*)
-
-module StringMap = Map.Make (String)
-(** A map from string*)
-
-(** define type of atom and prim act
-**)
-(* type p_bool = string
-   type p_act = string
-
-   module Atom = Set.Make(struct
-     type t = p_bool
-     let compare = compare
-   end) *)
-
-(*Use StringSet to replace Atom*)
-
-
-module DerMapSet = Set.Make (struct
-  type t = linearForm
-
-  let compare = compare
-end)
-
-type atPact = StringSet.t * string
-
-module AtPactSet = Set.Make (struct
-  type t = StringSet.t * string
-
-  let compare = compare
-end)
-
-module PDerivPairSet = Set.Make (struct
-  (* set of pairs of partial derivitives*)
-  type t = KATSet.t * KATSet.t
-
-  let compare = compare
-end)
-
-(** linearization function
-**)
+(** linearization function **)
 let unionLinearForm (lin1 : linearForm) (lin2 : linearForm) : linearForm =
   AtPactMap.union
-    (* combine two KAT sets with union, when their hd are the same*)
+    (* combine two KAT sets with union, when their hds are the same*)
       (fun _ s1 s2 -> Some (KATSet.union s1 s2))
     lin1 lin2
 
@@ -236,8 +206,6 @@ let concLinearForm (r_linear : linearForm) (r : kat) : linearForm =
       KATSet.map (fun deriv -> conc_alg deriv r) derivs)
     r_linear
 
-(**let atoms (exp:kat): SStringSet.t = atOf (pBoolOf exp) ??????**)
-
 let rec mapMakerHelper (mapper : linearForm) (at : SStringSet.t) (p : string) :
     linearForm =
   if SStringSet.is_empty at then mapper
@@ -255,19 +223,12 @@ let mapMaker (at : SStringSet.t) (p : string) : linearForm =
   mapMakerHelper mapper at p
 
 let atomExists (e2 : linearForm) (e1 : kat) : linearForm =
-  (* let e2List = AtPactMap.to_list e2 in
-     match e2List with
-     | ((a,b),_):: rest-> if epsilon a e1 then ()
-     | _ -> *)
-  (* AtPactMap.filter (fun (a,_) -> (epsilon a e1) ) e2   *)
-  (*don't know why not working*)
   let e2List = AtPactMap.to_list e2 in
   AtPactMap.of_list (List.filter (fun ((a, _), _) -> epsilon a e1) e2List)
 
 let getAtomsof (exp : kat) : SStringSet.t =
   let primitives = pBoolOf (exp, true) in
   atOf primitives
-
 
 let linearization (exp : kat) : linearForm =
   let rec linearization_helper (at : SStringSet.t) (exp : kat) : linearForm =
@@ -344,46 +305,7 @@ let rec hAll_sum (e1 : KATSet.t) (e2 : KATSet.t) (at : SStringSet.t) : bool =
     let ele = SStringSet.min_elt at in
     if epsilon_sum ele e1 == epsilon_sum ele e2 then hAll_sum e1 e2 (SStringSet.remove ele at)
     else false
-(* check if correct???**)
 
-(*
-let rec epsilon_2 (prim_bools : StringSet.t) (e : kat) : SStringSet.t =
-  (*set of atoms*)
-  match e with
-  | One -> atOf prim_bools
-  | Zero -> SStringSet.empty
-  | PBool b ->
-      atOf (StringSet.remove b prim_bools) |> SStringSet.map (StringSet.add b)
-  | PAct _ -> SStringSet.empty (*???*)
-  | Union (e1, e2) ->
-      let ep1 = epsilon_2 prim_bools e1 and ep2 = epsilon_2 prim_bools e2 in
-      SStringSet.union ep1 ep2
-  | Conc (e1, e2) ->
-      let ep1 = epsilon_2 prim_bools e1 and ep2 = epsilon_2 prim_bools e2 in
-      SStringSet.inter ep1 ep2
-  | Not e ->
-      let atoms = atOf prim_bools and notE = epsilon_2 prim_bools e in
-      SStringSet.diff atoms notE
-  | Star _ -> atOf prim_bools (*???*)
-
-(*write hAll version 2 using epsilon_2!!!!!*)
-(*
-let rec h_all_2 (prim_bools:StringSet.t)(s1: KATSet.t)(s2:KATSet.t): bool =
-  let e1=KATSet.min_elt s1 in
-  let e2=KATSet.min_elt s2 in
-  let eps_e1=epsilon_2 prim_bools e1 in
-  let eps_e2=epsilon_2 prim_bools e2 in
-  if SStringSet.equal eps_e1 eps_e2 then h_all_2 prim_bools (KATSet.remove e1 s1) (KATSet.remove e2 s1)
-  else false
-
- let rec h_all_2_sum (e1:KATSet.t)(e2:KATSet.t)(prim_bools: SStringSet.t): bool =
-  if (StringSet.is_empty prim_bools) then true
-  else 
-    let ele = StringSet.min_elt prim_bools in 
-    if h_all_2 ele e1 e2  then h_all_2_sum e1 e2 (StringSet.remove ele prim_bools)
-    else false 
-*)
-*)
 
 let derivatives ((r1, r2) : KATSet.t * KATSet.t) : PDerivPairSet.t =
   let der_map1 = get_der_map_sum r1 in
@@ -396,7 +318,7 @@ let derivatives ((r1, r2) : KATSet.t * KATSet.t) : PDerivPairSet.t =
 (** Equivalence Function **)
 let equiv (e1 : kat) (e2 : kat) : bool =
   let pb_e1 = pBoolOf (e1, true) and pb_e2 = pBoolOf (e2, true) in
-  let prim_bools = StringSet.union pb_e1 pb_e2 in
+  let prim_bools = Atom.union pb_e1 pb_e2 in
   let atoms = atOf prim_bools in
   let rec equiv_help ((todo, visited) : PDerivPairSet.t * PDerivPairSet.t) :
       bool =
@@ -517,6 +439,58 @@ let example_kat = fromStr "bpc"
 
 let example_atoms  = pBoolOf (example_kat,true)
 
-let example1 = StringSet.of_list [ "b"; "c"; "d" ]
+let example1 = Atom.of_list [ "b"; "c"; "d" ]
 let example1 = atOf example1
 let example2 = SStringSet.to_list
+
+(**examples to type check /tests**)
+(* let rec pBoolOf((exp, expIsBExp): kat * bool):StringSet.t =
+     if expIsBExp then
+       match exp with           (*At*)
+       |One -> StringSet.empty
+       |PBool b-> StringSet.singleton b
+       |Conc(a,b)-> StringSet.union (pBoolOf (a,true)) (pBoolOf (b,true))
+       |Union(a,b)-> StringSet.union (pBoolOf (a,true)) (pBoolOf (b,true))
+       |Not(b) -> pBoolOf (b,true)
+       (*TODO: Just to surpress the warning for now, remove when finished*)
+       | _ -> failwith "We want boolean expressions but KA expression is given"
+   else raise (Invalid_argument "pBool only takes bool expressions") *)
+
+(* OTHER WORK
+let rec epsilon_2 (prim_bools : StringSet.t) (e : kat) : SStringSet.t =
+  (*set of atoms*)
+  match e with
+  | One -> atOf prim_bools
+  | Zero -> SStringSet.empty
+  | PBool b ->
+      atOf (StringSet.remove b prim_bools) |> SStringSet.map (StringSet.add b)
+  | PAct _ -> SStringSet.empty (*???*)
+  | Union (e1, e2) ->
+      let ep1 = epsilon_2 prim_bools e1 and ep2 = epsilon_2 prim_bools e2 in
+      SStringSet.union ep1 ep2
+  | Conc (e1, e2) ->
+      let ep1 = epsilon_2 prim_bools e1 and ep2 = epsilon_2 prim_bools e2 in
+      SStringSet.inter ep1 ep2
+  | Not e ->
+      let atoms = atOf prim_bools and notE = epsilon_2 prim_bools e in
+      SStringSet.diff atoms notE
+  | Star _ -> atOf prim_bools (*???*)
+
+(*write hAll version 2 using epsilon_2!!!!!*)
+(*
+let rec h_all_2 (prim_bools:StringSet.t)(s1: KATSet.t)(s2:KATSet.t): bool =
+  let e1=KATSet.min_elt s1 in
+  let e2=KATSet.min_elt s2 in
+  let eps_e1=epsilon_2 prim_bools e1 in
+  let eps_e2=epsilon_2 prim_bools e2 in
+  if SStringSet.equal eps_e1 eps_e2 then h_all_2 prim_bools (KATSet.remove e1 s1) (KATSet.remove e2 s1)
+  else false
+
+ let rec h_all_2_sum (e1:KATSet.t)(e2:KATSet.t)(prim_bools: SStringSet.t): bool =
+  if (StringSet.is_empty prim_bools) then true
+  else 
+    let ele = StringSet.min_elt prim_bools in 
+    if h_all_2 ele e1 e2  then h_all_2_sum e1 e2 (StringSet.remove ele prim_bools)
+    else false 
+*)
+*)
