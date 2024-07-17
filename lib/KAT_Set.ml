@@ -173,8 +173,7 @@ let rec epsilon (atom : Atom.t) (exp : kat) : bool =
   | Zero -> false
   | One -> false
   | PAct _ -> false
-  | PBool b -> print_string (" PBool b = " ^  b); 
-    Atom.mem b atom (*if b <= atom, then b must be in the atom *)
+  | PBool b -> Atom.mem b atom (*if b <= atom, then b must be in the atom *)
   | Union (a, b) -> epsilon atom a || epsilon atom b
   | Conc (a, b) -> epsilon atom a && epsilon atom b
   | Star _ -> true
@@ -241,14 +240,7 @@ let linearization (exp : kat) : linearForm =
           (linearization_helper at e1)
           (linearization_helper at e2)
     | Conc (e1, e2) ->
-        print_string " e1 = ";
-        (*Print.pprint e1;*)
-        print_endline " e2 = ";
-        (*Print.pprint e2;*)
         let linear1 = linearization_helper at e1 in
-       (** let atomp_list = AtPactMap.map Print.pprint_sum linear1 in finish printing list!!!**)
-
-        (*Print.pprint atomp_list; turn inner into list*)
         unionLinearForm
           (concLinearForm (linear1) e2)
           (atomExists (linearization_helper at e2) e1)

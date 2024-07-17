@@ -22,6 +22,99 @@ type gkat =
   let skip : gkat = test One
   let fail : gkat = test Zero
 
+  let rec from_BE_to_KAT (exp : bExp) : kat =
+    match exp with
+    | Zero -> Zero
+    | One -> One
+    | PBool b -> PBool b
+    | Or (b1, b2) -> Union (from_BE_to_KAT b1, from_BE_to_KAT b2)
+    | And (b1, b2) -> Conc (from_BE_to_KAT b1, from_BE_to_KAT b2)
+    | Not b -> (Not (from_BE_to_KAT b))
+  
+  let rec from_GKAT_to_KAT (exp : gkat) : kat =
+    match exp with
+    | Pact p -> PAct p
+    | Seq (e1, e2) -> Conc (from_GKAT_to_KAT e1, from_GKAT_to_KAT e2)
+    | If (b, e1, e2) ->
+        Union
+          ( Conc (from_BE_to_KAT b, from_GKAT_to_KAT e1),
+            Conc (Not (from_BE_to_KAT b), from_GKAT_to_KAT e2) )
+    | Test b -> from_BE_to_KAT b
+    | While (b, e) ->
+        Conc
+          ( Star (Conc (from_BE_to_KAT b, from_GKAT_to_KAT e)),
+            Not (from_BE_to_KAT b) )
+
+
+  module Print1 = struct
+    let gpprint (exp : gkat): string =
+      let kat_exp = from_GKAT_to_KAT exp in
+        pprint kat_exp
+  
+  end
+  
+  module Print2 = struct
+  
+    (*Printer helper function for bexp expressions*)
+    let rec pprint_bexp_with_p (bexp : bExp) =
+      match bexp with
+      | Zero -> ("0", 0)
+      | One -> ("1", 0)
+      | PBool b -> (b, 0)
+      | Or (b1, b2) ->
+        let str1, prec1 = pprint_bexp_with_p b1 in
+        let str2, prec2 = pprint_bexp_with_p b2 in
+        let str1' = if prec1 > 2 then "(" ^ str1 ^ ")" else str1 in
+        let str2' = if prec2 > 2 then "(" ^ str2 ^ ")" else str2 in
+        (str1' ^ " or " ^ str2', 3)
+      | And (b1, b2) ->
+        let str1, prec1 = pprint_bexp_with_p b1 in
+        let str2, prec2 = pprint_bexp_with_p b2 in
+        let str1' = if prec1 > 2 then "(" ^ str1 ^ ")" else str1 in
+        let str2' = if prec2 > 2 then "(" ^ str2 ^ ")" else str2 in
+        (str1' ^ " and " ^ str2', 3)
+      | Not b ->
+        let str, prec = pprint_bexp_with_p b in
+  
+        if prec > 0 then ("~(" ^ str ^ ")", 1) else ("~" ^ str, 1)
+      
+      (* Print bexp without precedence number *)
+      let pprint_bexp (bexp : bExp) =
+      let str, _ = pprint_bexp_with_p bexp in
+      str
+  
+        (*pretty printer for gkat*)
+    let pprint (exp : gkat) =
+      let rec helper (exp : gkat) : string * int =
+        match exp with
+        | Pact p -> (p, 0)
+        | Seq (e1, e2) ->
+          let s1, p1 = helper e1 in
+          let s2, p2 = helper e2 in
+          let s1' = if p1 < 2 then s1 else "(" ^ s1 ^ ")" in
+          let s2' = if p2 < 2 then s2 else "(" ^ s2 ^ ")" in
+          (s1' ^ " * " ^ s2', 2)
+        | If (b, e1, e2) ->
+          let bs, _ = pprint_bexp_with_p b in
+          let s1, p1 = helper e1 in
+          let s2, p2 = helper e2 in
+          let s1' = if p1 <= 3 then s1 else "(" ^ s1 ^ ")" in
+          let s2' = if p2 < 3 then s2 else "(" ^ s2 ^ ")" in
+          ("if " ^ bs ^ " then " ^ s1' ^ " else " ^ s2', 3)
+        | Test b ->
+          let bs, _ = pprint_bexp_with_p b in
+          (bs, 1)
+        | While (b, e) ->
+          let bs, _ = pprint_bexp_with_p b in
+          let s, p = helper e in
+          let s' = if p <= 1 then s else "(" ^ s ^ ")" in
+          ("while " ^ bs ^ " do " ^ s' ^ " done", 1)
+      in
+  
+      let str, _ = helper exp in
+      str
+  end
+
   (* let seq (e : gkat) (f : gkat) : gkat =
     match (e, f) with
     | Test a, Test b -> test (BExp.b_and a b)
@@ -40,103 +133,19 @@ type gkat =
     else hashcons @@ If (b, e, f)
 
   let while_do (b : BExp.t) (e : t) : t = hashcons @@ While (b, e) *)
-let rec from_BE_to_KAT (exp : bExp) : kat =
-  match exp with
-  | Zero -> Zero
-  | One -> One
-  | PBool b -> PBool b
-  | Or (b1, b2) -> Union (from_BE_to_KAT b1, from_BE_to_KAT b2)
-  | And (b1, b2) -> Conc (from_BE_to_KAT b1, from_BE_to_KAT b2)
-  | Not b -> Not (from_BE_to_KAT b)
 
-let rec from_GKAT_to_KAT (exp : gkat) : kat =
-  match exp with
-  | Pact p -> PAct p
-  | Seq (e1, e2) -> Conc (from_GKAT_to_KAT e1, from_GKAT_to_KAT e2)
-  | If (b, e1, e2) ->
-      Union
-        ( Conc (from_BE_to_KAT b, from_GKAT_to_KAT e1),
-          Conc (Not (from_BE_to_KAT b), from_GKAT_to_KAT e2) )
-  | Test b -> from_BE_to_KAT b
-  | While (b, e) ->
-      Conc
-        ( Star (Conc (from_BE_to_KAT b, from_GKAT_to_KAT e)),
-          Not (from_BE_to_KAT b) )
-(*(be)*notb*)
 
 let gKat_equiv (exp1 : gkat) (exp2 : gkat) : bool =
+  print_string ("exp1: " ^ Print2.pprint exp1);
+  print_newline ();
+  print_string ("exp2: " ^ Print2.pprint exp1);
   let e1 = from_GKAT_to_KAT exp1 in
   let e2 = from_GKAT_to_KAT exp2 in
+  print_string ("ekat1: " ^ Print.pprint e1);
+  print_newline ();
+  print_string ("ekat2: " ^ Print.pprint e2);
+  print_endline (string_of_bool (equiv e1 e2));
   equiv e1 e2
-
-module Print1 = struct
-  let gpprint (exp : gkat): string =
-    let kat_exp = from_GKAT_to_KAT exp in
-      pprint kat_exp
-
-end
-
-module Print2 = struct
-
-  (*Printer helper function for bexp expressions*)
-  let rec pprint_bexp_with_p (bexp : bExp) =
-    match bexp with
-    | Zero -> ("0", 0)
-    | One -> ("1", 0)
-    | PBool b -> (b, 0)
-    | Or (b1, b2) ->
-      let str1, prec1 = pprint_bexp_with_p b1 in
-      let str2, prec2 = pprint_bexp_with_p b2 in
-      let str1' = if prec1 > 2 then "(" ^ str1 ^ ")" else str1 in
-      let str2' = if prec2 > 2 then "(" ^ str2 ^ ")" else str2 in
-      (str1' ^ " or " ^ str2', 3)
-    | And (b1, b2) ->
-      let str1, prec1 = pprint_bexp_with_p b1 in
-      let str2, prec2 = pprint_bexp_with_p b2 in
-      let str1' = if prec1 > 2 then "(" ^ str1 ^ ")" else str1 in
-      let str2' = if prec2 > 2 then "(" ^ str2 ^ ")" else str2 in
-      (str1' ^ " and " ^ str2', 3)
-    | Not b ->
-      let str, prec = pprint_bexp_with_p b in
-
-      if prec > 0 then ("~(" ^ str ^ ")", 1) else ("~" ^ str, 1)
-    
-    (* Print bexp without precedence number *)
-    let pprint_bexp (bexp : bExp) =
-    let str, _ = pprint_bexp_with_p bexp in
-    str
-
-      (*pretty printer for gkat*)
-  let pprint (exp : gkat) =
-    let rec helper (exp : gkat) : string * int =
-      match exp with
-      | Pact p -> (p, 0)
-      | Seq (e1, e2) ->
-        let s1, p1 = helper e1 in
-        let s2, p2 = helper e2 in
-        let s1' = if p1 < 2 then s1 else "(" ^ s1 ^ ")" in
-        let s2' = if p2 < 2 then s2 else "(" ^ s2 ^ ")" in
-        (s1' ^ " * " ^ s2', 2)
-      | If (b, e1, e2) ->
-        let bs, _ = pprint_bexp_with_p b in
-        let s1, p1 = helper e1 in
-        let s2, p2 = helper e2 in
-        let s1' = if p1 <= 3 then s1 else "(" ^ s1 ^ ")" in
-        let s2' = if p2 < 3 then s2 else "(" ^ s2 ^ ")" in
-        ("if " ^ bs ^ " then " ^ s1' ^ " else " ^ s2', 3)
-      | Test b ->
-        let bs, _ = pprint_bexp_with_p b in
-        (bs, 1)
-      | While (b, e) ->
-        let bs, _ = pprint_bexp_with_p b in
-        let s, p = helper e in
-        let s' = if p <= 1 then s else "(" ^ s ^ ")" in
-        ("while " ^ bs ^ " do " ^ s' ^ " done", 1)
-    in
-
-    let str, _ = helper exp in
-    str
-end
 
 
 

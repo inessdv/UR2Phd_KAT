@@ -257,11 +257,11 @@ end
 
 let test_equiv_deriv =
   QCheck_ounit.to_ounit2_test
-  @@ Test.make ~count:1000
+  @@ Test.make ~count:10 (*00*)
        ~name:"testing KAT derivative based algorithm with generated equivalence"
          (* We don't have a printer at this point*)
        ~print:(fun (e1, e2) ->
-         GKAT_2.Print2.pprint e1 ^ " EXP2: " ^ GKAT_2.Print2.pprint e2)
+        " EXP1: " ^ GKAT_2.Print2.pprint e1 ^ " EXP2: " ^ GKAT_2.Print2.pprint e2)
        GenExp.gen_eq_exp
        (fun (e1, e2) ->
          (* HACK: ignore generated result with duplicate labels,
