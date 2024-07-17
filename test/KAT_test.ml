@@ -8,15 +8,15 @@ let fromStr str = (parse_kat_unsafe str)
 
 let epsilon_tests = "epslion test" >:::[
   "ϵ(b)(bpc) = 0" >:: (fun _ ->
-    assert_equal false (epsilon (Atom.of_list ["b";"c"]) (fromStr "bpc")));  (* p* contains all atoms *) (* p+b contains all atoms*)
+    assert_equal false (epsilon (Atom.of_list ["b";"c"]) (fromStr "b(p(c))")));  (* p* contains all atoms *) (* p+b contains all atoms*)
   "ϵ((b -c),(bpc)) = 0" >:: (fun _ -> 
-    assert_equal false (epsilon (Atom.of_list ["b"]) (fromStr "bpc")));
+    assert_equal false (epsilon (Atom.of_list ["b"]) (fromStr "b(p(c))")));
 ]
 
 let deriv_test = "deriv and linearization test" >::: [
   "D(ap)((ap+bq) = 1+0" >:: (fun _ ->
     assert_equal ~printer: pprint_sum
-      (KATSet.singleton(fromStr "1+0")) (deriv (Atom.of_list ["a";"b"],"p") (linearization (fromStr "ap + bq"))));
+      (KATSet.singleton(fromStr "1+0")) (deriv (Atom.of_list ["a";"b"],"p") (linearization (fromStr "a(p) + b(q)"))));
 ]
 
 

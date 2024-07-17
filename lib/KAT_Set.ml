@@ -173,7 +173,8 @@ let rec epsilon (atom : Atom.t) (exp : kat) : bool =
   | Zero -> false
   | One -> false
   | PAct _ -> false
-  | PBool b -> Atom.mem b atom (*if b<= atom, then b must in the atom *)
+  | PBool b -> print_string (" PBool b = " ^  b); 
+    Atom.mem b atom (*if b <= atom, then b must be in the atom *)
   | Union (a, b) -> epsilon atom a || epsilon atom b
   | Conc (a, b) -> epsilon atom a && epsilon atom b
   | Star _ -> true
@@ -270,6 +271,7 @@ let hd (r : linearForm) : AtPactSet.t =
       a KAT expression in respect to a αp, that were computed 
       by linearization function. **)
 let deriv (atp : atPact) (der_map : linearForm) : KATSet.t =
+  
   match AtPactMap.find_opt atp der_map with
   (*If the p doesn't exists then return empty*)
   | None -> KATSet.empty
@@ -434,14 +436,19 @@ end
 (*Examples for testing*)
 let fromStr str = (Parser.parse_kat_unsafe str)
 
-let example_kat = fromStr "bpc"
-(*let atom = SStringSet.singleton (Parser.p_bool_parser 'b')*)
+let kat_bpc = fromStr "b(p(c))"
+let atom_bc = Atom.of_list [ "b"; "c" ], "p"
 
-let example_atoms  = pBoolOf (example_kat,true)
+let atom_b = Atom.of_list [ "b" ]
+let atom_bp = Atom.of_list ["b"], "p"
 
-let example1 = Atom.of_list [ "b"; "c"; "d" ]
-let example1 = atOf example1
-let example2 = SStringSet.to_list
+let exp_b = fromStr "b"
+let exp_bp = fromStr "b(p)"
+
+let atoms =  Atom.of_list ["a";"b"],"p"
+let x = (linearization (fromStr "a(p) + (b)q"))
+let first = linearization (fromStr "a(p)")
+let second = linearization (fromStr "b(q)")
 
 (**examples to type check /tests**)
 (* let rec pBoolOf((exp, expIsBExp): kat * bool):StringSet.t =
