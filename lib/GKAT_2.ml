@@ -134,89 +134,60 @@ type gkat =
 
   let while_do (b : BExp.t) (e : t) : t = hashcons @@ While (b, e) *)
 
+(**simplifying kat function*)
+let rec simplify_kat (e:kat): kat =
+  match e with
+  | Zero -> Zero
+  | One -> One
+  | PAct p -> e
+  | PBool b -> e
+  | Union (e1,Zero) -> simplify_kat e1
+  | Union (Zero,e2) -> simplify_kat e2
+  | Union (e1,e2) -> Union (simplify_kat e1,simplify_kat e2)
+  | Conc (e1,Zero)-> Zero
+  | Conc (Zero,e2)-> Zero
+  | Conc (e1,One)-> simplify_kat e1
+  | Conc (One,e2)-> simplify_kat e2
+  | Conc (e1,e2)-> Conc (simplify_kat e1,simplify_kat e2)
+  | Star e -> Star (simplify_kat e)
+  | Not One -> Zero
+  | Not Zero -> One
+  | Not (Not e1) -> simplify_kat e1
+  | Not e1 -> Not (simplify_kat e1)
 
 let gKat_equiv (exp1 : gkat) (exp2 : gkat) : bool =
   print_string ("exp1: " ^ Print2.pprint exp1);
   print_newline ();
-  print_string ("exp2: " ^ Print2.pprint exp1);
-  let e1 = from_GKAT_to_KAT exp1 in
-  let e2 = from_GKAT_to_KAT exp2 in
+  print_string ("exp2: " ^ Print2.pprint exp2);
+  print_newline ();
+  let e1 = simplify_kat (from_GKAT_to_KAT exp1) in
+  let e2 = simplify_kat (from_GKAT_to_KAT exp2) in
   print_string ("ekat1: " ^ Print.pprint e1);
   print_newline ();
   print_string ("ekat2: " ^ Print.pprint e2);
+  print_newline ();
   print_endline (string_of_bool (equiv e1 e2));
   equiv e1 e2
 
 
+(* Expression 1: if 0 or b1 then b2 else while b2 do b2 done *)
+let example1 = If (
+  Or(Zero, PBool("b1")),   (* 0 or b1 *)
+  Pact("b2"),              (* then b2 *)
+  While(                   (* else *)
+    PBool("b2"),           (* while b2 *)
+    Pact("b1")             (* do b1 *)
+  )
+)
 
-(*
-  let pprint (exp : gkat) =
-    (*helper method, takes a expression, output the string,
-          and **the precedence of the outer most expression** *)
-    let rec helper (exp : gkat) : string * int =
-      match exp with
-      | Pact p -> (p, 0)
-      | Seq (exp1,exp2) -> 
-        let str1, precedence1 = helper exp1 in
-          let str2, precedence2 = helper exp2 in
-          let str1' = if precedence1 <= 2 then str1 else "(" ^ str1 ^ ")" in
-          let str2' = if precedence2 < 2 then str2 else "(" ^ str2 ^ ")" in
-          (str1' ^ "*" ^ str2', 2)
-      | If (bexp, exp1, exp2) -> 
-        let str1, precedence1 = helper exp1 in
-          let str2, precedence2 = helper exp2 in
-          let str3, precedence3 = 
-            match bexp with
-            | Zero -> ("0", 0)
-            | One -> ("1", 0)
-            | PBool b -> (b, 0)
-            | Or (bexp1, bexp2) -> 
-              let b1, precedence1 = helper (from_BE_to_KAT bexp1) in
-              let b2, precedence2 = helper (from_BE_to_KAT bexp2) in
-              let b1' = if precedence1 <= 2 then str1 else "(" ^ b1 ^ ")" in
-              let b2' = if precedence2 < 2 then str2 else "(" ^ b2 ^ ")" in
-              (b1' ^ " or " ^ b2', 3)
-            | And (bexp1, bexp2)->
-              let b1, precedence1 = helper (from_BE_to_KAT bexp1) in
-              let b2, precedence2 = helper (from_BE_to_KAT bexp2) in
-              let b1' = if precedence1 <= 2 then str1 else "(" ^ b1 ^ ")" in
-              let b2' = if precedence2 < 2 then str2 else "(" ^ b2 ^ ")" in
-              (b1' ^ " and " ^ b2', 3)
-            | Not bexp1 -> 
-              let str, precedence = helper (from_BE_to_KAT bexp1) in
-              if precedence <= 1 then ("~" ^ str, 1) else ("~(" ^ str ^ ")", 1)
-        in
-          let str1' = if precedence1 <= 3 then str1 else "(" ^ str1 ^ ")" in
-          let str2' = if precedence2 < 3 then str2 else "(" ^ str2 ^ ")" in
-          (str1' ^ " + " ^str3^ str2', 3)
-      | Test bexp -> 
-        let str, precedence3 = 
-            match bexp with
-            | Zero -> ("0", 0)
-            | One -> ("1", 0)
-            | PBool b -> (b, 0)
-            | Or (bexp1, bexp2) -> 
-              let b1, precedence1 = helper (from_BE_to_KAT bexp1) in
-              let b2, precedence2 = helper (from_BE_to_KAT bexp2) in
-              let b1' = if precedence1 <= 2 then b1 else "(" ^ b1 ^ ")" in
-              let b2' = if precedence2 < 2 then b2 else "(" ^ b2 ^ ")" in
-              (b1' ^ " or " ^ b2', 3)
-            | And (bexp1, bexp2)->
-              let b1, precedence1 = helper (from_BE_to_KAT bexp1) in
-              let b2, precedence2 = helper (from_BE_to_KAT bexp2) in
-              let b1' = if precedence1 <= 2 then b1 else "(" ^ b1 ^ ")" in
-              let b2' = if precedence2 < 2 then b2 else "(" ^ b2 ^ ")" in
-              (b1' ^ " and " ^ b2', 3)
-            | Not bexp1 -> 
-              let str, precedence = helper (from_BE_to_KAT bexp1) in
-              if precedence <= 1 then ("~" ^ str, 1) else ("~(" ^ str ^ ")", 1) in
-              ( str, 1)
-      | While (bexp, exp) -> failwith ""
-            in failwith ""
-    (*let pprint_sum (expset : KATSet.t) : string =
-      let exp_list = KATSet.to_list expset in
-      (*I can do pipeline here*)
-      let string_list = List.map pprint exp_list in
-      String.concat " " string_list 
-    in *)
-  end *)
+(* Expression 2: if ~b1 then while b2 and 1 do b1 done else b2 *)
+let example2 = If (
+  Not (PBool("b1")),       (* not b1 *)
+  While (And (PBool("b2"),One), Pact("b1")), (* then while b2 and 1 do b1*)
+  Pact("b2")             
+  )
+
+(* 1 *)
+let exp1 = from_BE_to_KAT One
+(* b1 + 1 *)
+let exp2 = from_BE_to_KAT (Or (PBool("b1"),One))

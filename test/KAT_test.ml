@@ -18,10 +18,10 @@ let deriv_test = "deriv and linearization test" >::: [
     assert_equal ~printer: pprint_sum
       (KATSet.singleton(fromStr "1+0")) (deriv (Atom.of_list ["a";"b"],"p") (linearization (fromStr "a(p) + b(q)"))));
 ]
-let equiv_test = "deriv and linearization test" >::: [
-  "D(ap)((ap+bq) = 1+0" >:: (fun _ ->
+let equiv_test = "equivalence test" >::: [
+  "equiv (b+1) (1)" >:: (fun _ ->
     assert_equal true
-      (equiv (fromStr "a(p) + b(q)") (fromStr "a(p) + b(q)") ));
+      (equiv (fromStr "b1 + 1") (fromStr "1") ));
       
 ]
 

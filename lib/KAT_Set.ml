@@ -92,6 +92,16 @@ module Print = struct
     let string_list = List.map pprint exp_list in
     String.concat " " string_list
 
+  let pprint_pder (pair: PDerivPairSet.t): string =
+    let pair_list = PDerivPairSet.to_list pair in
+    let string_list = List.map (fun (x,y) -> print_string (pprint_sum x); pprint_sum y;) pair_list in
+    String.concat " " string_list
+
+  let pprint_atoms (atoms: SStringSet.t): string =
+    let atom_list = SStringSet.to_list atoms in
+    let atom_str = List.map (fun atom -> Atom.pprint atom) atom_list in
+    String.concat "\n" atom_str
+
   let pprint_linear_form (linear: linearForm) : string = 
     let linear_list = AtPactMap.to_list linear in
       let linear_str = List.map (fun ((atom,pact), kat) -> Atom.pprint atom ^ ", " ^ pact ^ " -> " ^ pprint_sum kat) linear_list in 
@@ -160,10 +170,10 @@ let rec pBoolOf (exp : katI) : Atom.t =
       | _ -> Atom.empty)
 
 (** function to get the atoms of the primitive bools through power set**)
-let atOf (primitive_boolset : Atom.t) : SStringSet.t =
+let atOf (primitive_boolset : Atom.t) : SStringSet.t = 
   Atom.fold
     (fun x ps ->
-      SStringSet.fold (fun ss -> SStringSet.add (Atom.add x ss)) ps ps)
+      SStringSet.fold (fun ss -> SStringSet.add (Atom.add x ss)) ps ps) (*CHECK**)
     primitive_boolset
     (SStringSet.singleton Atom.empty)
 
@@ -171,7 +181,7 @@ let atOf (primitive_boolset : Atom.t) : SStringSet.t =
 let rec epsilon (atom : Atom.t) (exp : kat) : bool =
   match exp with
   | Zero -> false
-  | One -> false
+  | One -> true (*DOUBLE CHECK!!!!!!!!!*)
   | PAct _ -> false
   | PBool b -> Atom.mem b atom (*if b <= atom, then b must be in the atom *)
   | Union (a, b) -> epsilon atom a || epsilon atom b
@@ -247,6 +257,7 @@ let linearization (exp : kat) : linearForm =
     | Star e -> concLinearForm (linearization_helper at e) (Star e)
     | _ -> AtPactMap.empty
   in
+  print_string (Print.pprint_linear_form (linearization_helper (getAtomsof exp) exp));
   linearization_helper (getAtomsof exp) exp
 
 (** gets the string set of atoms directly from expression**)
@@ -297,7 +308,15 @@ let rec hAll_sum (e1 : KATSet.t) (e2 : KATSet.t) (at : SStringSet.t) : bool =
   if SStringSet.is_empty at then true
   else
     let ele = SStringSet.min_elt at in
-    if epsilon_sum ele e1 == epsilon_sum ele e2 then hAll_sum e1 e2 (SStringSet.remove ele at)
+    print_string ("current_atom " ^ (Atom.pprint ele));
+    print_newline();
+    print_newline();
+    print_string ("epsilon_sum e1 with atom " ^ (Atom.pprint ele)^" :"^(Print.pprint_sum e1) ^" ->"^ (string_of_bool(epsilon_sum ele e1))) ;
+    print_newline();
+    print_string ("epsilon_sum e2 with atom  " ^ (Atom.pprint ele)^" :"^(Print.pprint_sum e2) ^" ->"^ (string_of_bool(epsilon_sum ele e2))) ;
+    print_newline();
+    if epsilon_sum ele e1 == epsilon_sum ele e2 then 
+      hAll_sum e1 e2 (SStringSet.remove ele at)
     else false
 
 
@@ -312,25 +331,46 @@ let derivatives ((r1, r2) : KATSet.t * KATSet.t) : PDerivPairSet.t =
 (** Equivalence Function **)
 let equiv (e1 : kat) (e2 : kat) : bool =
   let pb_e1 = pBoolOf (e1, true) and pb_e2 = pBoolOf (e2, true) in
+  print_string ("pbools of e1 " ^ (Print.pprint e1)^ (Atom.pprint pb_e1));
+  print_newline();
+  print_string ("pbools of e2 " ^ (Print.pprint e2)^ (Atom.pprint pb_e2));
+  print_newline();
   let prim_bools = Atom.union pb_e1 pb_e2 in
+  print_string ("pbools union "^ (Atom.pprint prim_bools));
+  print_newline();
   let atoms = atOf prim_bools in
+  print_string ("atoms " ^ (Print.pprint_atoms atoms));
+  print_newline();
   let rec equiv_help ((todo, visited) : PDerivPairSet.t * PDerivPairSet.t) :
       bool =
+    print_string ("TODO:" ^ (Print.pprint_pder todo));
+    print_newline();
     match PDerivPairSet.choose_opt todo with
     (*get a KATSet pair*)
     | None -> true (*todo is empty, finised*)
     | Some (sum1, sum2) ->
+        print_string ("sum1 :"^(Print.pprint_sum sum1));
+        print_newline();
+        print_string ("sum2 :"^(Print.pprint_sum sum2));
+        print_newline();
         (*first pair of todo*)
+        print_string ("hAll_sum :"^string_of_bool (hAll_sum sum1 sum2 atoms));
+        print_newline();
         if hAll_sum sum1 sum2 atoms = false then false (* Eα(E1)!=Eα(E2) *)
         else
           let new_visited = PDerivPairSet.add (sum1, sum2) visited in
           (* add checked pair to visited *)
           let dervs = derivatives (sum1, sum2) in
+          print_newline();
+          print_string ("dervs :" ^ (Print.pprint_pder dervs));
+          print_newline();
           (* find derivs of pair *)
           let new_todo =
             (* add new pairs from derivs to todo and take set diff of visited to avoid reps*)
             PDerivPairSet.diff (PDerivPairSet.union todo dervs) new_visited
           in
+          print_string ("new todo :" ^ (Print.pprint_pder new_todo));
+          print_newline();
           equiv_help (new_todo, new_visited)
     (* first call to equiv_help with todo having e1 and e2 as the first pair and visited as empty pair *)
   in
