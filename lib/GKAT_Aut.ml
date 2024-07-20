@@ -402,3 +402,17 @@ let equiv (exp1 : gkat) (exp2 : gkat) : bool =
   let auto1 = normalization (convert (thompson_construct exp1 p_act p_bool)) in
   let auto2 = normalization (convert (thompson_construct exp2 p_act p_bool)) in
   match (auto1, auto2) with Some a1, Some a2 -> bisim1 a1 a2 | _ -> false
+
+let gkat_example1=  GKAT_2.Test(GKAT_2.PBool "b1")
+let gkat_example2=  GKAT_2.Test(GKAT_2.PBool "b1")
+
+let test_p_bool= PBoolSet.union
+(extract_p_bool gkat_example1 PBoolSet.empty)
+(extract_p_bool gkat_example2 PBoolSet.empty)
+
+let test_p_act=PActSet.union
+(extract_p_bool gkat_example1 PActSet.empty)
+(extract_p_bool gkat_example2 PActSet.empty)
+
+let test_auto1= convert (thompson_construct gkat_example1 test_p_act test_p_bool)
+let test_auto2=convert (thompson_construct gkat_example2 test_p_act test_p_bool)
