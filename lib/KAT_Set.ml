@@ -343,15 +343,27 @@ let equiv (e1 : kat) (e2 : kat) : bool =
   print_newline();
   let rec equiv_help ((todo, visited) : PDerivPairSet.t * PDerivPairSet.t) :
       bool =
-    print_string ("TODO:" ^ (Print.pprint_pder todo));
+    print_string ("TODO:"  ^ (Print.pprint_pder todo));
     print_newline();
+    let new_list = PDerivPairSet.to_list todo in 
+    print_string(string_of_bool (List.for_all (fun (x,y) -> 
+      (let kx_list = (KATSet.to_list x) in List.is_empty kx_list ) 
+      && (let ky_list = (KATSet.to_list y) in List.is_empty ky_list )) new_list));
+      print_newline();
+        if 
+          (List.for_all (fun (x,y) -> 
+            (let kx_list = (KATSet.to_list x) in List.is_empty kx_list ) 
+            && (let ky_list = (KATSet.to_list y) in List.is_empty ky_list )) new_list)
+            then let string = "it is empty!!!" in
+            print_string (string);
+              true else 
     match PDerivPairSet.choose_opt todo with
     (*get a KATSet pair*)
     | None -> true (*todo is empty, finised*)
     | Some (sum1, sum2) ->
-        print_string ("sum1 :"^(Print.pprint_sum sum1));
+        print_string ("sum1 :" ^ (Print.pprint_sum sum1));
         print_newline();
-        print_string ("sum2 :"^(Print.pprint_sum sum2));
+        print_string ("sum2 :" ^ (Print.pprint_sum sum2));
         print_newline();
         (*first pair of todo*)
         print_string ("hAll_sum :"^string_of_bool (hAll_sum sum1 sum2 atoms));
@@ -361,24 +373,24 @@ let equiv (e1 : kat) (e2 : kat) : bool =
           let new_visited = PDerivPairSet.add (sum1, sum2) visited in
           (* add checked pair to visited *)
           let dervs = derivatives (sum1, sum2) in
+          (*Get rid of pairs of empty lists*)
           print_newline();
           print_string ("dervs :" ^ (Print.pprint_pder dervs));
           print_newline();
           (* find derivs of pair *)
-          let new_todo =
+         let new_todo =
             (* add new pairs from derivs to todo and take set diff of visited to avoid reps*)
             PDerivPairSet.diff (PDerivPairSet.union todo dervs) new_visited
           in
           print_string ("new todo :" ^ (Print.pprint_pder new_todo));
           print_newline();
-          equiv_help (new_todo, new_visited)
+          equiv_help (new_todo, new_visited) 
     (* first call to equiv_help with todo having e1 and e2 as the first pair and visited as empty pair *)
   in
 
   equiv_help
     ( PDerivPairSet.singleton (KATSet.singleton e1, KATSet.singleton e2),
       PDerivPairSet.empty )
-
 
 module Parser = struct
   open Parser.Combinators
