@@ -345,7 +345,7 @@ let equiv (e1 : kat) (e2 : kat) : bool =
       bool =
     print_string ("TODO:"  ^ (Print.pprint_pder todo));
     print_newline();
-    let new_list = PDerivPairSet.to_list todo in 
+   let new_list = PDerivPairSet.to_list todo in 
     print_string(string_of_bool (List.for_all (fun (x,y) -> 
       (let kx_list = (KATSet.to_list x) in List.is_empty kx_list ) 
       && (let ky_list = (KATSet.to_list y) in List.is_empty ky_list )) new_list));
@@ -356,8 +356,9 @@ let equiv (e1 : kat) (e2 : kat) : bool =
             && (let ky_list = (KATSet.to_list y) in List.is_empty ky_list )) new_list)
             then let string = "it is empty!!!" in
             print_string (string);
-              true else 
+              true else
     match PDerivPairSet.choose_opt todo with
+    
     (*get a KATSet pair*)
     | None -> true (*todo is empty, finised*)
     | Some (sum1, sum2) ->
