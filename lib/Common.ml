@@ -103,16 +103,15 @@ module Atom = struct
   let list_p (list: PBoolSet.t list ): unit list list=
     List.map (fun x -> List.map (fun y -> print_string y) (PBoolSet.to_list x)) list
 
-  let rec of_p_bools (p_bools : PBoolSet.t) : t list =
-    match PBoolSet.choose_opt p_bools with
-    | None -> []
-    | Some p_bool ->
-        let atoms_of_rest = of_p_bools (PBoolSet.remove p_bool p_bools) in
-
-        (*atoms that doesn't contain `p_bool`*)
-        atoms_of_rest
-        @ (*atoms that contains `p_bool`*)
-        (atoms_of_rest |> List.map (fun at -> PBoolSet.add p_bool at))
+    let rec of_p_bools (p_bools : PBoolSet.t) : t list =
+      match PBoolSet.choose_opt p_bools with
+      | None -> [empty]
+      | Some p_bool ->
+          let atoms_of_rest = of_p_bools (PBoolSet.remove p_bool p_bools) in
+          (*atoms that doesn't contain `p_bool`*)
+          atoms_of_rest
+          @ (*atoms that contains `p_bool`*)
+           (atoms_of_rest |> List.map (fun at -> add p_bool at)) 
 
   let pprint (atom : t) : string =
     if is_empty atom then "{}" else atom |> to_list |> String.concat "⋅"
