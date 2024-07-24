@@ -12,7 +12,8 @@ type kat =
   | Star of kat
   | Not of kat
 
-module KATSet = Set.Make (struct
+
+  module KATSet = Set.Make (struct
   type t = kat
 
   let compare = compare
@@ -110,6 +111,11 @@ module Print = struct
     let linear_list = AtPactMap.to_list linear in
       let linear_str = List.map (fun ((atom,pact), kat) -> Atom.pprint atom ^ ", " ^ pact ^ " -> " ^ pprint_sum kat) linear_list in 
       String.concat "\n" linear_str 
+
+  let pprint_pderMap (linear_set: DerMapSet.t ): string =
+    let linear_list = DerMapSet.to_list linear_set in
+    let string_list = List.map (fun x -> (pprint_linear_form x)) linear_list in
+    String.concat " " string_list;
 end
 
 type katI =
@@ -197,6 +203,14 @@ let rec epsilon (atom : Atom.t) (exp : kat) : bool =
 let epsilon_sum (atom : Atom.t) (sum : KATSet.t) : bool =
   KATSet.exists (fun exp -> epsilon atom exp) sum
 
+let rec kat_epsilon (at : SStringSet.t) (e1 : kat) : bool = 
+    if SStringSet.is_empty at then false
+    else
+      let ele = SStringSet.min_elt at in
+      if epsilon ele e1 then 
+        true
+      else kat_epsilon (SStringSet.remove ele at) e1
+
 (** linearization function **)
 let unionLinearForm (lin1 : linearForm) (lin2 : linearForm) : linearForm =
   AtPactMap.union
@@ -245,7 +259,7 @@ let getAtomsof (exp : kat) : SStringSet.t =
   atOf primitives
 
 let linearization (exp : kat) : linearForm =
-  print_endline (Print.pprint exp);
+  print_endline ("linearization for exp: " ^Print.pprint exp);
   let rec linearization_helper (at : SStringSet.t) (exp : kat) : linearForm =
     match exp with
     | PBool _ -> AtPactMap.empty
@@ -254,22 +268,36 @@ let linearization (exp : kat) : linearForm =
         unionLinearForm
           (linearization_helper at e1)
           (linearization_helper at e2)
-    | Conc (e1, e2) ->
-        let linear1 = linearization_helper at e1 in
+    | Conc (e1, e2) -> 
+      let linear1 = linearization_helper at e1 in
         unionLinearForm
           (concLinearForm (linear1) e2)
           (atomExists (linearization_helper at e2) e1)
+          (*
+    missing checking the epsilon!!??
+       
+      let linear1 = linearization_helper at e1 in
+      if (kat_epsilon at e1) then ( (***SOMETHING IN HERE**)
+        print_endline("linear1_conc e1: " ^ (Print.pprint_linear_form linear1));
+        unionLinearForm
+          (concLinearForm (linear1) e2)
+          (atomExists (linearization_helper at e2) e1) )
+        else (concLinearForm (linear1) e2)*)
     | Star e -> concLinearForm (linearization_helper at e) (Star e)
     | _ -> AtPactMap.empty
   in
-  print_endline (Print.pprint_linear_form (linearization_helper (getAtomsof exp) exp));
-  linearization_helper (getAtomsof exp) exp
+  let linear = linearization_helper (getAtomsof exp) exp in 
+  print_endline ("linear for e:" ^ (Print.pprint exp)^":"^ Print.pprint_linear_form (linear));
+  linear
 
 (** gets the string set of atoms directly from expression**)
 
 (** Get the derivative map for a set of KATs (sum), represented as a set of terms **)
 let get_der_map_sum (sum : KATSet.t) : DerMapSet.t =
-  KATSet.to_list sum |> List.map (fun x -> linearization x) |> DerMapSet.of_list
+  let linear = KATSet.to_list sum |> List.map (fun x -> linearization x) |> DerMapSet.of_list
+    in
+    print_endline ("sum of linears for!:"^Print.pprint_sum sum ^" ="^Print.pprint_pderMap linear);
+    linear
 
 (**hd function gets the set of all heads αp mapped in the linearform of a KAT**)
 let hd (r : linearForm) : AtPactSet.t =
@@ -279,7 +307,8 @@ let hd (r : linearForm) : AtPactSet.t =
       a KAT expression in respect to a αp, that were computed 
       by linearization function. **)
 let deriv (atp : atPact) (der_map : linearForm) : KATSet.t =
-  print_endline (Print.pprint_linear_form der_map);
+  let (atom,pact) = atp in
+  print_endline ("linear to extract derivs with respect to: "^((Atom.pprint atom)^ pact)^":( "^Print.pprint_linear_form der_map^")");
   match AtPactMap.find_opt atp der_map with
   (*If the p doesn't exists then return empty*)
   | None -> KATSet.empty
@@ -331,11 +360,12 @@ let derivatives ((r1, r2) : KATSet.t * KATSet.t) : PDerivPairSet.t =
   let heads = AtPactSet.union (hd_sum der_map1) (hd_sum der_map2) in
   print_endline (Print.pprint_atPact_sum heads);
   AtPactSet.to_list heads
-  |> List.map (fun p -> let deriv_sum1 = deriv_sum p der_map1 in
+  |> List.map (fun p -> 
+  let deriv_sum1 = deriv_sum p der_map1 in
   let deriv_sum2 = deriv_sum p der_map2 in
     let (atom,pact) = p in
     print_endline ("current head "^(Atom.pprint atom)^ pact);
-    print_endline ("derivatives for : ex1:" ^ (Print.pprint_sum r1)^ " ("^ Print.pprint_sum deriv_sum1 ^ ") ex2: " ^(Print.pprint_sum r1)^ " ("^ Print.pprint_sum(deriv_sum2)^")");
+    print_endline ("derivatives for : ex1:" ^ (Print.pprint_sum r1)^ " ("^ Print.pprint_sum deriv_sum1 ^ ") ex2: " ^(Print.pprint_sum r2)^ " ("^ Print.pprint_sum(deriv_sum2)^")");
   (deriv_sum1 , deriv_sum2))
   |> PDerivPairSet.of_list
 
@@ -488,21 +518,24 @@ end
 
 (*Examples for testing*)
 let fromStr str = (Parser.parse_kat_unsafe str)
-
+(*
 let kat_bpc = fromStr "b(p(c))"
 let atom_bc = Atom.of_list [ "b"; "c" ], "p"
 
 let atom_b = Atom.of_list [ "b" ]
 let atom_bp = Atom.of_list ["b"], "p"
+*)
+let neg_kat = Conc( (Not(PBool "b1")),(PAct "p0"))
+let pb = linearization neg_kat
 
-let exp_b = fromStr "b"
+(*let exp_b = fromStr "b"
 let exp_bp = fromStr "b(p)"
 
 let atoms =  Atom.of_list ["a";"b"],"p"
-let x = (linearization (fromStr "a(p) + (b)q"))
-let first = linearization (fromStr "a(p)")
+let x = (linearization (fromStr "b1(p0)"))
+let first = linearization (fromStr "p")
 let second = linearization (fromStr "b(q)")
-
+*)
 (**examples to type check /tests**)
 (* let rec pBoolOf((exp, expIsBExp): kat * bool):StringSet.t =
      if expIsBExp then
