@@ -86,6 +86,10 @@ module Print = struct
     let str, _ = helper exp in
     str
 
+  let pprint_atPact_sum (heads: AtPactSet.t) = 
+    let heads = AtPactSet.to_list heads in
+    let string_list = List.map (fun (atom,p) -> "head "^(Atom.pprint atom)^ p) heads in
+    String.concat " " string_list
   let pprint_sum (expset : KATSet.t) : string =
     let exp_list = KATSet.to_list expset in
     (*I can do pipeline here*)
@@ -94,7 +98,7 @@ module Print = struct
 
   let pprint_pder (pair: PDerivPairSet.t): string =
     let pair_list = PDerivPairSet.to_list pair in
-    let string_list = List.map (fun (x,y) -> print_endline (pprint_sum x ); ( " and " ^ pprint_sum y);) pair_list in
+    let string_list = List.map (fun (x,y) -> (("( " ^ pprint_sum x )^( ", and " ^ pprint_sum y ^ ")"))) pair_list in
     String.concat " " string_list
 
   let pprint_atoms (atoms: SStringSet.t): string =
@@ -312,9 +316,9 @@ let rec hAll_sum (e1 : KATSet.t) (e2 : KATSet.t) (at : SStringSet.t) : bool =
     print_string ("current_atom " ^ (Atom.pprint ele));
     print_newline();
     print_newline();
-    print_string ("epsilon_sum e1 with atom " ^ (Atom.pprint ele)^" :"^(Print.pprint_sum e1) ^" ->"^ (string_of_bool(epsilon_sum ele e1))) ;
+    print_string ("epsilon_sum e1: " ^(Print.pprint_sum e1)^ " with atom "^(Atom.pprint ele)^" :"^(Print.pprint_sum e1) ^" ->"^ (string_of_bool(epsilon_sum ele e1))) ;
     print_newline();
-    print_string ("epsilon_sum e2 with atom  " ^ (Atom.pprint ele)^" :"^(Print.pprint_sum e2) ^" ->"^ (string_of_bool(epsilon_sum ele e2))) ;
+    print_string ("epsilon_sum e2: " ^(Print.pprint_sum e2)^ " with atom "^ (Atom.pprint ele)^" :"^(Print.pprint_sum e2) ^" ->"^ (string_of_bool(epsilon_sum ele e2))) ;
     print_newline();
     if epsilon_sum ele e1 == epsilon_sum ele e2 then 
       hAll_sum e1 e2 (SStringSet.remove ele at)
@@ -325,9 +329,14 @@ let derivatives ((r1, r2) : KATSet.t * KATSet.t) : PDerivPairSet.t =
   let der_map1 = get_der_map_sum r1 in
   let der_map2 = get_der_map_sum r2 in
   let heads = AtPactSet.union (hd_sum der_map1) (hd_sum der_map2) in
+  print_endline (Print.pprint_atPact_sum heads);
   AtPactSet.to_list heads
-  |> List.map (fun p -> print_endline (Print.pprint_sum (deriv_sum p der_map1)); print_endline (Print.pprint_sum (deriv_sum p der_map2));
-  (deriv_sum p der_map1 , deriv_sum p der_map2))
+  |> List.map (fun p -> let deriv_sum1 = deriv_sum p der_map1 in
+  let deriv_sum2 = deriv_sum p der_map2 in
+    let (atom,pact) = p in
+    print_endline ("current head "^(Atom.pprint atom)^ pact);
+    print_endline ("derivatives for : ex1:" ^ (Print.pprint_sum r1)^ " ("^ Print.pprint_sum deriv_sum1 ^ ") ex2: " ^(Print.pprint_sum r1)^ " ("^ Print.pprint_sum(deriv_sum2)^")");
+  (deriv_sum1 , deriv_sum2))
   |> PDerivPairSet.of_list
 
 (** Equivalence Function **)
@@ -360,15 +369,15 @@ let equiv (e1 : kat) (e2 : kat) : bool =
     match PDerivPairSet.choose_opt todo with
     (*get a KATSet pair*)
     | None -> true (*todo is empty, finised*)
-    | Some (sum1, sum2) ->
+    | Some (sum1, sum2)  ->
         print_string ("sum1 :" ^ (Print.pprint_sum sum1));
         print_newline();
         print_string ("sum2 :" ^ (Print.pprint_sum sum2));
         print_newline();
         (*first pair of todo*)
-        print_string ("hAll_sum :"^string_of_bool (hAll_sum sum1 sum2 atoms));
-        print_newline();
-        if hAll_sum sum1 sum2 atoms = false then false (* Eα(E1)!=Eα(E2) *)
+        let h_sum = hAll_sum sum1 sum2 atoms in
+        print_endline ("hAll_sum :"^string_of_bool h_sum);
+        if h_sum = false then false (* Eα(E1)!=Eα(E2) *)
         else
           let new_visited = PDerivPairSet.add (sum1, sum2) visited in
           (* add checked pair to visited *)
