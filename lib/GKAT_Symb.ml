@@ -77,6 +77,18 @@ module BExp = struct
     match Z3.Solver.check solver [ not_iff_exp ] with
     | Z3.Solver.UNSATISFIABLE -> true
     | _ -> false
+
+  (*Function to convert hashtype to bExp*)
+  let rec dehashcons (hc_bexp : t) : bExp =
+    match hc_bexp.node with
+    | Zero -> Zero
+    | One -> One
+    | PBool be ->  PBool be
+    | Or (be1,be2) -> Or (dehashcons be1, dehashcons be2)
+    | And (be1,be2) -> And (dehashcons be1, dehashcons be2)
+    | Not be -> Not (dehashcons be)
+
+  let pprint e = GKAT_2.Print2.pprint_bexp @@ dehashcons e
 end
 
 module Exp = struct
@@ -118,6 +130,17 @@ module Exp = struct
     else hashcons @@ If (b, e, f)
 
   let while_do (b : BExp.t) (e : t) : t = hashcons @@ While (b, e)
+
+  (*Function to convert hashtype to gkat*)
+  let rec dehashcons (hc_exp : t): gkat =
+    match hc_exp.node with
+    | Pact p -> Pact p
+    | Seq (e, f) ->  Seq (dehashcons e, dehashcons f)
+    | If (be, e, f) -> If (BExp.dehashcons be, dehashcons e, dehashcons f)
+    | Test be -> Test (BExp.dehashcons be)
+    | While (be, e) -> While (BExp.dehashcons be, dehashcons e)
+
+  let pprint e = GKAT_2.Print2.pprint @@ dehashcons e
 end
 
 module Derivatives = struct
@@ -207,39 +230,96 @@ module Derivatives = struct
         let derive_e = derivative e in
         while_helper be e derive_e
 
-  let rec check_dead_many (explored : Exp.t_ HSet.t) (exps : Exp.t list) :
-      Exp.t_ HSet.t option =
-    match exps with
-    | [] -> Some explored
-    | x1 :: xs -> (
-        match check_dead explored x1 with
-        | None -> None
-        | Some states -> check_dead_many (HSet.union explored states) xs)
+  module DeadExps: sig
+    val is_dead: Exp.t -> bool  
+    val known_dead: Exp.t -> bool
+  end= struct
+  (** The module to encapsolate the logic to check dead*)
 
-  and check_dead (explored : Exp.t_ HSet.t) (exp : Exp.t) : Exp.t_ HSet.t option
-      =
-    if HSet.mem exp explored then Some explored
-    else
+  (** states (expressions) that are known to be dead
+  
+  its size 251 is a magic number, as a place holder*)
+  let dead_states : ExpHSet.t = ExpHSet.create 251 
+  
+
+  (** Detect whether an expression is *known* to be dead.
+    
+  A fast alternative to `is_dead`, 
+  when it returns `false`, the expression is not necessarily live.*)
+  let known_dead (exp) = ExpHSet.mem exp dead_states
+
+
+  type visitRes = 
+  | KnownDead 
+  (** the visited expression is *known* to be dead, i.e. in `dead_states`*)
+  
+  | Live 
+  (** the visited node is live, i.e. accepting state is found in the visit *)
+  
+  | Unknown of Exp.t_ HSet.t 
+  (** the visited node is unknown to be dead or live, 
+  the arugument is all the explored expressions while visiting that node*)
+    
+
+  (** helper to `visit`, visit all the decedents of an expression, return a visit result
+  
+  - return `Live` if any of them is returning live, 
+  - return `Dead` if all of them are returning dead, 
+  - return `Unknown` otherwise *)
+  let rec visit_decedents (explored : Exp.t_ HSet.t) (exps : Exp.t list) : visitRes =
+    match exps with
+    | [] -> Unknown explored
+    | x1 :: xs -> (
+        match visit explored x1 with
+        | Live -> Live 
+        | KnownDead -> visit_decedents (HSet.add x1 explored) xs
+        | Unknown states -> visit_decedents (HSet.union explored states) xs)
+
+    (** visit a single expression, *)
+    and visit (explored : Exp.t_ HSet.t) (exp : Exp.t) : visitRes =
+      (* print_endline ("visiting "^Exp.pprint exp); *)
+      if known_dead exp then KnownDead else 
+      if HSet.mem exp explored then Unknown explored else
+      (* explore the current *)
       let explored = HSet.add exp explored in
       if BExp.is_false @@ epsilon exp then
+        (* expression is not accepting*)
         let deriv = derivative exp in
-        let next_exps = List.map (fun (_, (exp, _)) -> exp) deriv in
-        check_dead_many explored next_exps
-      else None
+        (* computing the next step, notice we need to filter out the unreachable expression,
+        where the symbolic derivative `b_exp` is false *)
+        let next_exps = List.filter_map 
+          (fun (b_exp, (exp, _)) -> if BExp.is_false b_exp then None else Some exp) 
+          deriv 
+        in
+        visit_decedents explored next_exps
+      else 
+        (* expression is accepting*)
+        Live
 
-  let dead_states : ExpHSet.t = ExpHSet.create 251 (* what size??*)
-
-  let is_dead (exp : Exp.t) : bool =
-    if ExpHSet.mem exp dead_states then true
-    else
-      match check_dead HSet.empty exp with
-      (* | Some(s)-> let dead_states = ExpHSet.add s  *)
-      | Some s ->
+    (** Check whether an expression is dead.
+    
+    When it returns false, the expression is necessarily live.*)
+    let is_dead (exp : Exp.t) : bool =
+    (* print_endline ("checking whether exp "^Exp.pprint exp^" is dead");  *)
+    match visit HSet.empty exp with
+      (* if it is unknown wether it is dead 
+        after exploring all of its reachable state,
+        then it cannot reach any accepting states, 
+        hence the state `s` is dead*)
+      | Unknown s ->
+          (* print_endline ("final result, unknown, hence dead"); *)
           let exp_list = HSet.elements s in
           ExpHSet.add_to_fst dead_states exp_list;
           true
-      | None -> false
+      | Live -> 
+        (* print_endline "final result, live";  *)
+        false
+      | KnownDead -> 
+        (* print_endline "final result, known dead";  *)
+        true
+  end
 
+  
   let hash_table = ExpTbl.create 251
 
   (** Add expression to hash table if it has not yet been added **)
@@ -257,33 +337,13 @@ let product (psi_e:(BExp.t_ Hashcons.hash_consed * (Exp.t * string)) list) (psi_
        (fun x a -> List.fold_left (fun y b -> (a, b) :: y) x psi_f)
        [] psi_e)
 
-
-(*Function to convert hashtype to bExp*)
-  let rec dehashcons_bexp (hc_bexp : BExp.t) : bExp =
-      match hc_bexp.node with
-      | Zero -> Zero
-      | One -> One
-      | PBool be ->  PBool be
-      | Or (be1,be2) -> Or (dehashcons_bexp be1, dehashcons_bexp be2)
-      | And (be1,be2) -> And (dehashcons_bexp be1, dehashcons_bexp be2)
-      | Not be -> Not (dehashcons_bexp be)
-
-(*Function to convert hashtype to gkat*)
-  let rec dehashcons_gkat (hc_exp : Exp.t): gkat =
-    match hc_exp.node with
-    | Pact p -> Pact p
-    | Seq (e, f) ->  Seq (dehashcons_gkat e, dehashcons_gkat f)
-    | If (be, e, f) -> If (dehashcons_bexp be, dehashcons_gkat e, dehashcons_gkat f)
-    | Test be -> Test (dehashcons_bexp be)
-    | While (be, e) -> While (dehashcons_bexp be, dehashcons_gkat e)
-
   let print_tuple tup =
     let (s, i) = tup in
     Printf.printf "(%s, %d)\n" s i;;
 
   (** p(e) fucntion ρ(e) = ¬ ϵ(e) ∧ ¬ (⋁_{ψ ↦ (e', p) ∈ δ(e)} ψ)**)
 
-  let rec reject (exp : Exp.t) : BExp.t =
+  let reject (exp : Exp.t) : BExp.t =
     let exp_derivatives = derivative exp in
     let epsilon = epsilon exp in
     let transitions = List.fold_left (fun acc (be,(_,_)) -> BExp.b_or acc be ) BExp.zero exp_derivatives in
@@ -301,12 +361,8 @@ let product (psi_e:(BExp.t_ Hashcons.hash_consed * (Exp.t * string)) list) (psi_
           let reject1 = reject exp1 in
           let reject2 = reject exp2 in
 
-          print_string ( "Exp 1: " ^ Print2.pprint (dehashcons_gkat exp1));
-          print_newline ();
-          print_newline ();
-          print_string ( "Exp 2: " ^ Print2.pprint (dehashcons_gkat exp2));
-          print_newline ();
-          print_newline ();
+          (* print_endline ( "Exp 1: " ^Exp.pprint exp1);
+          print_endline ( "Exp 2: " ^Exp.pprint exp2); *)
 
           let exp1_ele = exp_ele exp1 in
           let exp2_ele = exp_ele exp2 in
@@ -315,25 +371,29 @@ let product (psi_e:(BExp.t_ Hashcons.hash_consed * (Exp.t * string)) list) (psi_
           if UnionFind.eq exp1_ele exp2_ele then true else
       
           (** if both are dead, then they are equivalent **)
-          if ExpHSet.mem exp1 dead_states then is_dead exp2 else
-          if ExpHSet.mem exp2 dead_states then is_dead exp1 else
+          if DeadExps.known_dead exp1 then (
+            (* print_endline ("exp1 is dead"); *)
+            DeadExps.is_dead exp2) else
+          if DeadExps.known_dead exp2 then (
+            (* print_endline ("exp2 is dead");
+            print_endline ("is exp1 dead?" ^ string_of_bool @@ DeadExps.is_dead exp1);   *)
+            DeadExps.is_dead exp1) else
   
           (**  Logical connection here instead of if **)
             let epsilon_assert = (BExp.equiv (epsilon exp1) (epsilon exp2)) in
-            (*print_endline ("Checking same espilon: ");
+            (* print_endline ("Checking same espilon: ");
             print_string (string_of_bool epsilon_assert);
-            print_newline ();*)
+            print_newline (); *)
             epsilon_assert &&
 
               let f_derivatives = derivative exp2 in
               let e_derivatives = derivative exp1 in
 
               let assert1 = List.for_all (fun(be,(exp,_)) -> 
-                let dead = is_dead exp in
-                (*print_endline ("dead?: ");
+                (* print_endline ("dead?: ");
                 print_string (string_of_bool dead);
-                print_newline ();*)
-                dead  || BExp.is_false (BExp.b_and reject1 be))  f_derivatives
+                print_newline (); *)
+                BExp.is_false (BExp.b_and reject1 be) || DeadExps.is_dead exp)  f_derivatives
 
                 (*second_exp1:if b1 then p0 else p0*)
                 (*derivative of second_exp1: b1 ->(1,p0) union not b1 ->(1,p0)*)
@@ -341,17 +401,17 @@ let product (psi_e:(BExp.t_ Hashcons.hash_consed * (Exp.t * string)) list) (psi_
                 (*rejct1/ reject 2= not b1 , be= b1,not b1, it has conjunction for not b1 and not b1, so this returns false*)
                 (*original expressions: b1 * (p0 * (if b2 then p0 else p0)) EXP2: (b1 * p0) * p0 *)
               in
-              (*print_endline ("assertion1 for: forall ψ_f ↦ (f', q) ∈ δ(f), ( ρ(e) ∧ ψ_f = 0 || is_dead(f')) ");
+              (* print_endline ("assertion1 for: forall ψ_f ↦ (f', q) ∈ δ(f), ( ρ(e) ∧ ψ_f = 0 || is_dead(f')) ");
               print_string (string_of_bool assert1);
-              print_newline ();*)
+              print_newline (); *)
               assert1 
 
               &&
               let assert2 = (List.for_all (fun(be,(exp,_))-> 
-                is_dead exp  || BExp.is_false (BExp.b_and reject2 be))  e_derivatives) 
+                BExp.is_false (BExp.b_and reject2 be) || DeadExps.is_dead exp )  e_derivatives) 
               in
-              (*
-              print_endline ("assertion2 for: forall ψ_e ↦ (e', q) ∈ δ(f), ( ρ(f) ∧ ψ_f = 0 || is_dead(e')) ");
+              
+              (* print_endline ("assertion2 for: forall ψ_e ↦ (e', q) ∈ δ(f), ( ρ(f) ∧ ψ_f = 0 || is_dead(e')) ");
               print_string (string_of_bool assert2);
               print_newline (); *)
               
@@ -364,13 +424,13 @@ let product (psi_e:(BExp.t_ Hashcons.hash_consed * (Exp.t * string)) list) (psi_
                 if p = q then (ignore @@UnionFind.union exp1_ele exp2_ele;
                 if equiv_helper next_exp1 next_exp2 then true else false)
               else 
-                (if (is_dead(next_exp1) && is_dead(next_exp2)) then true else false)) (product e_derivatives f_derivatives)
+                (if (DeadExps.is_dead(next_exp1) && DeadExps.is_dead(next_exp2)) then true else false)) (product e_derivatives f_derivatives)
               ) 
             in
-            (*
-            print_endline ("assertion3 for: forall ψ_e ↦ (e', p) ∈ δ(e), ψ_f ↦ (f', q) ∈ δ(f) ") ;
+            
+            (* print_endline ("assertion3 for: forall ψ_e ↦ (e', p) ∈ δ(e), ψ_f ↦ (f', q) ∈ δ(f) ") ;
             print_string (string_of_bool assert3); 
-            print_newline ();*)
+            print_newline (); *)
             assert3
   
   (*let rec equiv (exp1 : Exp.t) (exp2 : Exp.t) : bool =
@@ -381,12 +441,12 @@ let product (psi_e:(BExp.t_ Hashcons.hash_consed * (Exp.t * string)) list) (psi_
   
   (**Testing purposes**)
       (*b1 * (p0 * (if b2 then p0 else p0))*)
-    
+(*     
     let from_hash_to_GKAT(exp: (BExp.t * (Exp.t * string)) list):(bExp * (gkat * string)) list =
      List.map(fun (be,(next_exp,p))->(dehashcons_bexp be,(dehashcons_gkat next_exp,p))) exp
 
     let from_product_to_GKAT(exp)= List.map(fun ((be1,(next_exp1,p)),(be2,(next_exp2,q))) ->
-      (dehashcons_bexp be1,(dehashcons_gkat next_exp1,p)),(dehashcons_bexp be2,(dehashcons_gkat next_exp2,q))) (exp)
+      (dehashcons_bexp be1,(dehashcons_gkat next_exp1,p)),(dehashcons_bexp be2,(dehashcons_gkat next_exp2,q))) (exp) *)
 
     let example1 = Exp.seq (Exp.test (BExp.pBool "b1") )
     (Exp.seq (Exp.p_act "p0")(Exp.if_then_else (BExp.pBool "b2")(Exp.p_act "p0")(Exp.p_act "p0")))
