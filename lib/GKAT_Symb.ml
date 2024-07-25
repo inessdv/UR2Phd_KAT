@@ -126,7 +126,7 @@ module Exp = struct
     if b == BExp.one then e
     else if b == BExp.zero then f
     else if e == fail then seq (test @@ BExp.b_not b) f
-    else if f == fail then seq (test b) f
+    else if f == fail then seq (test b) e
     else hashcons @@ If (b, e, f)
 
   let while_do (b : BExp.t) (e : t) : t = hashcons @@ While (b, e)
