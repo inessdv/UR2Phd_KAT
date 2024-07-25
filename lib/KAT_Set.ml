@@ -13,7 +13,7 @@ type kat =
   | Not of kat
 
 
-  module KATSet = Set.Make (struct
+module KATSet = Set.Make (struct
   type t = kat
 
   let compare = compare
@@ -36,7 +36,6 @@ module StringMap = Map.Make (String)
 
 module DerMapSet = Set.Make (struct
   type t = linearForm
-
   let compare = compare
 end)
 
@@ -286,8 +285,8 @@ let linearization (primitives: Atom.t) (exp : kat) : linearForm =
     | _ -> AtPactMap.empty
   in
   let atoms = getAtomsof exp in
-  (*if is_pact exp then (linearization_helper (SStringSet.add primitives atoms)) exp else*)
-  let linear = linearization_helper (SStringSet.add primitives atoms) exp in 
+  if is_pact exp then (linearization_helper (SStringSet.add primitives atoms)) exp else
+  let linear = linearization_helper (atoms) exp in 
   print_endline ("linear for e:" ^ (Print.pprint exp)^":"^ Print.pprint_linear_form (linear));
   linear
 
