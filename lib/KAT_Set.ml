@@ -258,9 +258,18 @@ let getAtomsof (exp : kat) : SStringSet.t =
   let primitives = pBoolOf (exp, true) in
   atOf primitives
 
-let linearization (exp : kat) : linearForm =
+let is_pact (e: kat): bool =
+    print_endline ("checking if" ^ (Print.pprint e) ^"is a PACT");
+        match e with
+          | PAct p -> print_endline ("it is not empty"); true
+          | _ -> print_endline ("it is not empty and not considered a PACT"); false
+
+let linearization (primitives: Atom.t) (exp : kat) : linearForm =
   print_endline ("linearization for exp: " ^Print.pprint exp);
+  print_endline ("primitives: " ^Atom.pprint primitives);
+
   let rec linearization_helper (at : SStringSet.t) (exp : kat) : linearForm =
+  (**if kat is PACT, change atoms to **)
     match exp with
     | PBool _ -> AtPactMap.empty
     | PAct p -> mapMaker at p (* map p to each atom and then each to one*)
@@ -273,28 +282,20 @@ let linearization (exp : kat) : linearForm =
         unionLinearForm
           (concLinearForm (linear1) e2)
           (atomExists (linearization_helper at e2) e1)
-          (*
-    missing checking the epsilon!!??
-       
-      let linear1 = linearization_helper at e1 in
-      if (kat_epsilon at e1) then ( (***SOMETHING IN HERE**)
-        print_endline("linear1_conc e1: " ^ (Print.pprint_linear_form linear1));
-        unionLinearForm
-          (concLinearForm (linear1) e2)
-          (atomExists (linearization_helper at e2) e1) )
-        else (concLinearForm (linear1) e2)*)
     | Star e -> concLinearForm (linearization_helper at e) (Star e)
     | _ -> AtPactMap.empty
   in
-  let linear = linearization_helper (getAtomsof exp) exp in 
+  let atoms = getAtomsof exp in
+  (*if is_pact exp then (linearization_helper (SStringSet.add primitives atoms)) exp else*)
+  let linear = linearization_helper (SStringSet.add primitives atoms) exp in 
   print_endline ("linear for e:" ^ (Print.pprint exp)^":"^ Print.pprint_linear_form (linear));
   linear
 
 (** gets the string set of atoms directly from expression**)
 
 (** Get the derivative map for a set of KATs (sum), represented as a set of terms **)
-let get_der_map_sum (sum : KATSet.t) : DerMapSet.t =
-  let linear = KATSet.to_list sum |> List.map (fun x -> linearization x) |> DerMapSet.of_list
+let get_der_map_sum (primitives: Atom.t) (sum : KATSet.t) : DerMapSet.t =
+  let linear = KATSet.to_list sum |> List.map (fun x -> linearization primitives x) |> DerMapSet.of_list
     in
     print_endline ("sum of linears for!:"^Print.pprint_sum sum ^" ="^Print.pprint_pderMap linear);
     linear
@@ -306,9 +307,11 @@ let hd (r : linearForm) : AtPactSet.t =
 (** Function deriv collects all the partial derivatives of 
       a KAT expression in respect to a αp, that were computed 
       by linearization function. **)
+
 let deriv (atp : atPact) (der_map : linearForm) : KATSet.t =
   let (atom,pact) = atp in
   print_endline ("linear to extract derivs with respect to: "^((Atom.pprint atom)^ pact)^":( "^Print.pprint_linear_form der_map^")");
+
   match AtPactMap.find_opt atp der_map with
   (*If the p doesn't exists then return empty*)
   | None -> KATSet.empty
@@ -354,9 +357,9 @@ let rec hAll_sum (e1 : KATSet.t) (e2 : KATSet.t) (at : SStringSet.t) : bool =
     else false
 
 
-let derivatives ((r1, r2) : KATSet.t * KATSet.t) : PDerivPairSet.t =
-  let der_map1 = get_der_map_sum r1 in
-  let der_map2 = get_der_map_sum r2 in
+let derivatives (primitives: Atom.t) ((r1, r2) : KATSet.t * KATSet.t) : PDerivPairSet.t =
+  let der_map1 = get_der_map_sum primitives r1 in
+  let der_map2 = get_der_map_sum primitives r2 in
   let heads = AtPactSet.union (hd_sum der_map1) (hd_sum der_map2) in
   print_endline (Print.pprint_atPact_sum heads);
   AtPactSet.to_list heads
@@ -386,14 +389,11 @@ let equiv (e1 : kat) (e2 : kat) : bool =
       bool =
     print_endline ("TODO:"  ^ (Print.pprint_pder todo));
    let new_list = PDerivPairSet.to_list todo in 
-    print_string(string_of_bool (List.for_all (fun (x,y) -> 
-      (let kx_list = (KATSet.to_list x) in List.is_empty kx_list ) 
-      && (let ky_list = (KATSet.to_list y) in List.is_empty ky_list )) new_list));
-      print_newline();
-        if 
-          (List.for_all (fun (x,y) -> 
-            (let kx_list = (KATSet.to_list x) in List.is_empty kx_list ) 
-            && (let ky_list = (KATSet.to_list y) in List.is_empty ky_list )) new_list)
+   let check =(List.for_all (fun (x,y) -> 
+    (let kx_list = (KATSet.to_list x) in List.is_empty kx_list ) 
+    && (let ky_list = (KATSet.to_list y) in List.is_empty ky_list )) new_list) in
+      print_endline(string_of_bool check);
+        if (check)
             then (print_endline "it is empty!!!";
               true) else
     match PDerivPairSet.choose_opt todo with
@@ -411,7 +411,7 @@ let equiv (e1 : kat) (e2 : kat) : bool =
         else
           let new_visited = PDerivPairSet.add (sum1, sum2) visited in
           (* add checked pair to visited *)
-          let dervs = derivatives (sum1, sum2) in
+          let dervs = derivatives prim_bools (sum1, sum2) in
           (*Get rid of pairs of empty lists*)
           print_newline();
           print_string ("dervs :" ^ (Print.pprint_pder dervs));
@@ -526,7 +526,7 @@ let atom_b = Atom.of_list [ "b" ]
 let atom_bp = Atom.of_list ["b"], "p"
 *)
 let neg_kat = Conc( (Not(PBool "b1")),(PAct "p0"))
-let pb = linearization neg_kat
+(*let pb = linearization neg_kat*)
 
 (*let exp_b = fromStr "b"
 let exp_bp = fromStr "b(p)"

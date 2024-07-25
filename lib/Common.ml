@@ -99,10 +99,6 @@ module Atom = struct
           all the pBools that is in the set is regarded as positive
           and ones that are not in the set is regarded as negative*)
 
-  
-  let list_p (list: PBoolSet.t list ): unit list list=
-    List.map (fun x -> List.map (fun y -> print_string y) (PBoolSet.to_list x)) list
-
     let rec of_p_bools (p_bools : PBoolSet.t) : t list =
       match PBoolSet.choose_opt p_bools with
       | None -> [empty]
@@ -112,7 +108,6 @@ module Atom = struct
           atoms_of_rest
           @ (*atoms that contains `p_bool`*)
            (atoms_of_rest |> List.map (fun at -> add p_bool at)) 
-
   let pprint (atom : t) : string =
     if is_empty atom then "{}" else atom |> to_list |> String.concat "⋅"
 end
