@@ -326,8 +326,12 @@ let test_equiv_symb =
          (* We don't have a printer at this point*)
        ~print:(fun (e1, e2) ->
          GKAT_2.Print2.pprint e1 ^ " EXP2: " ^ GKAT_2.Print2.pprint e2)
-       GenExp.gen_eq_exp
-       (fun (e1, e2) -> GKAT_Symb.Derivatives.equiv_helper (from_gkat_to_hashcon e1) (from_gkat_to_hashcon e2))
+       GenExp.gen_eq_exp      
+       (fun (e1, e2) -> 
+        (* print_newline (); print_newline ();
+        print_endline "starting test cases"; *)
+        GKAT_Symb.Derivatives.equiv_helper (from_gkat_to_hashcon e1) (from_gkat_to_hashcon e2)
+      )
 
 let test_symb_vs_deriv =
   QCheck_ounit.to_ounit2_test
