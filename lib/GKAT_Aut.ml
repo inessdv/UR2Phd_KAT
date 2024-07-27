@@ -29,7 +29,131 @@ module PAutomaton = struct
     p_start : Atom.t -> res;
   }
 end
+let string_of_string_list lst =
+  let rec aux = function
+    | [] -> ""
+    | [x] -> x
+    | x :: xs -> x ^ "; " ^ aux xs
+  in
+  "[" ^ aux lst ^ "]"
+  let setListPrinter (set_list: PActSet.t list)=
+      let list_of_list=List.map (fun (ele) -> PActSet.to_list ele) set_list in 
+      let single_list=List.map (fun (ele) -> string_of_string_list ele) list_of_list in 
+      string_of_string_list single_list
 
+
+  let string_of_statemap_list  lst =
+        let rec aux = function
+          | [] -> ""
+          | [(x,y)] -> "(" ^ string_of_int(x) ^" , "^" y "^ ")"
+          | (x,y) :: xs -> "(" ^ string_of_int(x) ^" , "^" y "^ ")"^ "; " ^ aux xs
+        in
+        "[" ^ aux lst ^ "]"
+  let statemap_printer m =
+    let map_list= StateMap.to_list m  in
+    string_of_statemap_list map_list
+  
+    (* Convert a single integer pair to a string *)
+let string_of_int_pair (x, y) =
+  Printf.sprintf "(%d, %d)" x y
+
+(* Convert a list of integer pairs to a string *)
+let string_of_int_pair_list lst =
+    let pairs_str = 
+    List.map string_of_int_pair lst
+    |> String.concat "; "  (* Use "; " to separate pairs *)
+  in
+  "[" ^ pairs_str ^ "]" 
+  let statepairSet_printer m= 
+   let l = StatePairSet.to_list m in 
+    string_of_int_pair_list l 
+
+
+   let int_list_to_string lst =
+      (* Convert each integer to a string and join them with ", " *)
+      let string_list = List.map string_of_int lst in
+      String.concat ", " string_list
+
+  let stateset_printer m =
+      let l= MakePosInt.Set.to_list m in 
+    int_list_to_string l
+
+
+
+    let string_of_res = function
+    | Accept -> "Accept"
+    | Reject -> "Reject"
+    | To (state, pAct) -> Printf.sprintf "To (%s, %s)" (string_of_int state) (pAct)
+  
+  let string_of_trans (a: Automaton.t) =
+    (* Assuming a function to iterate over all possible state-atom pairs *)
+    let trans= a.trans in 
+    let atoms = Atom.of_p_bools a.p_tests in 
+    let buffer = Buffer.create 1024 in
+    State.Set.iter (fun state ->
+      List.iter (fun atom ->
+        let result = trans state atom in
+        Buffer.add_string buffer (Printf.sprintf "trans(%s, %s) = %s\n"
+          (string_of_int state) (string_of_string_list (PActSet.to_list atom)) (string_of_res result))
+      )atoms 
+    ) a.states;
+    Buffer.contents buffer
+
+    let string_of_ptrans (a: PAutomaton.t) =
+      (* Assuming a function to iterate over all possible state-atom pairs *)
+      let trans= a.trans in 
+      let atoms = Atom.of_p_bools a.p_tests in 
+      let buffer = Buffer.create 1024 in
+      State.Set.iter (fun state ->
+        List.iter (fun atom ->
+          let result = trans state atom in
+          Buffer.add_string buffer (Printf.sprintf "trans(%s, %s) = %s\n"
+            (string_of_int state) (string_of_string_list (PActSet.to_list atom)) (string_of_res result))
+        )atoms 
+      ) a.states;
+      Buffer.contents buffer
+
+    let string_of_p_start (a: PAutomaton.t) =
+      let buffer = Buffer.create 1024 in
+      let atoms = Atom.of_p_bools a.p_tests in 
+      List.iter (fun atom ->
+        let result = a.p_start atom in
+        Buffer.add_string buffer (Printf.sprintf "p_start(%s) = %s\n"
+          (string_of_string_list (PActSet.to_list atom)) (string_of_res result))
+      ) atoms;
+      Buffer.contents buffer
+    
+  let print_automaton(automaton: Automaton.t) =
+    let states_str = stateset_printer automaton.states in
+    let p_tests_str = string_of_string_list(PBoolSet.to_list automaton.p_tests) in
+    let p_acts_str = string_of_string_list(PActSet.to_list automaton.p_acts) in
+    let start_str = string_of_int automaton.start in
+    let trans_str = string_of_trans automaton in
+  
+    Printf.printf "Automaton:\n";
+    Printf.printf "States: %s\n" states_str;
+    Printf.printf "P_Tests: %s\n" p_tests_str;
+    Printf.printf "P_Actions: %s\n" p_acts_str;
+    Printf.printf "Start State: %s\n" start_str;
+    Printf.printf "Transitions:\n%s\n" trans_str
+  (* let automaton_printer (a: Automaton.t) =
+      let atoms = Atom.of_p_bools a.p_tests in
+      let states = a.states in 
+      List.iter(fun (s) -> ) *)
+  
+     let print_Pautomaton(automaton: PAutomaton.t) =
+      let states_str = stateset_printer automaton.states in
+      let p_tests_str = string_of_string_list(PBoolSet.to_list automaton.p_tests) in
+      let p_acts_str = string_of_string_list(PActSet.to_list automaton.p_acts) in
+      let start_str = string_of_p_start automaton in
+      let trans_str = string_of_ptrans automaton in
+    
+      Printf.printf "Automaton:\n";
+      Printf.printf "States: %s\n" states_str;
+      Printf.printf "P_Tests: %s\n" p_tests_str;
+      Printf.printf "P_Actions: %s\n" p_acts_str;
+      Printf.printf "Start State: %s\n" start_str;
+      Printf.printf "Transitions:\n%s\n" trans_str
 let res_to_left (r : res) (coprod : MakePosInt.coprodRes) : res =
   match r with
   | Accept -> Accept
@@ -179,25 +303,35 @@ let rec check_atoms ((s1, s2) : State.t * State.t)
 *)
 
 let bisim1 (a1 : Automaton.t) (a2 : Automaton.t) : bool =
+  print_endline("Asserting a1.p_tests = a2.p_tests");
   assert (a1.p_tests = a2.p_tests);
+  print_endline("Succeeded Asserting a1.p_tests = a2.p_tests");
   let atoms = Atom.of_p_bools a1.p_tests in
+  print_endline("The Atom.of_p_bools a1.p_tests is  "  ^ setListPrinter atoms);
   (* maps each state in a1 to its corresponding unionfind element *)
   let uf_map1 =
     List.map (fun s -> (s, UnionFind.make s)) (a1.states |> State.Set.to_list)
     |> StateMap.of_list
   in
+  print_endline("the Statemap of a1's states is " ^ statemap_printer(uf_map1));
   let uf_map2 =
     List.map (fun s -> (s, UnionFind.make s)) (a2.states |> State.Set.to_list)
     |> StateMap.of_list
   in
+  print_endline("the Statemap of a2's states is " ^ statemap_printer(uf_map2));
   (* get union find element of automaton 1*)
   let get_elem1 s = StateMap.find s uf_map1 in
   let get_elem2 s = StateMap.find s uf_map2 in (*is this issue?*)
   let rec help (todo : StatePairSet.t) : bool =
     match StatePairSet.choose_opt todo with
-    | None -> true
+    | None ->
+      print_endline(""); 
+      print_endline("Equiv asserted");
+      print_endline(""); 
+      true
     | Some (s1, s2) -> (
         (* if they are already marked bisimilar *)
+          print_endline("The s1 is " ^ string_of_int s1 ^ " The s2 is " ^string_of_int s2);
         if UnionFind.eq (get_elem1 s1) (get_elem2 s2) then true
         else
           (* add check_atoms inside function to avoid passing a1 and a2??*)
@@ -207,8 +341,8 @@ let bisim1 (a1 : Automaton.t) (a2 : Automaton.t) : bool =
               (* remove all the checked equal states *)
               let to_check =
                 StatePairSet.filter
-                  (fun (s1, s2) ->
-                    not @@ UnionFind.eq (get_elem1 s1) (get_elem2 s2))
+                  (fun (state1, state2) ->
+                    not @@ UnionFind.eq (get_elem1 state1) (get_elem2 state2))
                   to_check
               in
               ignore @@ UnionFind.union (get_elem1 s1) (get_elem2 s2);
@@ -219,36 +353,30 @@ let bisim1 (a1 : Automaton.t) (a2 : Automaton.t) : bool =
 
 (*bisim with check_atoms as an inside function!*)
 let bisim2 (a1 : Automaton.t) (a2 : Automaton.t) : bool =
+  print_endline("Asserting a1.p_tests = a2.p_tests");
   assert (a1.p_tests = a2.p_tests);
+  print_endline("Succeeded Asserting a1.p_tests = a2.p_tests");
   let atoms = Atom.of_p_bools a1.p_tests in
+  print_endline("The Atom.of_p_bools a1.p_tests is  "  ^ setListPrinter atoms);
   (*Declare check_atoms after here*)
   let rec help (todo : StatePairSet.t) (checked : StatePairSet.t) : bool =
     match StatePairSet.choose_opt todo with
     | None -> true
     | Some (s1, s2) -> (
-        let rec check_atoms ((s1, s2) : State.t * State.t)
-            (atoms_toCheck : PActSet.t list) : StatePairSet.t option =
-          match atoms_toCheck with
-          | [] -> Some StatePairSet.empty
-          | atom :: rest -> (
-              match check_res (a1.trans s1 atom) (a2.trans s2 atom) with
-              | None -> None
-              | Some s_pairs -> (
-                  match check_atoms (s1, s2) rest with
-                  | None -> None
-                  | Some s_pairs_rest ->
-                      Some (StatePairSet.union s_pairs s_pairs_rest)))
-        in
-        match check_atoms (s1, s2) atoms with
+        match check_atoms (s1, s2) atoms a1 a2 with
         | None -> false
         | Some to_check ->
             let checked = StatePairSet.add (s1, s2) checked in
+            print_endline(" checked: " ^ statepairSet_printer checked );
             let to_check = StatePairSet.diff to_check checked in
+            print_endline(" to_check : " ^ statepairSet_printer to_check );
             let todo = StatePairSet.diff todo checked in
+            print_endline(" todo: " ^ statepairSet_printer todo );
             help (StatePairSet.union to_check todo) checked)
   in
 
   let start_pair = StatePairSet.singleton (a1.start, a2.start) in
+  print_endline(" the start pair is  " ^ statepairSet_printer start_pair );
   help start_pair StatePairSet.empty
 
 (* do we need to code a bisim for PAutomaton?*)
@@ -323,17 +451,23 @@ let rec check_start_state (a : Automaton.t) (atoms : PBoolSet.t list) : bool =
 
 let normalization (a : Automaton.t) : Automaton.t option =
   let atoms = Atom.of_p_bools a.p_tests in
-  if check_start_state a atoms == false then None
+  print_endline("the result of checking start state is dead:  " ^ string_of_bool(check_start_state a atoms));
+  if check_start_state a atoms == false then 
+    None
     (*Check if the start state is a dead state*)
-  else
+else
     let accepting_states = get_accpeting_states_from a atoms in
+    print_endline("The accepting states are " ^ stateset_printer accepting_states);
     let reverse_auto = rev_map a in
     (*for each accept state DFS to check for other live states*)
     let live_states =
       State.Set.fold
         (fun s live_states -> live_states_from reverse_auto s live_states)
         State.Set.empty accepting_states
+
     in
+    print_endline("The live states are " ^ stateset_printer live_states);
+
     (*Updating res of transition function to reject if To dead state*)
     Some
       {
@@ -401,10 +535,10 @@ let equiv (exp1 : gkat) (exp2 : gkat) : bool =
   in
   let auto1 = normalization (convert (thompson_construct exp1 p_act p_bool)) in
   let auto2 = normalization (convert (thompson_construct exp2 p_act p_bool)) in
-  match (auto1, auto2) with Some a1, Some a2 -> bisim1 a1 a2 | _ -> false
+  match (auto1, auto2) with Some a1, Some a2 -> bisim2 a1 a2 | _ -> false
 
-let gkat_example1=  GKAT_2.Test(GKAT_2.PBool "b1")
-let gkat_example2=  GKAT_2.Test(GKAT_2.PBool "b1")
+let gkat_example1= GKAT_2.If ((GKAT_2.PBool ("b1")),(GKAT_2.test(GKAT_2.Zero)),(GKAT_2.Seq(GKAT_2.test(GKAT_2.Zero),(GKAT_2.test(PBool("b1"))))))
+let gkat_example2= (GKAT_2.test(GKAT_2.Zero))
 
 let test_p_bool= PBoolSet.union
 (extract_p_bool gkat_example1 PBoolSet.empty)
@@ -416,3 +550,9 @@ let test_p_act=PActSet.union
 
 let test_auto1= convert (thompson_construct gkat_example1 test_p_act test_p_bool)
 let test_auto2=convert (thompson_construct gkat_example2 test_p_act test_p_bool)
+
+let gkat_example3=  GKAT_2.If ((GKAT_2.PBool ("b1")),(GKAT_2.test(GKAT_2.Zero)),(GKAT_2.Seq(GKAT_2.test(GKAT_2.Zero),(GKAT_2.test(PBool("b1"))))))
+let gkat_example4=  GKAT_2.Pact "p" 
+
+
+   (* Convert a list of strings to a single string *)
