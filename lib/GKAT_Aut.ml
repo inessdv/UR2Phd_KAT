@@ -599,7 +599,7 @@ let equiv (exp1 : gkat) (exp2 : gkat) : bool =
   print_endline "The auto2's filtered automaton is";
   print_from_auto_option auto2;
   match (auto1, auto2) with
-  | Some a1, Some a2 -> bisim2 a1 a2
+  | Some a1, Some a2 -> bisim1 a1 a2
   | None, None -> true
   | _, _ -> false
 
@@ -619,7 +619,7 @@ let equiv (exp1 : gkat) (exp2 : gkat) : bool =
 (* if b1 then if b1 then b1 * 0 else b1 else b1 * p0 EXP2: if ~b1 then b1 * p0 else (if b1 then (p0 * b1) * 0 else b1) (after 8 shrink steps) *)
 
 (*while b1 do while b1 do (if b1 then p0 else 1) done done EXP2: if b1 then while b1 do (b1 * p0) done * while b1 do while b1 do (b1 * p0) done done else 1*)
-let gkat_example1 =
+(* let gkat_example1 =
   While (PBool "b1", While (PBool "b1", If (PBool "b1", Pact "p0", test One)))
 
 let gkat_example2 =
@@ -629,14 +629,17 @@ let gkat_example2 =
         (While (PBool "b1", seq (test (PBool "b1")) (Pact "p0")))
         (While
            (PBool "b1", While (PBool "b1", seq (test (PBool "b1")) (Pact "p0")))),
-      test One )
+      test One ) *)
 
-(*trans(1, []) = Accept
-  trans(1, [b1]) = To (1, p0)
-  trans(2, []) = Accept
-  trans(2, [b1]) = To (2, p0)
-  trans(3, []) = Accept
-  trans(3, [b1]) = To (1, p0)*)
+(*if b1 then (if b1 then (if b1 then b1 else p0) * p5 else 0 * (if b1 then b1 else p8)) * (b1 * b1) else while b1 do b1 done 
+   EXP2: if b1 then if b1 then (if b1 then b1 * p5 else p0 * p5) * (b1 * b1) else 0 * (b1 * b1) else while b1 do b1 done *)
+
+let gkat_example1= If(PBool"b1",
+   (If PBool "b1 ", 
+   seq(If (PBool "b1", 
+   test(PBool "b1"), Pact "p0"))(Pact "p5"), seq (test (PBool Zero))  (seq(If(PBool "b1", test PBool "b1",  Pact "p8")) (seq (test PBool "b1")(test PBool "b1")))), 
+While (PBool "b1 ", test PBool "b1"))  
+
 let gkat_example3 =
   If
     ( PBool "b1",
