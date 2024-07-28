@@ -180,12 +180,10 @@ let string_of_int_intset_tuple (i, set) =
   "(" ^ string_of_int i ^ " -> " ^ stateset_printer set ^ ")"
 
 (* Convert a list of (int * intSet) to a string *)
-let state_set_map_printer (lst:state_set_map) =
-  let l= StateMap.to_list lst in 
+let state_set_map_printer (lst : state_set_map) =
+  let l = StateMap.to_list lst in
   let string_elements = List.map string_of_int_intset_tuple l in
-  "[" ^ (String.concat "; " string_elements) ^ "]"
-
-  
+  "[" ^ String.concat "; " string_elements ^ "]"
 
 let res_to_left (r : res) (coprod : MakePosInt.coprodRes) : res =
   match r with
@@ -239,7 +237,7 @@ let rec thompson_construct (exp : gkat) (p_act : PActSet.t)
             | Right s -> res_to_right (auto2.trans s atom) coprod
             | Left s -> (
                 match auto1.trans s atom with
-                | Accept -> res_to_right (auto2.p_start p_test) coprod
+                | Accept -> res_to_right (auto2.p_start atom) coprod
                 | r -> res_to_left r coprod));
         p_start =
           (fun at ->
@@ -371,8 +369,11 @@ let bisim1 (a1 : Automaton.t) (a2 : Automaton.t) : bool =
         else
           (* add check_atoms inside function to avoid passing a1 and a2??*)
           match check_atoms (s1, s2) atoms a1 a2 with
-          | None -> false
+          | None ->
+              print_endline "check_atom returns false";
+              false
           | Some to_check ->
+              print_endline ("to_check:" ^ statepairSet_printer to_check);
               (* remove all the checked equal states *)
               let to_check =
                 StatePairSet.filter
@@ -380,6 +381,7 @@ let bisim1 (a1 : Automaton.t) (a2 : Automaton.t) : bool =
                     not @@ UnionFind.eq (get_elem1 state1) (get_elem2 state2))
                   to_check
               in
+              print_endline ("to_check after: " ^ statepairSet_printer to_check);
               ignore @@ UnionFind.union (get_elem1 s1) (get_elem2 s2);
               help (StatePairSet.union to_check todo))
   in
@@ -390,7 +392,7 @@ let bisim1 (a1 : Automaton.t) (a2 : Automaton.t) : bool =
 let bisim2 (a1 : Automaton.t) (a2 : Automaton.t) : bool =
   print_endline "Asserting a1.p_tests = a2.p_tests";
   assert (a1.p_tests = a2.p_tests);
-  print_endline "Succeeded Asserting a1.p_tests = a2.p_tests";
+  print_endline "Succeeded Asserted a1.p_tests = a2.p_tests";
   let atoms = Atom.of_p_bools a1.p_tests in
   print_endline ("The Atom.of_p_bools a1.p_tests is  " ^ setListPrinter atoms);
   (*Declare check_atoms after here*)
@@ -428,7 +430,6 @@ let product (l1 : 'a list) (l2 : 'b list) : ('a * 'b) list =
        (fun x a -> List.fold_left (fun y b -> (a, b) :: y) x l2)
        [] l1)
 
-
 (*The result map won't include the start state, because no state transits to the start state*)
 let rev_map (a : Automaton.t) : State.Set.t StateMap.t =
   let states = a.states in
@@ -455,10 +456,8 @@ let rev_map (a : Automaton.t) : State.Set.t StateMap.t =
 (*DFS to get live states*)
 let rec live_states_from (graph : state_set_map) (state : State.t)
     (visited : State.Set.t) : State.Set.t =
-    print_endline("I am here");
-  if State.Set.mem state visited then 
-    visited
-    
+  print_endline "I am here";
+  if State.Set.mem state visited then visited
   else
     (*check if we have checked this state*)
     let new_visited = State.Set.add state visited in
@@ -466,15 +465,15 @@ let rec live_states_from (graph : state_set_map) (state : State.t)
     | Some states ->
         let x =
           State.Set.fold
-            (fun s acc -> (live_states_from graph s acc))
+            (fun s acc -> live_states_from graph s acc)
             states new_visited
         in
-        print_endline("x is " ^ stateset_printer(x));
+        print_endline ("x is " ^ stateset_printer x);
         x (*check order of states and new visited?*)
-    | None -> 
-      print_endline("new_visited is " ^ stateset_printer(new_visited));
+    | None ->
+        print_endline ("new_visited is " ^ stateset_printer new_visited);
 
-      new_visited
+        new_visited
 
 (*Getting all accepting states from an automaton*)
 let get_accpeting_states_from (a : Automaton.t) (atoms : PBoolSet.t list) :
@@ -505,7 +504,7 @@ let normalization (a : Automaton.t) : Automaton.t option =
     print_endline
       ("The accepting states are " ^ stateset_printer accepting_states);
     let reverse_auto = rev_map a in
-    print_endline("The reverse map is " ^ state_set_map_printer reverse_auto);
+    print_endline ("The reverse map is " ^ state_set_map_printer reverse_auto);
     (*for each accept state DFS to check for other live states*)
     let live_states =
       State.Set.fold
@@ -618,6 +617,8 @@ let equiv (exp1 : gkat) (exp2 : gkat) : bool =
          GKAT_2.seq (GKAT_2.Pact "p0") (GKAT_2.test GKAT_2.Zero) ) *)
 
 (* if b1 then if b1 then b1 * 0 else b1 else b1 * p0 EXP2: if ~b1 then b1 * p0 else (if b1 then (p0 * b1) * 0 else b1) (after 8 shrink steps) *)
+
+(*while b1 do while b1 do (if b1 then p0 else 1) done done EXP2: if b1 then while b1 do (b1 * p0) done * while b1 do while b1 do (b1 * p0) done done else 1*)
 let gkat_example1 =
   While (PBool "b1", While (PBool "b1", If (PBool "b1", Pact "p0", test One)))
 
@@ -630,8 +631,26 @@ let gkat_example2 =
            (PBool "b1", While (PBool "b1", seq (test (PBool "b1")) (Pact "p0")))),
       test One )
 
-let gkat_example4 = GKAT_2.seq (GKAT_2.test (PBool "b1")) (GKAT_2.Pact "p0")
-let gkat_example5 = GKAT_2.test GKAT_2.Zero
+(*trans(1, []) = Accept
+  trans(1, [b1]) = To (1, p0)
+  trans(2, []) = Accept
+  trans(2, [b1]) = To (2, p0)
+  trans(3, []) = Accept
+  trans(3, [b1]) = To (1, p0)*)
+let gkat_example3 =
+  If
+    ( PBool "b1",
+      seq
+        (While (PBool "b1", seq (test (PBool "b1")) (Pact "p0")))
+        (While (PBool "b1", seq (test (PBool "b1")) (Pact "p0"))),
+      test One )
+
+let gkat_example4 = While (PBool "b1", seq (test (PBool "b1")) (Pact "p0"))
+
+let gkat_example5 =
+  seq
+    (While (PBool "b1", seq (test (PBool "b1")) (Pact "p0")))
+    (While (PBool "b1", seq (test (PBool "b1")) (Pact "p0")))
 
 let test_p_bool =
   PBoolSet.union
@@ -647,6 +666,9 @@ let test_auto1 =
   convert (thompson_construct gkat_example1 test_p_act test_p_bool)
 
 let test_auto2 =
+  convert (thompson_construct gkat_example2 test_p_act test_p_bool)
+
+let test_auto3 =
   convert (thompson_construct gkat_example2 test_p_act test_p_bool)
 
 let be = GKAT_2.PBool "b1"
