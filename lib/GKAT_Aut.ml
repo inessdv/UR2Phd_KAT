@@ -46,8 +46,8 @@ let setListPrinter (set_list : PActSet.t list) =
 let string_of_statemap_list lst =
   let rec aux = function
     | [] -> ""
-    | [ (x, y) ] -> "(" ^ string_of_int x ^ " , " ^ " y " ^ ")"
-    | (x, y) :: xs ->
+    | [ (x, _y) ] -> "(" ^ string_of_int x ^ " , " ^ " y " ^ ")"
+    | (x, _y) :: xs ->
         "(" ^ string_of_int x ^ " , " ^ " y " ^ ")" ^ "; " ^ aux xs
   in
   "[" ^ aux lst ^ "]"
@@ -642,7 +642,8 @@ let equiv (exp1 : gkat) (exp2 : gkat) : bool =
 
 
    (*while b1 do (if b1 then (if b1 then b1 else p0) * p0 else 1) done EXP2: while b1 do (b1 * (if b1 then b1 * p0 else p0 * p0)) done*)
-let gkat_example1 =
+   
+(* let gkat_example1 =
   While
     ( PBool "b1",
       If
@@ -690,7 +691,4 @@ let test_auto3 =
 
 let be = GKAT_2.PBool "b1"
 let atom1 = PActSet.singleton "b1"
-let atom2 = PActSet.empty
-(* Convert a list of strings to a single string *)
-
-(*Major problem is in normalization, deciding if the start state is dead.*)
+let atom2 = PActSet.empty *)

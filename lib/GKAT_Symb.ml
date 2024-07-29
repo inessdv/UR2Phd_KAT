@@ -217,7 +217,7 @@ module Derivatives = struct
     | Test _ -> []
     | Pact p -> [BExp.one,( Exp.test(BExp.one) , p)]
     | If (be, exp1, exp2) ->
-        (** get rid of repetitions--> do List.sort_uniq**)
+        (* get rid of repetitions--> do List.sort_uniq**)
         (combine_BE_with_a be (derivative exp1)) @
         (combine_BE_with_a (BExp.b_not be) (derivative exp2))
     | Seq (e, f) ->
@@ -367,10 +367,10 @@ let product (psi_e:(BExp.t_ Hashcons.hash_consed * (Exp.t * string)) list) (psi_
     let exp1_ele = exp_ele exp1 in
     let exp2_ele = exp_ele exp2 in
 
-    (** Check if the expressions have already been marked as equiv **)
+    (* Check if the expressions have already been marked as equiv **)
     if UnionFind.eq exp1_ele exp2_ele then true else
 
-    (** if both are dead, then they are equivalent **)
+    (* if both are dead, then they are equivalent **)
     if DeadExps.known_dead exp1 then (
       (* print_endline ("exp1 is dead"); *)
       DeadExps.is_dead exp2) else
@@ -379,7 +379,7 @@ let product (psi_e:(BExp.t_ Hashcons.hash_consed * (Exp.t * string)) list) (psi_
       print_endline ("is exp1 dead?" ^ string_of_bool @@ DeadExps.is_dead exp1);   *)
       DeadExps.is_dead exp1) else
 
-    (**  Logical connection here instead of if **)
+    (*  Logical connection here instead of if **)
       let epsilon_assert = (BExp.equiv (epsilon exp1) (epsilon exp2)) in
       (* print_endline ("Checking same espilon: ");
       print_endline (string_of_bool epsilon_assert); *)
