@@ -139,13 +139,13 @@ let rec simplify_kat (e:kat): kat =
   match e with
   | Zero -> Zero
   | One -> One
-  | PAct p -> e
-  | PBool b -> e
+  | PAct _ -> e
+  | PBool _ -> e
   | Union (e1,Zero) -> simplify_kat e1
   | Union (Zero,e2) -> simplify_kat e2
   | Union (e1,e2) -> Union (simplify_kat e1,simplify_kat e2)
-  | Conc (e1,Zero)-> Zero
-  | Conc (Zero,e2)-> Zero
+  | Conc (_,Zero)-> Zero
+  | Conc (Zero,_)-> Zero
   | Conc (e1,One)-> simplify_kat e1
   | Conc (One,e2)-> simplify_kat e2
   | Conc (e1,e2)-> Conc (simplify_kat e1,simplify_kat e2)

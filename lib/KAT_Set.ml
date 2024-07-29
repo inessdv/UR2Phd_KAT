@@ -260,7 +260,7 @@ let getAtomsof (exp : kat) : SStringSet.t =
 let is_pact (e: kat): bool =
     print_endline ("checking if" ^ (Print.pprint e) ^"is a PACT");
         match e with
-          | PAct p -> print_endline ("it is not empty"); true
+          | PAct _ -> print_endline ("it is not empty"); true
           | _ -> print_endline ("it is not empty and not considered a PACT"); false
 
 let linearization (primitives: Atom.t) (exp : kat) : linearForm =
@@ -268,7 +268,7 @@ let linearization (primitives: Atom.t) (exp : kat) : linearForm =
   print_endline ("primitives: " ^Atom.pprint primitives);
 
   let rec linearization_helper (at : SStringSet.t) (exp : kat) : linearForm =
-  (**if kat is PACT, change atoms to **)
+  (* if kat is PACT, change atoms to *)
     match exp with
     | PBool _ -> AtPactMap.empty
     | PAct p -> mapMaker at p (* map p to each atom and then each to one*)
