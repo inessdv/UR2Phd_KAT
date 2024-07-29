@@ -492,46 +492,33 @@ let rec check_start_state (a : Automaton.t) (atoms : PBoolSet.t list) : bool =
       | To (_, _) -> true
       | Reject -> check_start_state a rest)
 
-let normalization (a : Automaton.t) : Automaton.t option =
+let normalization (a : Automaton.t) : Automaton.t =
   let atoms = Atom.of_p_bools a.p_tests in
   print_endline
     ("the result of checking start state  "
     ^ string_of_bool (check_start_state a atoms));
-  if check_start_state a atoms == false then None
-    (*Check if the start state is a dead state*)
-  else
-    let accepting_states = get_accpeting_states_from a atoms in
-    print_endline
-      ("The accepting states are " ^ stateset_printer accepting_states);
-    let reverse_auto = rev_map a in
-    print_endline ("The reverse map is " ^ state_set_map_printer reverse_auto);
-    (*for each accept state DFS to check for other live states*)
-    let live_states =
-      State.Set.fold
-        (fun s acc -> live_states_from reverse_auto s acc)
-        State.Set.empty accepting_states
-    in
-
-    print_endline ("The live states are " ^ stateset_printer live_states);
-    (*If there are no live states, then start state is dead.*)
-    (* if State.Set.is_empty live_states then None *)
-    (*If the start state is not in the list of live states, then None*)
-    if MakePosInt.Set.mem a.start live_states == false then None
-    else
-      (*Updating res of transition function to reject if To dead state*)
-      Some
-        {
-          p_tests = a.p_tests;
-          p_acts = a.p_acts;
-          states = live_states;
-          trans =
-            (fun state atom ->
-              match a.trans state atom with
-              | To (s, p) ->
-                  if State.Set.mem s live_states then To (s, p) else Reject
-              | res -> res);
-          start = a.start;
-        }
+  let accepting_states = get_accpeting_states_from a atoms in
+  print_endline
+    ("The accepting states are " ^ stateset_printer accepting_states);
+  let reverse_auto = rev_map a in
+  print_endline ("The reverse map is " ^ state_set_map_printer reverse_auto);
+  (*for each accept state DFS to check for other live states*)
+  let live_states =
+    State.Set.fold
+      (fun s acc -> live_states_from reverse_auto s acc)
+      State.Set.empty accepting_states
+  in
+  print_endline ("The live states are " ^ stateset_printer live_states);
+  (*Updating res of transition function to reject if To dead state*)
+  {
+    a with 
+    trans =
+      (fun state atom ->
+        match a.trans state atom with
+        | To (s, p) ->
+            if State.Set.mem s live_states then To (s, p) else Reject
+        | res -> res);
+  }
 
 let rec be_to_pbool (be : bExp) (p_bool : PBoolSet.t) : PBoolSet.t =
   match be with
@@ -589,7 +576,7 @@ let equiv (exp1 : gkat) (exp2 : gkat) : bool =
   print_endline "The auto1's automaton is ";
   print_automaton (convert (thompson_construct exp1 p_act p_bool));
   print_endline "The auto1's filtered automaton is";
-  print_from_auto_option auto1;
+  print_automaton auto1;
 
   let auto2 = normalization (convert (thompson_construct exp2 p_act p_bool)) in
   print_endline "The auto2's Pautomaton is ";
@@ -597,11 +584,9 @@ let equiv (exp1 : gkat) (exp2 : gkat) : bool =
   print_endline "The auto2's automaton is ";
   print_automaton (convert (thompson_construct exp2 p_act p_bool));
   print_endline "The auto2's filtered automaton is";
-  print_from_auto_option auto2;
-  match (auto1, auto2) with
-  | Some a1, Some a2 -> bisim1 a1 a2
-  | None, None -> true
-  | _, _ -> false
+  print_automaton auto2;
+  
+  bisim1 auto1 auto2
 
 (* let gkat_example1= GKAT_2.If ((GKAT_2.PBool ("b1")),(GKAT_2.test(GKAT_2.Zero)),(GKAT_2.Seq(GKAT_2.test(GKAT_2.Zero),(GKAT_2.test(PBool("b1"))))))
    let gkat_example2= (GKAT_2.test(GKAT_2.Zero)) *)
