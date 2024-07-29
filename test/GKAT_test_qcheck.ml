@@ -280,7 +280,7 @@ let test_equiv_aut =
        GenExp.gen_eq_exp
        (fun (e1, e2) -> GKAT_Aut.equiv e1 e2)
 
-let test_both_method =
+let test_aut_vs_deriv =
   QCheck_ounit.to_ounit2_test
   @@ Test.make ~count:1000
        ~name:
@@ -333,14 +333,14 @@ let test_equiv_symb =
         GKAT_Symb.Derivatives.equiv_helper (from_gkat_to_hashcon e1) (from_gkat_to_hashcon e2)
       )
 
-let test_symb_vs_deriv =
+let test_symb_vs_aut =
   QCheck_ounit.to_ounit2_test
   @@ Test.make ~count:1000
-        ~name:"testing symbolic based algorithm against (KAT) derivative based algorithm"
+        ~name:"testing symbolic based algorithm against automaton based algorithm"
           (* We don't have a printer at this point*)
         ~print:(fun (e1, e2) ->
           GKAT_2.Print2.pprint e1 ^ " EXP2: " ^ GKAT_2.Print2.pprint e2)
         GenExp.gen_eq_exp
         (fun (e1, e2) -> 
           GKAT_Symb.Derivatives.equiv_helper (from_gkat_to_hashcon e1) (from_gkat_to_hashcon e2)
-          = GKAT_2.gKat_equiv e1 e2)
+          = GKAT_Aut.equiv e1 e2)

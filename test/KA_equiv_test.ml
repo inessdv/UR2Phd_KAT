@@ -10,6 +10,7 @@ let _ =
            KAT_test.deriv_test;
            GKAT_test_qcheck.test_equiv_deriv;  
            GKAT_test_qcheck.test_equiv_aut;  
-           GKAT_test_qcheck.test_both_method;
+           GKAT_test_qcheck.test_aut_vs_deriv;
            GKAT_test_qcheck.test_equiv_symb;  
+           GKAT_test_qcheck.test_symb_vs_aut
          ])
