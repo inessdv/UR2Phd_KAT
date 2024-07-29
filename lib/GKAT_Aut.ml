@@ -241,7 +241,7 @@ let rec thompson_construct (exp : gkat) (p_act : PActSet.t)
                 | r -> res_to_left r coprod));
         p_start =
           (fun at ->
-            match auto1.p_start at with Accept -> auto2.p_start at | r -> r);
+            match auto1.p_start at with Accept -> res_to_right(auto2.p_start at)coprod | r -> r);
       }
   | If (bexp, exp1, exp2) ->
       let auto1 = thompson_construct exp1 p_act p_test in
@@ -620,40 +620,54 @@ let equiv (exp1 : gkat) (exp2 : gkat) : bool =
 
 (*while b1 do while b1 do (if b1 then p0 else 1) done done EXP2: if b1 then while b1 do (b1 * p0) done * while b1 do while b1 do (b1 * p0) done done else 1*)
 (* let gkat_example1 =
-  While (PBool "b1", While (PBool "b1", If (PBool "b1", Pact "p0", test One)))
+     While (PBool "b1", While (PBool "b1", If (PBool "b1", Pact "p0", test One)))
 
-let gkat_example2 =
-  If
-    ( PBool "b1",
-      seq
-        (While (PBool "b1", seq (test (PBool "b1")) (Pact "p0")))
-        (While
-           (PBool "b1", While (PBool "b1", seq (test (PBool "b1")) (Pact "p0")))),
-      test One ) *)
+   let gkat_example2 =
+     If
+       ( PBool "b1",
+         seq
+           (While (PBool "b1", seq (test (PBool "b1")) (Pact "p0")))
+           (While
+              (PBool "b1", While (PBool "b1", seq (test (PBool "b1")) (Pact "p0")))),
+         test One ) *)
 
-(*if b1 then (if b1 then (if b1 then b1 else p0) * p5 else 0 * (if b1 then b1 else p8)) * (b1 * b1) else while b1 do b1 done 
+(*if b1 then (if b1 then (if b1 then b1 else p0) * p5 else 0 * (if b1 then b1 else p8)) * (b1 * b1) else while b1 do b1 done
    EXP2: if b1 then if b1 then (if b1 then b1 * p5 else p0 * p5) * (b1 * b1) else 0 * (b1 * b1) else while b1 do b1 done *)
 
-let gkat_example1= If(PBool"b1",
-   (If PBool "b1 ", 
-   seq(If (PBool "b1", 
-   test(PBool "b1"), Pact "p0"))(Pact "p5"), seq (test (PBool Zero))  (seq(If(PBool "b1", test PBool "b1",  Pact "p8")) (seq (test PBool "b1")(test PBool "b1")))), 
-While (PBool "b1 ", test PBool "b1"))  
+(* let gkat_example1= If(PBool"b1",
+      (If PBool "b1 ",
+      seq(If (PBool "b1",
+      test(PBool "b1"), Pact "p0"))(Pact "p5"), seq (test (PBool Zero))  (seq(If(PBool "b1", test PBool "b1",  Pact "p8")) (seq (test PBool "b1")(test PBool "b1")))),
+   While (PBool "b1 ", test PBool "b1")) *)
+
+
+   (*while b1 do (if b1 then (if b1 then b1 else p0) * p0 else 1) done EXP2: while b1 do (b1 * (if b1 then b1 * p0 else p0 * p0)) done*)
+let gkat_example1 =
+  While
+    ( PBool "b1",
+      If
+        ( PBool "b1",
+          seq (If (PBool "b1", test (PBool "b1"), Pact "p0")) (Pact "p0"),
+          test One ) )
+
+let gkat_example2 =
+  While
+    ( PBool "b1",
+      If
+        ( PBool "b1",
+          seq (test (PBool "b1")) (Pact "p0"),
+          seq (Pact "p0") (Pact "p0") ) )
 
 let gkat_example3 =
-  If
-    ( PBool "b1",
-      seq
-        (While (PBool "b1", seq (test (PBool "b1")) (Pact "p0")))
-        (While (PBool "b1", seq (test (PBool "b1")) (Pact "p0"))),
-      test One )
+  seq (If (PBool "b1", test (PBool "b1"), Pact "p0")) (Pact "p0")
 
-let gkat_example4 = While (PBool "b1", seq (test (PBool "b1")) (Pact "p0"))
+let gkat_example4 = If (PBool "b1", test (PBool "b1"), Pact "p0")
 
 let gkat_example5 =
-  seq
-    (While (PBool "b1", seq (test (PBool "b1")) (Pact "p0")))
-    (While (PBool "b1", seq (test (PBool "b1")) (Pact "p0")))
+  If
+        ( PBool "b1",
+          seq (If (PBool "b1", test (PBool "b1"), Pact "p0")) (Pact "p0"),
+          test One )
 
 let test_p_bool =
   PBoolSet.union
