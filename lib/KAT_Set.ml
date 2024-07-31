@@ -323,8 +323,8 @@ let hd (r : derMap) : AtPactSet.t =
 let deriv (atp : atPact) (der_map : derMap) : KATSet.t =
   let atom, pact = atp in
   print_endline
-    ("to extract derivs with respect to: " ^ Atom.pprint atom ^ ", "
-   ^ pact ^ ":( "
+    ("to extract derivs with respect to: " ^ Atom.pprint atom ^ ", " ^ pact
+   ^ ":( "
     ^ Print.pprint_der_map der_map
     ^ ")");
   match AtPactMap.find_opt atp der_map with
