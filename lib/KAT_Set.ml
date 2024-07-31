@@ -160,7 +160,7 @@ let conc (e1 : katI) (e2 : katI) : katI =
   (*TODO: please fix this, conc can concatnate two types of expression*)
   | (k1, _), (k2, _) -> (Conc (k1, k2), false)
 
-let not_N ((exp, expIsBExp) : kat * bool) =
+let not_b ((exp, expIsBExp) : kat * bool) =
   if expIsBExp then
     match exp with
     | One -> (Zero, true)
@@ -464,7 +464,7 @@ module Parser = struct
   and not_pareser () : katI parser =
     let* _ = char '~' << ws in
     let* eI = min_term_star_pareser () << ws in
-    pure (not_N eI)
+    pure (not_b eI)
 
   and not_star_parser () = not_pareser () <|> min_term_star_pareser ()
 
