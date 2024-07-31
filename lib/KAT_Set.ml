@@ -22,7 +22,12 @@ end)
 module AtPactMap = Map.Make (struct
   type t = Atom.t * string (*change to Atom.t*)
 
-  let compare = compare
+  (** lexical ordering, compare atoms first, then compare the primitive action.*)
+  let compare (at1, p1) (at2, p2) = 
+    let at_comp = Atom.compare at1 at2 in 
+    if at_comp = 0 then 
+      String.compare p1 p2 
+    else at_comp
 end)
 
 module AtomSet = Set.Make (Atom)
@@ -263,38 +268,33 @@ let is_pact (e: kat): bool =
           | PAct _ -> print_endline ("it is not empty"); true
           | _ -> print_endline ("it is not empty and not considered a PACT"); false
 
-let linearization (primitives: Atom.t) (exp : kat) : derMap =
-  print_endline ("linearization for exp: " ^Print.pprint exp);
-  print_endline ("primitives: " ^Atom.pprint primitives);
-
-  let rec linearization_helper (at : AtomSet.t) (exp : kat) : derMap =
-  (* if kat is PACT, change atoms to *)
-    match exp with
-    | PBool _ -> AtPactMap.empty
-    | PAct p -> mapMaker at p (* map p to each atom and then each to one*)
-    | Union (e1, e2) ->
-        unionLinearForm
-          (linearization_helper at e1)
-          (linearization_helper at e2)
-    | Conc (e1, e2) -> 
-      let linear1 = linearization_helper at e1 in
-        unionLinearForm
-          (concLinearForm (linear1) e2)
-          (atomExists (linearization_helper at e2) e1)
-    | Star e -> concLinearForm (linearization_helper at e) (Star e)
-    | _ -> AtPactMap.empty
-  in
-  let atoms = getAtomsof exp in
-  if is_pact exp then (linearization_helper (AtomSet.add primitives atoms)) exp else
-  let linear = linearization_helper (atoms) exp in 
-  print_endline ("linear for e:" ^ (Print.pprint exp)^":"^ Print.pprint_linear_form (linear));
-  linear
-
-(** gets the string set of atoms directly from expression**)
+(** get the derivative map of an expression with respect to a set of boolean primitives*)
+let rec get_der_map (pbools: PBoolSet.t) (exp : kat) : derMap =
+  (* print_endline ("der_map for exp: " ^Print.pprint exp);
+  print_endline ("pbools: " ^PBoolSet.pprint pbools); *)
+  match exp with
+  | PBool _ -> AtPactMap.empty
+  (* der_map(p) = {(at, p) -> {1} | at ∈ atoms} *)
+  | PAct p -> 
+    let atoms = Atom.of_p_bools pbools in 
+    let der_map_list = 
+      List.map (fun at -> ((at, p), KATSet.singleton One)) atoms in 
+    AtPactMap.of_list der_map_list
+  | Union (e1, e2) ->
+      unionLinearForm
+        (get_der_map pbools e1)
+        (get_der_map pbools e2)
+  | Conc (e1, e2) -> 
+    let linear1 = get_der_map pbools e1 in
+      unionLinearForm
+        (concLinearForm (linear1) e2)
+        (atomExists (get_der_map pbools e2) e1)
+  | Star e -> concLinearForm (get_der_map pbools e) (Star e)
+  | _ -> AtPactMap.empty
 
 (** Get the derivative map for a set of KATs (sum), represented as a set of terms **)
 let get_der_map_sum (primitives: Atom.t) (sum : KATSet.t) : DerMapSet.t =
-  let linear = KATSet.to_list sum |> List.map (fun x -> linearization primitives x) |> DerMapSet.of_list
+  let linear = KATSet.to_list sum |> List.map (fun x -> get_der_map primitives x) |> DerMapSet.of_list
     in
     print_endline ("sum of linears for!:"^Print.pprint_sum sum ^" ="^Print.pprint_pderMap linear);
     linear
@@ -309,13 +309,16 @@ let hd (r : derMap) : AtPactSet.t =
 
 let deriv (atp : atPact) (der_map : derMap) : KATSet.t =
   let (atom,pact) = atp in
-  print_endline ("linear to extract derivs with respect to: "^((Atom.pprint atom)^ pact)^":( "^Print.pprint_linear_form der_map^")");
-
+  print_endline ("linear to extract derivs with respect to: "^ (Atom.pprint atom) ^ ", " ^ pact^":( "^Print.pprint_linear_form der_map^")");
   match AtPactMap.find_opt atp der_map with
   (*If the p doesn't exists then return empty*)
-  | None -> KATSet.empty
+  | None -> 
+    print_endline ((Atom.pprint atom) ^ ", "^ pact ^ " not found");
+    KATSet.empty
   (*Otherwise return the sum*)
-  | Some der_sum -> der_sum
+  | Some der_sum -> 
+    print_endline ((Atom.pprint atom) ^ ", "^ pact ^ " found");
+    der_sum
 
 let hd_sum (sum : DerMapSet.t) : AtPactSet.t =
   let sumLinear = DerMapSet.to_list sum in
