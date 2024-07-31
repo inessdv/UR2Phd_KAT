@@ -483,20 +483,8 @@ let get_accpeting_states_from (a : Automaton.t) (atoms : PBoolSet.t list) :
     (fun s -> List.exists (fun at -> a.trans s at = Accept) atoms)
     states
 
-let rec check_start_state (a : Automaton.t) (atoms : PBoolSet.t list) : bool =
-  match atoms with
-  | [] -> false
-  | s1 :: rest -> (
-      match a.trans a.start s1 with
-      | Accept -> true
-      | To (_, _) -> true
-      | Reject -> check_start_state a rest)
-
 let normalization (a : Automaton.t) : Automaton.t =
   let atoms = Atom.of_p_bools a.p_tests in
-  (* print_endline
-    ("the result of checking start state  "
-    ^ string_of_bool (check_start_state a atoms)); *)
   let accepting_states = get_accpeting_states_from a atoms in
   (* print_endline
     ("The accepting states are " ^ stateset_printer accepting_states); *)
