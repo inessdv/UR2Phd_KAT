@@ -111,10 +111,9 @@ module Print = struct
     in
     String.concat " " string_list
 
-  let pprint_atoms (atoms : AtomSet.t) : string =
-    let atom_list = AtomSet.to_list atoms in
-    let atom_str = List.map (fun atom -> Atom.pprint atom) atom_list in
-    String.concat "\n" atom_str
+  let pprint_atoms (atoms : Atom.t list) : string =
+    List.map (fun atom -> Atom.pprint atom) atoms
+    |> String.concat "\n"
 
   let pprint_der_map (der_map : derMap) : string =
     let der_list = AtPactMap.to_list der_map in
@@ -188,14 +187,6 @@ let rec pbools_of (exp : kat) : Atom.t =
   | Union (e1, e2) -> Atom.union (pbools_of e1) (pbools_of e2)
   | Not eb -> pbools_of eb
   | _ -> Atom.empty
-
-(** function to get the atoms of the primitive bools through power set**)
-let atOf (primitive_boolset : Atom.t) : AtomSet.t =
-  Atom.fold
-    (fun x ps -> AtomSet.fold (fun ss -> AtomSet.add (Atom.add x ss)) ps ps)
-      (*CHECK!!!!!**)
-    primitive_boolset
-    (AtomSet.singleton Atom.empty)
 
 (** empty word for KAT expressions**)
 let rec epsilon (atom : Atom.t) (exp : kat) : bool =
@@ -363,7 +354,7 @@ let equiv (e1 : kat) (e2 : kat) : bool =
   let prim_bools = Atom.union pb_e1 pb_e2 in
   print_string ("pbools union: " ^ Atom.pprint prim_bools);
   print_newline ();
-  let atoms = atOf prim_bools in
+  let atoms = Atom.of_p_bools prim_bools in
   print_string ("atoms: " ^ Print.pprint_atoms atoms);
   print_newline ();
   let rec equiv_help ((todo, visited) : PDerivPairSet.t * PDerivPairSet.t) :
