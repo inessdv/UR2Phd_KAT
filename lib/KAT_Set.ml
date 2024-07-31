@@ -349,32 +349,9 @@ let deriv_sum (atp : atPact) (sum_der_map : DerMapSet.t) : KATSet.t =
   (*Union the results*)
   |> List.fold_left KATSet.union KATSet.empty
 
-(** takes two expressions e1 and e2 returns True if, 
-    for every atom α, we have Eα(e1)=Eα(e2) and False otherwise**)
-let rec eps_eq (e1 : kat) (e2 : kat) (atoms : AtomSet.t) : bool =
-  AtomSet.for_all (fun at -> epsilon at e1 = epsilon at e2) atoms
-
-(** takes two KATsets and returns true if for every atom α, we have Eα(E1)=Eα(E2) and False otherwise**)
-let rec hAll_sum (e1 : KATSet.t) (e2 : KATSet.t) (at : AtomSet.t) : bool =
-  if AtomSet.is_empty at then true
-  else
-    let ele = AtomSet.min_elt at in
-    print_string ("current_atom " ^ Atom.pprint ele);
-    print_newline ();
-    print_newline ();
-    print_string
-      ("epsilon_sum e1: " ^ Print.pprint_sum e1 ^ " with atom "
-     ^ Atom.pprint ele ^ " :" ^ Print.pprint_sum e1 ^ " ->"
-      ^ string_of_bool (epsilon_sum ele e1));
-    print_newline ();
-    print_string
-      ("epsilon_sum e2: " ^ Print.pprint_sum e2 ^ " with atom "
-     ^ Atom.pprint ele ^ " :" ^ Print.pprint_sum e2 ^ " ->"
-      ^ string_of_bool (epsilon_sum ele e2));
-    print_newline ();
-    if epsilon_sum ele e1 == epsilon_sum ele e2 then
-      hAll_sum e1 e2 (AtomSet.remove ele at)
-    else false
+(** returns whether two some has the same epsilon *)
+let rec eps_sum_eq (sum1 : KATSet.t) (sum2 : KATSet.t) (atoms : AtomSet.t) : bool =
+  AtomSet.for_all (fun at -> epsilon_sum at sum1 = epsilon_sum at sum2) atoms
 
 let derivatives (primitives : Atom.t) ((r1, r2) : KATSet.t * KATSet.t) :
     PDerivPairSet.t =
@@ -438,8 +415,8 @@ let equiv (e1 : kat) (e2 : kat) : bool =
           print_string ("sum2 :" ^ Print.pprint_sum sum2);
           print_newline ();
           (*first pair of todo*)
-          let h_sum = hAll_sum sum1 sum2 atoms in
-          print_endline ("hAll_sum :" ^ string_of_bool h_sum);
+          let h_sum = eps_sum_eq sum1 sum2 atoms in
+          print_endline ("eps_sum_eq :" ^ string_of_bool h_sum);
           if h_sum = false then false (* Eα(E1)!=Eα(E2) *)
           else
             let new_visited = PDerivPairSet.add (sum1, sum2) visited in
