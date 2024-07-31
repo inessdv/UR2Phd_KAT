@@ -112,8 +112,7 @@ module Print = struct
     String.concat " " string_list
 
   let pprint_atoms (atoms : Atom.t list) : string =
-    List.map (fun atom -> Atom.pprint atom) atoms
-    |> String.concat "\n"
+    List.map (fun atom -> Atom.pprint atom) atoms |> String.concat "\n"
 
   let pprint_der_map (der_map : derMap) : string =
     let der_list = AtPactMap.to_list der_map in
@@ -204,12 +203,6 @@ let rec epsilon (atom : Atom.t) (exp : kat) : bool =
 let epsilon_sum (atom : Atom.t) (sum : KATSet.t) : bool =
   KATSet.exists (fun exp -> epsilon atom exp) sum
 
-let rec kat_epsilon (at : AtomSet.t) (e1 : kat) : bool =
-  if AtomSet.is_empty at then false
-  else
-    let ele = AtomSet.min_elt at in
-    if epsilon ele e1 then true else kat_epsilon (AtomSet.remove ele at) e1
-
 (** union two derivative map **)
 let union_der_map (der1 : derMap) (der2 : derMap) : derMap =
   AtPactMap.union
@@ -263,9 +256,15 @@ let rec get_der_map (pbools : PBoolSet.t) (exp : kat) : derMap =
   | Union (e1, e2) ->
       union_der_map (get_der_map pbools e1) (get_der_map pbools e2)
   | Conc (e1, e2) ->
-      let der_map1 = get_der_map pbools e1 in
-      union_der_map (conc_der_map der_map1 e2)
-        (atomExists (get_der_map pbools e2) e1)
+      (* the der map where the head is taken from e1 *)
+      let der_map_exec_e1 = conc_der_map (get_der_map pbools e1) e2 in
+      (* the der map where the head is taken from e2, but e1 accepts *)
+      let der_map_acc_e1 =
+        AtPactMap.filter
+          (fun (at, _) _ -> epsilon at e1)
+          (get_der_map pbools e2)
+      in
+      union_der_map der_map_exec_e1 der_map_acc_e1
   | Star e -> conc_der_map (get_der_map pbools e) (Star e)
   | _ -> AtPactMap.empty
 
