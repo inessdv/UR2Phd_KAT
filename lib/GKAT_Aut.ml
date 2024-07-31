@@ -334,22 +334,22 @@ let rec check_atoms ((s1, s2) : State.t * State.t)
 *)
 
 let bisim1 (a1 : Automaton.t) (a2 : Automaton.t) : bool =
-  print_endline "Asserting a1.p_tests = a2.p_tests";
+  (* print_endline "Asserting a1.p_tests = a2.p_tests"; *)
   assert (a1.p_tests = a2.p_tests);
-  print_endline "Succeeded Asserting a1.p_tests = a2.p_tests";
+  (* print_endline "Succeeded Asserting a1.p_tests = a2.p_tests"; *)
   let atoms = Atom.of_p_bools a1.p_tests in
-  print_endline ("The Atom.of_p_bools a1.p_tests is  " ^ setListPrinter atoms);
+  (* print_endline ("The Atom.of_p_bools a1.p_tests is  " ^ setListPrinter atoms); *)
   (* maps each state in a1 to its corresponding unionfind element *)
   let uf_map1 =
     List.map (fun s -> (s, UnionFind.make s)) (a1.states |> State.Set.to_list)
     |> StateMap.of_list
   in
-  print_endline ("the Statemap of a1's states is " ^ statemap_printer uf_map1);
+  (* print_endline ("the Statemap of a1's states is " ^ statemap_printer uf_map1); *)
   let uf_map2 =
     List.map (fun s -> (s, UnionFind.make s)) (a2.states |> State.Set.to_list)
     |> StateMap.of_list
   in
-  print_endline ("the Statemap of a2's states is " ^ statemap_printer uf_map2);
+  (* print_endline ("the Statemap of a2's states is " ^ statemap_printer uf_map2); *)
   (* get union find element of automaton 1*)
   let get_elem1 s = StateMap.find s uf_map1 in
   let get_elem2 s = StateMap.find s uf_map2 in
@@ -357,23 +357,23 @@ let bisim1 (a1 : Automaton.t) (a2 : Automaton.t) : bool =
   let rec help (todo : StatePairSet.t) : bool =
     match StatePairSet.choose_opt todo with
     | None ->
-        print_endline "";
+        (* print_endline "";
         print_endline "Equiv asserted";
-        print_endline "";
+        print_endline ""; *)
         true
     | Some (s1, s2) -> (
         (* if they are already marked bisimilar *)
-        print_endline
-          ("The s1 is " ^ string_of_int s1 ^ " The s2 is " ^ string_of_int s2);
+        (* print_endline
+          ("The s1 is " ^ string_of_int s1 ^ " The s2 is " ^ string_of_int s2); *)
         if UnionFind.eq (get_elem1 s1) (get_elem2 s2) then true
         else
           (* add check_atoms inside function to avoid passing a1 and a2??*)
           match check_atoms (s1, s2) atoms a1 a2 with
           | None ->
-              print_endline "check_atom returns false";
+              (* print_endline "check_atom returns false"; *)
               false
           | Some to_check ->
-              print_endline ("to_check:" ^ statepairSet_printer to_check);
+              (* print_endline ("to_check:" ^ statepairSet_printer to_check); *)
               (* remove all the checked equal states *)
               let to_check =
                 StatePairSet.filter
@@ -381,7 +381,7 @@ let bisim1 (a1 : Automaton.t) (a2 : Automaton.t) : bool =
                     not @@ UnionFind.eq (get_elem1 state1) (get_elem2 state2))
                   to_check
               in
-              print_endline ("to_check after: " ^ statepairSet_printer to_check);
+              (* print_endline ("to_check after: " ^ statepairSet_printer to_check); *)
               ignore @@ UnionFind.union (get_elem1 s1) (get_elem2 s2);
               help (StatePairSet.union to_check todo))
   in
@@ -390,11 +390,11 @@ let bisim1 (a1 : Automaton.t) (a2 : Automaton.t) : bool =
 
 (*bisim with check_atoms as an inside function!*)
 let bisim2 (a1 : Automaton.t) (a2 : Automaton.t) : bool =
-  print_endline "Asserting a1.p_tests = a2.p_tests";
+  (* print_endline "Asserting a1.p_tests = a2.p_tests"; *)
   assert (a1.p_tests = a2.p_tests);
-  print_endline "Succeeded Asserted a1.p_tests = a2.p_tests";
+  (* print_endline "Succeeded Asserted a1.p_tests = a2.p_tests"; *)
   let atoms = Atom.of_p_bools a1.p_tests in
-  print_endline ("The Atom.of_p_bools a1.p_tests is  " ^ setListPrinter atoms);
+  (* print_endline ("The Atom.of_p_bools a1.p_tests is  " ^ setListPrinter atoms); *)
   (*Declare check_atoms after here*)
   let rec help (todo : StatePairSet.t) (checked : StatePairSet.t) : bool =
     match StatePairSet.choose_opt todo with
@@ -404,16 +404,16 @@ let bisim2 (a1 : Automaton.t) (a2 : Automaton.t) : bool =
         | None -> false
         | Some to_check ->
             let checked = StatePairSet.add (s1, s2) checked in
-            print_endline (" checked: " ^ statepairSet_printer checked);
+            (* print_endline (" checked: " ^ statepairSet_printer checked); *)
             let to_check = StatePairSet.diff to_check checked in
-            print_endline (" to_check : " ^ statepairSet_printer to_check);
+            (* print_endline (" to_check : " ^ statepairSet_printer to_check); *)
             let todo = StatePairSet.diff todo checked in
-            print_endline (" todo: " ^ statepairSet_printer todo);
+            (* print_endline (" todo: " ^ statepairSet_printer todo); *)
             help (StatePairSet.union to_check todo) checked)
   in
 
   let start_pair = StatePairSet.singleton (a1.start, a2.start) in
-  print_endline (" the start pair is  " ^ statepairSet_printer start_pair);
+  (* print_endline (" the start pair is  " ^ statepairSet_printer start_pair); *)
   help start_pair StatePairSet.empty
 
 (* do we need to code a bisim for PAutomaton?*)
@@ -456,7 +456,7 @@ let rev_map (a : Automaton.t) : State.Set.t StateMap.t =
 (*DFS to get live states*)
 let rec live_states_from (graph : state_set_map) (state : State.t)
     (visited : State.Set.t) : State.Set.t =
-  print_endline "I am here";
+  (* print_endline "I am here"; *)
   if State.Set.mem state visited then visited
   else
     (*check if we have checked this state*)
@@ -468,10 +468,10 @@ let rec live_states_from (graph : state_set_map) (state : State.t)
             (fun s acc -> live_states_from graph s acc)
             states new_visited
         in
-        print_endline ("x is " ^ stateset_printer x);
+        (* print_endline ("x is " ^ stateset_printer x); *)
         x (*check order of states and new visited?*)
     | None ->
-        print_endline ("new_visited is " ^ stateset_printer new_visited);
+        (* print_endline ("new_visited is " ^ stateset_printer new_visited); *)
 
         new_visited
 
@@ -494,21 +494,21 @@ let rec check_start_state (a : Automaton.t) (atoms : PBoolSet.t list) : bool =
 
 let normalization (a : Automaton.t) : Automaton.t =
   let atoms = Atom.of_p_bools a.p_tests in
-  print_endline
+  (* print_endline
     ("the result of checking start state  "
-    ^ string_of_bool (check_start_state a atoms));
+    ^ string_of_bool (check_start_state a atoms)); *)
   let accepting_states = get_accpeting_states_from a atoms in
-  print_endline
-    ("The accepting states are " ^ stateset_printer accepting_states);
+  (* print_endline
+    ("The accepting states are " ^ stateset_printer accepting_states); *)
   let reverse_auto = rev_map a in
-  print_endline ("The reverse map is " ^ state_set_map_printer reverse_auto);
+  (* print_endline ("The reverse map is " ^ state_set_map_printer reverse_auto); *)
   (*for each accept state DFS to check for other live states*)
   let live_states =
     State.Set.fold
       (fun s acc -> live_states_from reverse_auto s acc)
       State.Set.empty accepting_states
   in
-  print_endline ("The live states are " ^ stateset_printer live_states);
+  (* print_endline ("The live states are " ^ stateset_printer live_states); *)
   (*Updating res of transition function to reject if To dead state*)
   {
     a with 
@@ -571,20 +571,20 @@ let equiv (exp1 : gkat) (exp2 : gkat) : bool =
       (extract_p_act exp2 PActSet.empty)
   in
   let auto1 = normalization (convert (thompson_construct exp1 p_act p_bool)) in
-  print_endline "The auto1's Pautomaton is ";
+  (* print_endline "The auto1's Pautomaton is ";
   print_Pautomaton (thompson_construct exp1 p_act p_bool);
   print_endline "The auto1's automaton is ";
   print_automaton (convert (thompson_construct exp1 p_act p_bool));
-  print_endline "The auto1's filtered automaton is";
-  print_automaton auto1;
+  print_endline "The auto1's filtered automaton is"; *)
+  (* print_automaton auto1; *)
 
   let auto2 = normalization (convert (thompson_construct exp2 p_act p_bool)) in
-  print_endline "The auto2's Pautomaton is ";
+  (* print_endline "The auto2's Pautomaton is ";
   print_Pautomaton (thompson_construct exp2 p_act p_bool);
   print_endline "The auto2's automaton is ";
   print_automaton (convert (thompson_construct exp2 p_act p_bool));
-  print_endline "The auto2's filtered automaton is";
-  print_automaton auto2;
+  print_endline "The auto2's filtered automaton is"; *)
+  (* print_automaton auto2; *)
   
   bisim1 auto1 auto2
 
@@ -655,6 +655,7 @@ let gkat_example5 =
           seq (If (PBool "b1", test (PBool "b1"), Pact "p0")) (Pact "p0"),
           test One )
 
+
 let test_p_bool =
   PBoolSet.union
     (extract_p_bool gkat_example1 PBoolSet.empty)
@@ -677,3 +678,5 @@ let test_auto3 =
 let be = GKAT_2.PBool "b1"
 let atom1 = PActSet.singleton "b1"
 let atom2 = PActSet.empty *)
+(* let gkat_example1= Seq(test (PBool "b2"),Seq(test (Not(PBool "b1")),test (PBool "b1")))
+let gkat_example2= If(PBool "b2",  ,) *)
