@@ -180,18 +180,14 @@ module KATISet = Set.Make (struct
   let compare = compare
 end)
 
-let rec pBoolOf (exp : katI) : Atom.t =
-  match exp with
-  (*At*)
-  | _, false -> Atom.empty
-  | bExp, true -> (
-      match bExp with
-      | One -> Atom.empty
-      | PBool b -> Atom.singleton b
-      | Conc (a, b) -> Atom.union (pBoolOf (a, true)) (pBoolOf (b, true))
-      | Union (a, b) -> Atom.union (pBoolOf (a, true)) (pBoolOf (b, true))
-      | Not b -> pBoolOf (b, true)
-      | _ -> Atom.empty)
+let rec pbools_of (exp : kat) : Atom.t =
+    match exp with
+    | One -> Atom.empty
+    | PBool b -> Atom.singleton b
+    | Conc (e1, e2) -> Atom.union (pbools_of e1) (pbools_of e2)
+    | Union (e1, e2) -> Atom.union (pbools_of e1) (pbools_of e2)
+    | Not eb -> pbools_of eb
+    | _ -> Atom.empty
 
 (** function to get the atoms of the primitive bools through power set**)
 let atOf (primitive_boolset : Atom.t) : AtomSet.t =
@@ -266,7 +262,7 @@ let atomExists (e2 : derMap) (e1 : kat) : derMap =
   AtPactMap.of_list (List.filter (fun ((a, _), _) -> epsilon a e1) e2List)
 
 let getAtomsof (exp : kat) : AtomSet.t =
-  let primitives = pBoolOf (exp, true) in
+  let primitives = pbools_of exp in
   atOf primitives
 
 let is_pact (e : kat) : bool =
@@ -376,7 +372,8 @@ let derivatives (primitives : Atom.t) ((r1, r2) : KATSet.t * KATSet.t) :
 
 (** Equivalence Function **)
 let equiv (e1 : kat) (e2 : kat) : bool =
-  let pb_e1 = pBoolOf (e1, true) and pb_e2 = pBoolOf (e2, true) in
+  let pb_e1 = pbools_of e1 in 
+  let pb_e2 = pbools_of e2 in
   print_string ("pbools of e1: " ^ Print.pprint e1 ^ Atom.pprint pb_e1);
   print_newline ();
   print_string ("pbools of e2: " ^ Print.pprint e2 ^ Atom.pprint pb_e2);

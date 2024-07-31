@@ -15,9 +15,10 @@ let epsilon_tests = "epslion test" >:::[
 
 let deriv_test = "deriv and linearization test" >::: [
   "D(ap)((ap+bq) = 1+0" >:: (fun _ ->
+    let exp = fromStr "a(p) + b(q)" in 
     assert_equal ~printer: pprint_sum
       (KATSet.singleton(fromStr "1+0")) 
-      (deriv (Atom.of_list ["a";"b"],"p") (get_der_map (pBoolOf ((fromStr "a(p) + b(q)"),true)) (fromStr "a(p) + b(q)"))));
+      (deriv (Atom.of_list ["a";"b"],"p") (get_der_map (PBoolSet.of_list ["a"; "b"]) (exp))));
 ]
 let equiv_test = "equivalence test" >::: [
   "equiv (b+1) (1)" >:: (fun _ ->
