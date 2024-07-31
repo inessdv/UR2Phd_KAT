@@ -32,6 +32,8 @@ module Coprod = struct
 
     type t
 
+    val pprint: t -> string
+
     val compare : t -> t -> int
     (** use to generate set and map *)
 
@@ -68,6 +70,8 @@ module Coprod = struct
 
     include Int
     module Set = Set.Make (Int)
+
+    let pprint n = string_of_int n
 
     type coprodRes = {
       to_left : t -> t;
