@@ -91,7 +91,12 @@ type bExp =
 type pAct = string
 (** Primitive Actions*)
 
-module PBoolSet = Set.Make (String)
+module PBoolSet = struct
+  include Set.Make (String)
+
+  let pprint (pbools : t) : string =
+    if is_empty pbools then "{}" else pbools |> to_list |> String.concat "⋅"
+end
 
 module Atom = struct
   include Set.Make (String)
