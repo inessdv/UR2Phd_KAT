@@ -349,14 +349,10 @@ let deriv_sum (atp : atPact) (sum_der_map : DerMapSet.t) : KATSet.t =
   (*Union the results*)
   |> List.fold_left KATSet.union KATSet.empty
 
-(**hAll takes two expressions e1 and e2 returns True if, 
+(** takes two expressions e1 and e2 returns True if, 
     for every atom α, we have Eα(e1)=Eα(e2) and False otherwise**)
-let rec hAll (e1 : kat) (e2 : kat) (at : AtomSet.t) : bool =
-  if AtomSet.is_empty at then true
-  else
-    let ele = AtomSet.min_elt at in
-    if epsilon ele e1 == epsilon ele e2 then hAll e1 e2 (AtomSet.remove ele at)
-    else false
+let rec eps_eq (e1 : kat) (e2 : kat) (atoms : AtomSet.t) : bool =
+  AtomSet.for_all (fun at -> epsilon at e1 = epsilon at e2) atoms
 
 (** takes two KATsets and returns true if for every atom α, we have Eα(E1)=Eα(E2) and False otherwise**)
 let rec hAll_sum (e1 : KATSet.t) (e2 : KATSet.t) (at : AtomSet.t) : bool =
