@@ -254,14 +254,14 @@ module GenExp = struct
   (* default size of two expression *)
 end
 
-
 let test_equiv_deriv =
   QCheck_ounit.to_ounit2_test
   @@ Test.make ~count:10 (*00*)
        ~name:"testing KAT derivative based algorithm with generated equivalence"
          (* We don't have a printer at this point*)
        ~print:(fun (e1, e2) ->
-        " EXP1: " ^ GKAT_2.Print2.pprint e1 ^ " EXP2: " ^ GKAT_2.Print2.pprint e2)
+         " EXP1: " ^ GKAT_2.Print2.pprint e1 ^ " EXP2: "
+         ^ GKAT_2.Print2.pprint e2)
        GenExp.gen_eq_exp
        (fun (e1, e2) ->
          (* HACK: ignore generated result with duplicate labels,
@@ -325,36 +325,38 @@ let test_equiv_symb =
        ~name:"testing symbolic based algorithm with generated equivalence"
        ~print:(fun (e1, e2) ->
          GKAT_2.Print2.pprint e1 ^ " EXP2: " ^ GKAT_2.Print2.pprint e2)
-       GenExp.gen_eq_exp      
-       (fun (e1, e2) -> 
-        (* print_newline (); print_newline ();
-        print_endline "starting test cases"; *)
-        GKAT_Symb.Derivatives.equiv_helper (from_gkat_to_hashcon e1) (from_gkat_to_hashcon e2)
-      )
+       GenExp.gen_eq_exp
+       (fun (e1, e2) ->
+         (* print_newline (); print_newline ();
+            print_endline "starting test cases"; *)
+         GKAT_Symb.Derivatives.equiv_helper (from_gkat_to_hashcon e1)
+           (from_gkat_to_hashcon e2))
 
 let test_symb_vs_aut =
   QCheck_ounit.to_ounit2_test
   @@ Test.make ~count:1000
-        ~name:"testing symbolic based algorithm against automaton based algorithm"
-        ~print:(fun (e1, e2) ->
-          GKAT_2.Print2.pprint e1 ^ " EXP2: " ^ GKAT_2.Print2.pprint e2)
-        (Gen.pair
+       ~name:
+         "testing symbolic based algorithm against automaton based algorithm"
+       ~print:(fun (e1, e2) ->
+         GKAT_2.Print2.pprint e1 ^ " EXP2: " ^ GKAT_2.Print2.pprint e2)
+       (Gen.pair
           (GenExp.exp_sized bexp_max_size exp_max_size)
           (GenExp.exp_sized bexp_max_size exp_max_size))
-        (fun (e1, e2) -> 
-          GKAT_Symb.Derivatives.equiv_helper (from_gkat_to_hashcon e1) (from_gkat_to_hashcon e2)
-          = GKAT_Aut.equiv e1 e2)
+       (fun (e1, e2) ->
+         GKAT_Symb.Derivatives.equiv_helper (from_gkat_to_hashcon e1)
+           (from_gkat_to_hashcon e2)
+         = GKAT_Aut.equiv e1 e2)
 
 let test_symb_vs_gkat =
   QCheck_ounit.to_ounit2_test
-    @@ Test.make ~count:1000
-                  ~name:"testing symbolic based algorithm against GKAT_2 based algorithm"
-                  ~print:(fun (e1, e2) ->
-                    GKAT_2.Print2.pprint e1 ^ " EXP2: " ^ GKAT_2.Print2.pprint e2)
-                  (Gen.pair
-                    (GenExp.exp_sized bexp_max_size exp_max_size)
-                    (GenExp.exp_sized bexp_max_size exp_max_size))
-                  (fun (e1, e2) -> 
-                    GKAT_Symb.Derivatives.equiv_helper (from_gkat_to_hashcon e1) (from_gkat_to_hashcon e2)
-                    = GKAT_2.gKat_equiv e1 e2)
-
+  @@ Test.make ~count:1000
+       ~name:"testing symbolic based algorithm against GKAT_2 based algorithm"
+       ~print:(fun (e1, e2) ->
+         GKAT_2.Print2.pprint e1 ^ " EXP2: " ^ GKAT_2.Print2.pprint e2)
+       (Gen.pair
+          (GenExp.exp_sized bexp_max_size exp_max_size)
+          (GenExp.exp_sized bexp_max_size exp_max_size))
+       (fun (e1, e2) ->
+         GKAT_Symb.Derivatives.equiv_helper (from_gkat_to_hashcon e1)
+           (from_gkat_to_hashcon e2)
+         = GKAT_2.gKat_equiv e1 e2)
