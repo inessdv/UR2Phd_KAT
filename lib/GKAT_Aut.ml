@@ -456,7 +456,7 @@ let rev_map (a : Automaton.t) : State.Set.t StateMap.t =
 (*DFS to get live states*)
 let rec live_states_from (graph : state_set_map) (state : State.t)
     (visited : State.Set.t) : State.Set.t =
-  (* print_endline "I am here"; *)
+  (* print_endline ("checking live states from " ^ State.pprint state); *)
   if State.Set.mem state visited then visited
   else
     (*check if we have checked this state*)
@@ -469,10 +469,9 @@ let rec live_states_from (graph : state_set_map) (state : State.t)
             states new_visited
         in
         (* print_endline ("x is " ^ stateset_printer x); *)
-        x (*check order of states and new visited?*)
+        x 
     | None ->
         (* print_endline ("new_visited is " ^ stateset_printer new_visited); *)
-
         new_visited
 
 (*Getting all accepting states from an automaton*)
@@ -494,7 +493,7 @@ let normalization (a : Automaton.t) : Automaton.t =
   let live_states =
     State.Set.fold
       (fun s acc -> live_states_from reverse_auto s acc)
-      State.Set.empty accepting_states
+      accepting_states State.Set.empty
   in
   (* print_endline ("The live states are " ^ stateset_printer live_states); *)
   (*Updating res of transition function to reject if To dead state*)
