@@ -226,20 +226,6 @@ let conc_der_map (der_map : derMap) (exp : kat) : derMap =
       KATSet.map (fun deriv -> conc_alg deriv exp) derivs)
     der_map
 
-let atomExists (e2 : derMap) (e1 : kat) : derMap =
-  let e2List = AtPactMap.to_list e2 in
-  AtPactMap.of_list (List.filter (fun ((a, _), _) -> epsilon a e1) e2List)
-
-let is_pact (e : kat) : bool =
-  print_endline ("checking if" ^ Print.pprint e ^ "is a PACT");
-  match e with
-  | PAct _ ->
-      print_endline "it is not empty";
-      true
-  | _ ->
-      print_endline "it is not empty and not considered a PACT";
-      false
-
 (** get the derivative map of an expression with respect to a set of boolean primitives*)
 let rec get_der_map (pbools : PBoolSet.t) (exp : kat) : derMap =
   (* print_endline ("der_map for exp: " ^Print.pprint exp);
@@ -317,7 +303,7 @@ let deriv_sum (atp : atPact) (sum_der_map : DerMapSet.t) : KATSet.t =
   |> List.fold_left KATSet.union KATSet.empty
 
 (** returns whether two some has the same epsilon *)
-let rec eps_sum_eq (sum1 : KATSet.t) (sum2 : KATSet.t) (atoms : Atom.t list) :
+let eps_sum_eq (sum1 : KATSet.t) (sum2 : KATSet.t) (atoms : Atom.t list) :
     bool =
   List.for_all (fun at -> epsilon_sum at sum1 = epsilon_sum at sum2) atoms
 
