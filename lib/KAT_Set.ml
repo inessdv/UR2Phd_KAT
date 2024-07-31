@@ -261,9 +261,9 @@ let get_der_map_sum (primitives : Atom.t) (sum : KATSet.t) : DerMapSet.t =
     |> List.map (fun x -> get_der_map primitives x)
     |> DerMapSet.of_list
   in
-  print_endline
+  (* print_endline
     ("sum of derivative maps for!:" ^ Print.pprint_sum sum ^ " ="
-    ^ Print.pprint_der_maps der_maps);
+    ^ Print.pprint_der_maps der_maps); *)
   der_maps
 
 (**hd function gets the set of all heads αp mapped in the derivative maps of a KAT**)
@@ -274,20 +274,20 @@ let hd (r : derMap) : AtPactSet.t =
       a KAT expression in respect to a αp, that were computed 
       by derivative function. **)
 let deriv (atp : atPact) (der_map : derMap) : KATSet.t =
-  let atom, pact = atp in
+  (*let atom, pact = atp in
   print_endline
     ("to extract derivs with respect to: " ^ Atom.pprint atom ^ ", " ^ pact
    ^ ":( "
     ^ Print.pprint_der_map der_map
-    ^ ")");
+    ^ ")"); *)
   match AtPactMap.find_opt atp der_map with
   (*If the p doesn't exists then return empty*)
   | None ->
-      print_endline (Atom.pprint atom ^ ", " ^ pact ^ " not found");
+      (* print_endline (Atom.pprint atom ^ ", " ^ pact ^ " not found"); *)
       KATSet.empty
   (*Otherwise return the sum*)
   | Some der_sum ->
-      print_endline (Atom.pprint atom ^ ", " ^ pact ^ " found");
+      (* print_endline (Atom.pprint atom ^ ", " ^ pact ^ " found"); *)
       der_sum
 
 let hd_sum (sum : DerMapSet.t) : AtPactSet.t =
@@ -312,19 +312,19 @@ let derivatives (primitives : Atom.t) ((r1, r2) : KATSet.t * KATSet.t) :
   let der_map1 = get_der_map_sum primitives r1 in
   let der_map2 = get_der_map_sum primitives r2 in
   let heads = AtPactSet.union (hd_sum der_map1) (hd_sum der_map2) in
-  print_endline (Print.pprint_atPact_sum heads);
+  (* print_endline (Print.pprint_atPact_sum heads); *)
   AtPactSet.to_list heads
   |> List.map (fun p ->
          let deriv_sum1 = deriv_sum p der_map1 in
          let deriv_sum2 = deriv_sum p der_map2 in
-         let atom, pact = p in
+         (*let atom, pact = p in
          print_endline ("current head " ^ Atom.pprint atom ^ pact);
          print_endline
            ("derivatives for : ex1:" ^ Print.pprint_sum r1 ^ " ("
            ^ Print.pprint_sum deriv_sum1
            ^ ") ex2: " ^ Print.pprint_sum r2 ^ " ("
            ^ Print.pprint_sum deriv_sum2
-           ^ ")");
+           ^ ")"); *)
          (deriv_sum1, deriv_sum2))
   |> PDerivPairSet.of_list
 
@@ -332,19 +332,15 @@ let derivatives (primitives : Atom.t) ((r1, r2) : KATSet.t * KATSet.t) :
 let equiv (e1 : kat) (e2 : kat) : bool =
   let pb_e1 = pbools_of e1 in
   let pb_e2 = pbools_of e2 in
-  print_string ("pbools of e1: " ^ Print.pprint e1 ^ Atom.pprint pb_e1);
-  print_newline ();
-  print_string ("pbools of e2: " ^ Print.pprint e2 ^ Atom.pprint pb_e2);
-  print_newline ();
+  (* print_endline ("pbools of e1: " ^ Print.pprint e1 ^ Atom.pprint pb_e1);
+  print_endline ("pbools of e2: " ^ Print.pprint e2 ^ Atom.pprint pb_e2); *)
   let prim_bools = Atom.union pb_e1 pb_e2 in
-  print_string ("pbools union: " ^ Atom.pprint prim_bools);
-  print_newline ();
+  (* print_endline ("pbools union: " ^ Atom.pprint prim_bools); *)
   let atoms = Atom.of_p_bools prim_bools in
-  print_string ("atoms: " ^ Print.pprint_atoms atoms);
-  print_newline ();
+  (* print_endline ("atoms: " ^ Print.pprint_atoms atoms); *)
   let rec equiv_help ((todo, visited) : PDerivPairSet.t * PDerivPairSet.t) :
       bool =
-    print_endline ("TODO:" ^ Print.pprint_pder todo);
+    (* print_endline ("TODO:" ^ Print.pprint_pder todo); *)
     let new_list = PDerivPairSet.to_list todo in
     let check =
       List.for_all
@@ -356,38 +352,34 @@ let equiv (e1 : kat) (e2 : kat) : bool =
           List.is_empty ky_list)
         new_list
     in
-    print_endline (string_of_bool check);
+    (* print_endline (string_of_bool check); *)
     if check then (
-      print_endline "it is empty!!!";
+      (* print_endline "it is empty!!!"; *)
       true)
     else
       match PDerivPairSet.choose_opt todo with
       (*get a KATSet pair*)
       | None -> true (*todo is empty, finised*)
       | Some (sum1, sum2) ->
-          print_string ("sum1 :" ^ Print.pprint_sum sum1);
-          print_newline ();
-          print_string ("sum2 :" ^ Print.pprint_sum sum2);
-          print_newline ();
+          (* print_endline ("sum1 :" ^ Print.pprint_sum sum1);
+          print_endline ("sum2 :" ^ Print.pprint_sum sum2); *)
           (*first pair of todo*)
           let h_sum = eps_sum_eq sum1 sum2 atoms in
-          print_endline ("eps_sum_eq :" ^ string_of_bool h_sum);
+          (* print_endline ("eps_sum_eq :" ^ string_of_bool h_sum); *)
           if h_sum = false then false (* Eα(E1)!=Eα(E2) *)
           else
             let new_visited = PDerivPairSet.add (sum1, sum2) visited in
             (* add checked pair to visited *)
             let dervs = derivatives prim_bools (sum1, sum2) in
             (*Get rid of pairs of empty lists*)
-            print_newline ();
-            print_string ("dervs :" ^ Print.pprint_pder dervs);
-            print_newline ();
+            (* print_newline ();
+            print_endline ("dervs :" ^ Print.pprint_pder dervs); *)
             (* find derivs of pair *)
             let new_todo =
               (* add new pairs from derivs to todo and take set diff of visited to avoid reps*)
               PDerivPairSet.diff (PDerivPairSet.union todo dervs) new_visited
             in
-            print_string ("new todo :" ^ Print.pprint_pder new_todo);
-            print_newline ();
+            (* print_endline ("new todo :" ^ Print.pprint_pder new_todo); *)
             equiv_help (new_todo, new_visited)
     (* first call to equiv_help with todo having e1 and e2 as the first pair and visited as empty pair *)
   in
