@@ -318,9 +318,9 @@ let deriv_sum (atp : atPact) (sum_der_map : DerMapSet.t) : KATSet.t =
   |> List.fold_left KATSet.union KATSet.empty
 
 (** returns whether two some has the same epsilon *)
-let rec eps_sum_eq (sum1 : KATSet.t) (sum2 : KATSet.t) (atoms : AtomSet.t) :
+let rec eps_sum_eq (sum1 : KATSet.t) (sum2 : KATSet.t) (atoms : Atom.t list) :
     bool =
-  AtomSet.for_all (fun at -> epsilon_sum at sum1 = epsilon_sum at sum2) atoms
+  List.for_all (fun at -> epsilon_sum at sum1 = epsilon_sum at sum2) atoms
 
 let derivatives (primitives : Atom.t) ((r1, r2) : KATSet.t * KATSet.t) :
     PDerivPairSet.t =
