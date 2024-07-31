@@ -310,7 +310,7 @@ let get_der_map_sum (primitives : Atom.t) (sum : KATSet.t) : DerMapSet.t =
   in
   print_endline
     ("sum of derivative maps for!:" ^ Print.pprint_sum sum ^ " ="
-    ^ Print.pprint_der_map der_maps);
+    ^ Print.pprint_der_maps der_maps);
   der_maps
 
 (**hd function gets the set of all heads αp mapped in the derivative maps of a KAT**)
