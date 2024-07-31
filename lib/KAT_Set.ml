@@ -181,13 +181,13 @@ module KATISet = Set.Make (struct
 end)
 
 let rec pbools_of (exp : kat) : Atom.t =
-    match exp with
-    | One -> Atom.empty
-    | PBool b -> Atom.singleton b
-    | Conc (e1, e2) -> Atom.union (pbools_of e1) (pbools_of e2)
-    | Union (e1, e2) -> Atom.union (pbools_of e1) (pbools_of e2)
-    | Not eb -> pbools_of eb
-    | _ -> Atom.empty
+  match exp with
+  | One -> Atom.empty
+  | PBool b -> Atom.singleton b
+  | Conc (e1, e2) -> Atom.union (pbools_of e1) (pbools_of e2)
+  | Union (e1, e2) -> Atom.union (pbools_of e1) (pbools_of e2)
+  | Not eb -> pbools_of eb
+  | _ -> Atom.empty
 
 (** function to get the atoms of the primitive bools through power set**)
 let atOf (primitive_boolset : Atom.t) : AtomSet.t =
@@ -242,28 +242,9 @@ let conc_der_map (der_map : derMap) (exp : kat) : derMap =
       KATSet.map (fun deriv -> conc_alg deriv exp) derivs)
     der_map
 
-let rec mapMakerHelper (mapper : derMap) (at : AtomSet.t) (p : string) : derMap
-    =
-  if AtomSet.is_empty at then mapper
-  else
-    let atom = AtomSet.min_elt at in
-    let combine = (atom, p) in
-    mapMakerHelper
-      (AtPactMap.add combine (KATSet.singleton One) mapper)
-      (AtomSet.remove atom at) p
-
-(* mapMaker produce all atoms*p map to One *)
-let mapMaker (at : AtomSet.t) (p : string) : derMap =
-  let mapper = AtPactMap.empty in
-  mapMakerHelper mapper at p
-
 let atomExists (e2 : derMap) (e1 : kat) : derMap =
   let e2List = AtPactMap.to_list e2 in
   AtPactMap.of_list (List.filter (fun ((a, _), _) -> epsilon a e1) e2List)
-
-let getAtomsof (exp : kat) : AtomSet.t =
-  let primitives = pbools_of exp in
-  atOf primitives
 
 let is_pact (e : kat) : bool =
   print_endline ("checking if" ^ Print.pprint e ^ "is a PACT");
@@ -346,7 +327,8 @@ let deriv_sum (atp : atPact) (sum_der_map : DerMapSet.t) : KATSet.t =
   |> List.fold_left KATSet.union KATSet.empty
 
 (** returns whether two some has the same epsilon *)
-let rec eps_sum_eq (sum1 : KATSet.t) (sum2 : KATSet.t) (atoms : AtomSet.t) : bool =
+let rec eps_sum_eq (sum1 : KATSet.t) (sum2 : KATSet.t) (atoms : AtomSet.t) :
+    bool =
   AtomSet.for_all (fun at -> epsilon_sum at sum1 = epsilon_sum at sum2) atoms
 
 let derivatives (primitives : Atom.t) ((r1, r2) : KATSet.t * KATSet.t) :
@@ -372,7 +354,7 @@ let derivatives (primitives : Atom.t) ((r1, r2) : KATSet.t * KATSet.t) :
 
 (** Equivalence Function **)
 let equiv (e1 : kat) (e2 : kat) : bool =
-  let pb_e1 = pbools_of e1 in 
+  let pb_e1 = pbools_of e1 in
   let pb_e2 = pbools_of e2 in
   print_string ("pbools of e1: " ^ Print.pprint e1 ^ Atom.pprint pb_e1);
   print_newline ();
