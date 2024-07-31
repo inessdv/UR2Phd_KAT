@@ -4,8 +4,8 @@ open KA_equiv
 let ( let* ) = Gen.( let* )
 let return = Gen.return
 let exp_max_size = 20
-let bexp_max_size = 3
-let max_p_bool_count = 2
+let bexp_max_size = 2
+let max_p_bool_count = 3
 
 module GenExp = struct
   open GKAT_2
@@ -270,7 +270,7 @@ let test_equiv_deriv =
 
 let test_equiv_aut =
   QCheck_ounit.to_ounit2_test
-  @@ Test.make ~count:1000
+  @@ Test.make ~count:10000
        ~name:
          "testing thompson's construction based algorithm with generated \
           equivalence"
@@ -344,3 +344,30 @@ let test_symb_vs_aut =
         (fun (e1, e2) -> 
           GKAT_Symb.Derivatives.equiv_helper (from_gkat_to_hashcon e1) (from_gkat_to_hashcon e2)
           = GKAT_Aut.equiv e1 e2)
+
+let test_symb_vs_aut =
+  QCheck_ounit.to_ounit2_test
+  @@ Test.make ~count:1000
+        ~name:"testing symbolic based algorithm against automaton based algorithm"
+        ~print:(fun (e1, e2) ->
+          GKAT_2.Print2.pprint e1 ^ " EXP2: " ^ GKAT_2.Print2.pprint e2)
+        (Gen.pair
+          (GenExp.exp_sized bexp_max_size exp_max_size)
+          (GenExp.exp_sized bexp_max_size exp_max_size))
+        (fun (e1, e2) -> 
+          GKAT_Symb.Derivatives.equiv_helper (from_gkat_to_hashcon e1) (from_gkat_to_hashcon e2)
+          = GKAT_Aut.equiv e1 e2)
+
+let test_symb_vs_gkat =
+  QCheck_ounit.to_ounit2_test
+    @@ Test.make ~count:1000
+                  ~name:"testing symbolic based algorithm against GKAT_2 based algorithm"
+                  ~print:(fun (e1, e2) ->
+                    GKAT_2.Print2.pprint e1 ^ " EXP2: " ^ GKAT_2.Print2.pprint e2)
+                  (Gen.pair
+                    (GenExp.exp_sized bexp_max_size exp_max_size)
+                    (GenExp.exp_sized bexp_max_size exp_max_size))
+                  (fun (e1, e2) -> 
+                    GKAT_Symb.Derivatives.equiv_helper (from_gkat_to_hashcon e1) (from_gkat_to_hashcon e2)
+                    = GKAT_2.gKat_equiv e1 e2)
+
