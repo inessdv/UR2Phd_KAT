@@ -476,25 +476,14 @@ module Derivatives = struct
 
   let second_example2 = Exp.p_act "p0"
 
-  (*b1 * (p0 * (if b2 then p0 else p0))*)
-  let third1 =
-    Exp.seq
-      (Exp.test (BExp.pBool "b1"))
-      (Exp.seq (Exp.p_act "p0")
-         (Exp.if_then_else (BExp.pBool "b2") (Exp.p_act "p0") (Exp.p_act "p0")))
-
-  (* (b1 * p0) * p0 *)
-  let third2 =
-    Exp.seq
-      (Exp.seq (Exp.test (BExp.pBool "b1")) (Exp.p_act "p0"))
-      (Exp.p_act "p0")
-
-  let third3 =
-    Exp.seq
-      (Exp.seq (Exp.p_act "p0") (Exp.test (BExp.pBool "b1")))
-      (Exp.p_act "p0")
-
-  (*
+    (*b1 * (p0 * (if b2 then p0 else p0))*)
+    let third1 = Exp.seq (Exp.test (BExp.pBool "b1")) (Exp.seq (Exp.p_act "p0") (Exp.if_then_else (BExp.pBool "b2") (Exp.p_act "p0") (Exp.p_act "p0"))) 
+    
+    (* (b1 * p0) * p0 *)
+    let third2 = Exp.seq (Exp.seq (Exp.test (BExp.pBool "b1")) (Exp.p_act "p0")) (Exp.p_act "p0")
+    let third3=   Exp.seq (Exp.seq (Exp.p_act "p0") (Exp.test (BExp.pBool "b1"))) (Exp.p_act "p0")
+    
+    (*
     let debug (exp1 : gkat): bool =
       let e1 = from_GKAT_to_KAT exp1 in
       
