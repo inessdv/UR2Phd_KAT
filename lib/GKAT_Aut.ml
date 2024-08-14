@@ -241,7 +241,9 @@ let rec thompson_construct (exp : gkat) (p_act : PActSet.t)
                 | r -> res_to_left r coprod));
         p_start =
           (fun at ->
-            match auto1.p_start at with Accept -> res_to_right(auto2.p_start at)coprod | r -> r);
+            match auto1.p_start at with
+            | Accept -> res_to_right (auto2.p_start at) coprod
+            | r -> r);
       }
   | If (bexp, exp1, exp2) ->
       let auto1 = thompson_construct exp1 p_act p_test in
@@ -358,14 +360,16 @@ let bisim1 (a1 : Automaton.t) (a2 : Automaton.t) : bool =
     match StatePairSet.choose_opt todo with
     | None ->
         (* print_endline "";
-        print_endline "Equiv asserted";
-        print_endline ""; *)
+           print_endline "Equiv asserted";
+           print_endline ""; *)
         true
     | Some (s1, s2) -> (
-        (* if they are already marked bisimilar *)
-        (* print_endline
-          ("The s1 is " ^ string_of_int s1 ^ " The s2 is " ^ string_of_int s2); *)
-        if UnionFind.eq (get_elem1 s1) (get_elem2 s2) then true
+        if
+          (* if they are already marked bisimilar *)
+          (* print_endline
+             ("The s1 is " ^ string_of_int s1 ^ " The s2 is " ^ string_of_int s2); *)
+          UnionFind.eq (get_elem1 s1) (get_elem2 s2)
+        then true
         else
           (* add check_atoms inside function to avoid passing a1 and a2??*)
           match check_atoms (s1, s2) atoms a1 a2 with
@@ -387,41 +391,6 @@ let bisim1 (a1 : Automaton.t) (a2 : Automaton.t) : bool =
   in
   let start_pair = StatePairSet.singleton (a1.start, a2.start) in
   help start_pair
-
-(*bisim with check_atoms as an inside function!*)
-let bisim2 (a1 : Automaton.t) (a2 : Automaton.t) : bool =
-  (* print_endline "Asserting a1.p_tests = a2.p_tests"; *)
-  assert (a1.p_tests = a2.p_tests);
-  (* print_endline "Succeeded Asserted a1.p_tests = a2.p_tests"; *)
-  let atoms = Atom.of_p_bools a1.p_tests in
-  (* print_endline ("The Atom.of_p_bools a1.p_tests is  " ^ setListPrinter atoms); *)
-  (*Declare check_atoms after here*)
-  let rec help (todo : StatePairSet.t) (checked : StatePairSet.t) : bool =
-    match StatePairSet.choose_opt todo with
-    | None -> true
-    | Some (s1, s2) -> (
-        match check_atoms (s1, s2) atoms a1 a2 with
-        | None -> false
-        | Some to_check ->
-            let checked = StatePairSet.add (s1, s2) checked in
-            (* print_endline (" checked: " ^ statepairSet_printer checked); *)
-            let to_check = StatePairSet.diff to_check checked in
-            (* print_endline (" to_check : " ^ statepairSet_printer to_check); *)
-            let todo = StatePairSet.diff todo checked in
-            (* print_endline (" todo: " ^ statepairSet_printer todo); *)
-            help (StatePairSet.union to_check todo) checked)
-  in
-
-  let start_pair = StatePairSet.singleton (a1.start, a2.start) in
-  (* print_endline (" the start pair is  " ^ statepairSet_printer start_pair); *)
-  help start_pair StatePairSet.empty
-
-(* do we need to code a bisim for PAutomaton?*)
-
-(* module StateMap = Map.Make (struct
-     type t = State.Set.t * State.t
-     let compare = compare
-   end) *)
 
 (*Cartesian product for two lists*)
 let product (l1 : 'a list) (l2 : 'b list) : ('a * 'b) list =
@@ -469,7 +438,7 @@ let rec live_states_from (graph : state_set_map) (state : State.t)
             states new_visited
         in
         (* print_endline ("x is " ^ stateset_printer x); *)
-        x 
+        x
     | None ->
         (* print_endline ("new_visited is " ^ stateset_printer new_visited); *)
         new_visited
@@ -486,7 +455,7 @@ let normalization (a : Automaton.t) : Automaton.t =
   let atoms = Atom.of_p_bools a.p_tests in
   let accepting_states = get_accpeting_states_from a atoms in
   (* print_endline
-    ("The accepting states are " ^ stateset_printer accepting_states); *)
+     ("The accepting states are " ^ stateset_printer accepting_states); *)
   let reverse_auto = rev_map a in
   (* print_endline ("The reverse map is " ^ state_set_map_printer reverse_auto); *)
   (*for each accept state DFS to check for other live states*)
@@ -498,12 +467,11 @@ let normalization (a : Automaton.t) : Automaton.t =
   (* print_endline ("The live states are " ^ stateset_printer live_states); *)
   (*Updating res of transition function to reject if To dead state*)
   {
-    a with 
+    a with
     trans =
       (fun state atom ->
         match a.trans state atom with
-        | To (s, p) ->
-            if State.Set.mem s live_states then To (s, p) else Reject
+        | To (s, p) -> if State.Set.mem s live_states then To (s, p) else Reject
         | res -> res);
   }
 
@@ -558,112 +526,19 @@ let equiv (exp1 : gkat) (exp2 : gkat) : bool =
       (extract_p_act exp2 PActSet.empty)
   in
   let auto1 = normalization (convert (thompson_construct exp1 p_act p_bool)) in
+
   (* print_endline "The auto1's Pautomaton is ";
-  print_Pautomaton (thompson_construct exp1 p_act p_bool);
-  print_endline "The auto1's automaton is ";
-  print_automaton (convert (thompson_construct exp1 p_act p_bool));
-  print_endline "The auto1's filtered automaton is"; *)
+     print_Pautomaton (thompson_construct exp1 p_act p_bool);
+     print_endline "The auto1's automaton is ";
+     print_automaton (convert (thompson_construct exp1 p_act p_bool));
+     print_endline "The auto1's filtered automaton is"; *)
   (* print_automaton auto1; *)
-
   let auto2 = normalization (convert (thompson_construct exp2 p_act p_bool)) in
+
   (* print_endline "The auto2's Pautomaton is ";
-  print_Pautomaton (thompson_construct exp2 p_act p_bool);
-  print_endline "The auto2's automaton is ";
-  print_automaton (convert (thompson_construct exp2 p_act p_bool));
-  print_endline "The auto2's filtered automaton is"; *)
+     print_Pautomaton (thompson_construct exp2 p_act p_bool);
+     print_endline "The auto2's automaton is ";
+     print_automaton (convert (thompson_construct exp2 p_act p_bool));
+     print_endline "The auto2's filtered automaton is"; *)
   (* print_automaton auto2; *)
-  
   bisim1 auto1 auto2
-
-(* let gkat_example1= GKAT_2.If ((GKAT_2.PBool ("b1")),(GKAT_2.test(GKAT_2.Zero)),(GKAT_2.Seq(GKAT_2.test(GKAT_2.Zero),(GKAT_2.test(PBool("b1"))))))
-   let gkat_example2= (GKAT_2.test(GKAT_2.Zero)) *)
-(*If b1 then 0 else b1 EXP2: if ~b1 then b1 else p0 * 0*)
-(* let gkat_example1 =
-     GKAT_2.If
-       (GKAT_2.PBool "b1", GKAT_2.test GKAT_2.Zero, GKAT_2.test (PBool "b1"))
-
-   let gkat_example2 =
-     GKAT_2.If
-       ( GKAT_2.Not (GKAT_2.PBool "b1"),
-         GKAT_2.test (PBool "b1"),
-         GKAT_2.seq (GKAT_2.Pact "p0") (GKAT_2.test GKAT_2.Zero) ) *)
-
-(* if b1 then if b1 then b1 * 0 else b1 else b1 * p0 EXP2: if ~b1 then b1 * p0 else (if b1 then (p0 * b1) * 0 else b1) (after 8 shrink steps) *)
-
-(*while b1 do while b1 do (if b1 then p0 else 1) done done EXP2: if b1 then while b1 do (b1 * p0) done * while b1 do while b1 do (b1 * p0) done done else 1*)
-(* let gkat_example1 =
-     While (PBool "b1", While (PBool "b1", If (PBool "b1", Pact "p0", test One)))
-
-   let gkat_example2 =
-     If
-       ( PBool "b1",
-         seq
-           (While (PBool "b1", seq (test (PBool "b1")) (Pact "p0")))
-           (While
-              (PBool "b1", While (PBool "b1", seq (test (PBool "b1")) (Pact "p0")))),
-         test One ) *)
-
-(*if b1 then (if b1 then (if b1 then b1 else p0) * p5 else 0 * (if b1 then b1 else p8)) * (b1 * b1) else while b1 do b1 done
-   EXP2: if b1 then if b1 then (if b1 then b1 * p5 else p0 * p5) * (b1 * b1) else 0 * (b1 * b1) else while b1 do b1 done *)
-
-(* let gkat_example1= If(PBool"b1",
-      (If PBool "b1 ",
-      seq(If (PBool "b1",
-      test(PBool "b1"), Pact "p0"))(Pact "p5"), seq (test (PBool Zero))  (seq(If(PBool "b1", test PBool "b1",  Pact "p8")) (seq (test PBool "b1")(test PBool "b1")))),
-   While (PBool "b1 ", test PBool "b1")) *)
-
-
-   (*while b1 do (if b1 then (if b1 then b1 else p0) * p0 else 1) done EXP2: while b1 do (b1 * (if b1 then b1 * p0 else p0 * p0)) done*)
-   
-(* let gkat_example1 =
-  While
-    ( PBool "b1",
-      If
-        ( PBool "b1",
-          seq (If (PBool "b1", test (PBool "b1"), Pact "p0")) (Pact "p0"),
-          test One ) )
-
-let gkat_example2 =
-  While
-    ( PBool "b1",
-      If
-        ( PBool "b1",
-          seq (test (PBool "b1")) (Pact "p0"),
-          seq (Pact "p0") (Pact "p0") ) )
-
-let gkat_example3 =
-  seq (If (PBool "b1", test (PBool "b1"), Pact "p0")) (Pact "p0")
-
-let gkat_example4 = If (PBool "b1", test (PBool "b1"), Pact "p0")
-
-let gkat_example5 =
-  If
-        ( PBool "b1",
-          seq (If (PBool "b1", test (PBool "b1"), Pact "p0")) (Pact "p0"),
-          test One )
-
-
-let test_p_bool =
-  PBoolSet.union
-    (extract_p_bool gkat_example1 PBoolSet.empty)
-    (extract_p_bool gkat_example2 PBoolSet.empty)
-
-let test_p_act =
-  PActSet.union
-    (extract_p_act gkat_example1 PActSet.empty)
-    (extract_p_act gkat_example2 PActSet.empty)
-
-let test_auto1 =
-  convert (thompson_construct gkat_example1 test_p_act test_p_bool)
-
-let test_auto2 =
-  convert (thompson_construct gkat_example2 test_p_act test_p_bool)
-
-let test_auto3 =
-  convert (thompson_construct gkat_example2 test_p_act test_p_bool)
-
-let be = GKAT_2.PBool "b1"
-let atom1 = PActSet.singleton "b1"
-let atom2 = PActSet.empty *)
-(* let gkat_example1= Seq(test (PBool "b2"),Seq(test (Not(PBool "b1")),test (PBool "b1")))
-let gkat_example2= If(PBool "b2",  ,) *)
