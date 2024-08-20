@@ -184,6 +184,7 @@ let rec pbools_of (exp : kat) : Atom.t =
   | PBool b -> Atom.singleton b
   | Conc (e1, e2) -> Atom.union (pbools_of e1) (pbools_of e2)
   | Union (e1, e2) -> Atom.union (pbools_of e1) (pbools_of e2)
+  | Star e -> pbools_of e
   | Not eb -> pbools_of eb
   | _ -> Atom.empty
 
@@ -228,8 +229,7 @@ let conc_der_map (der_map : derMap) (exp : kat) : derMap =
 
 (** get the derivative map of an expression with respect to a set of boolean primitives*)
 let rec get_der_map (pbools : PBoolSet.t) (exp : kat) : derMap =
-   print_endline ("der_map for exp: " ^Print.pprint exp);
-     print_endline ("pbools: " ^PBoolSet.pprint pbools);
+  let map = 
   match exp with
   | PBool _ -> AtPactMap.empty
   (* der_map(p) = {(at, p) -> {1} | at ∈ atoms} *)
@@ -253,6 +253,10 @@ let rec get_der_map (pbools : PBoolSet.t) (exp : kat) : derMap =
       union_der_map der_map_exec_e1 der_map_acc_e1
   | Star e -> conc_der_map (get_der_map pbools e) (Star e)
   | _ -> AtPactMap.empty
+    in
+    print_endline ("der_map for exp: " ^Print.pprint exp);
+    print_endline ("pbools: " ^ PBoolSet.pprint pbools);
+    print_endline ("der_map: " ^Print.pprint_der_map map); map
 
 (** Get the derivative map for a set of KATs (sum), represented as a set of terms **)
 let get_der_map_sum (primitives : PBoolSet.t) (sum : KATSet.t) : DerMapSet.t =
@@ -486,6 +490,8 @@ let atom_bp = Atom.of_list ["b"], "p"
 let neg_kat = Conc (Not (PBool "b1"), PAct "p0")
 let trial = Not (PBool"b3")
 let trial2 = Conc((Star(Conc(PBool "b3",(Union(Conc(PBool "b1",PAct "p0"),Conc(Not(PBool "b1"),PBool "b2")))))),Not(PBool "b3"))
+
+let t = Star(Conc(Conc(PBool "b1",PBool "b2"),PAct "p0"))
 
 (*let pb = linearization neg_kat*)
 

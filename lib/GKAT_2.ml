@@ -191,3 +191,27 @@ let example2 = If (
 let exp1 = from_BE_to_KAT One
 (* b1 + 1 *)
 let exp2 = from_BE_to_KAT (Or (PBool("b1"),One))
+
+
+let test1 =   While(                   
+PBool("b2"),           
+((Seq (Test(PBool("b1")), Pact("b1")))))
+
+let test2 = 
+  While (
+    PBool("b2"), 
+    Test(PBool("b1"))
+  )
+
+let e1 = 
+  While (
+    Or(PBool("b1"),PBool("b1")), 
+    While((And(PBool("b1"),PBool("b2"))),Pact("p0"))
+  )
+
+let e2 = 
+  While(
+    PBool("b1"), 
+    Test(PBool("b1"))
+)
+
