@@ -178,15 +178,16 @@ module KATISet = Set.Make (struct
   let compare = compare
 end)
 
-let rec pbools_of (exp : kat) : Atom.t =
+let rec pbools_of (exp : kat) : PBoolSet.t =
   match exp with
-  | One -> Atom.empty
-  | PBool b -> Atom.singleton b
-  | Conc (e1, e2) -> Atom.union (pbools_of e1) (pbools_of e2)
-  | Union (e1, e2) -> Atom.union (pbools_of e1) (pbools_of e2)
+  | One -> PBoolSet.empty
+  | Zero -> PBoolSet.empty
+  | PAct _ -> PBoolSet.empty
+  | PBool b -> PBoolSet.singleton b
+  | Conc (e1, e2) -> PBoolSet.union (pbools_of e1) (pbools_of e2)
+  | Union (e1, e2) -> PBoolSet.union (pbools_of e1) (pbools_of e2)
   | Star e -> pbools_of e
   | Not eb -> pbools_of eb
-  | _ -> Atom.empty
 
 (** empty word for KAT expressions**)
 let rec epsilon (atom : Atom.t) (exp : kat) : bool =
