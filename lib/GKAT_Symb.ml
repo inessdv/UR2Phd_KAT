@@ -500,21 +500,17 @@ module Derivatives = struct
       print_string (pprint e2);
       equiv e1 e2
 *)
-  let gkat_example1 =
-    Exp.seq
-      (Exp.if_then_else
-         (BExp.b_and (BExp.pBool "b3") (BExp.pBool "b2"))
-         (Exp.if_then_else
-            (BExp.b_not (BExp.pBool "b3"))
-            (Exp.test (BExp.pBool "b1"))
-            (Exp.seq (Exp.p_act "p4") (Exp.test (BExp.b_not (BExp.pBool "b2")))))
-         (Exp.seq (Exp.p_act "p4") (Exp.test (BExp.b_not (BExp.pBool "b2")))))
-      (Exp.while_do (BExp.pBool "b3")
-         (Exp.seq
-            (Exp.test (BExp.b_or (BExp.pBool "b1") (BExp.pBool "b3")))
-            (Exp.seq (Exp.test (BExp.b_not (BExp.pBool "b1"))) (Exp.p_act "p5"))))
+let gkat_example1 =
+  Exp.seq
+    ( Exp.seq
+        ( Exp.p_act "p7")(
+          Exp.if_then_else
+            ( BExp.pBool "b2")(
+              Exp.p_act "p6")(
+              Exp.seq (Exp.test (BExp.b_not (BExp.pBool "b2")))( Exp.test (BExp.b_not (BExp.pBool "b1"))) ) ))(
+      Exp.test (BExp.b_not (BExp.pBool "b1")) )
 
-  let gkat_exmple2= Exp.p_act "p4"
+let gkat_example2 = Exp.seq(Exp.p_act "p7" )( Exp.p_act "p5") 
 end
 
 (* let rec equiv_helper (exp1 : Exp.t) (exp2 : Exp.t) (reject1: BExp.t) (reject2: BExp.t) : bool =
