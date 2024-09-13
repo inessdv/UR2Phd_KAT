@@ -255,13 +255,13 @@ module Derivatives = struct
           (** the visited node is live, i.e. accepting state is found in the visit *)
       | Unknown of Exp.t_ HSet.t
           (** the visited node is unknown to be dead or live, 
-  the arugument is all the explored expressions while visiting that node*)
+          the arugument is all the explored expressions while visiting that node*)
 
     (** helper to `visit`, visit all the decedents of an expression, return a visit result
   
-  - return `Live` if any of them is returning live, 
-  - return `Dead` if all of them are returning dead, 
-  - return `Unknown` otherwise *)
+    - return `Live` if any of them is returning live, 
+    - return `Dead` if all of them are returning dead, 
+    - return `Unknown` otherwise *)
     let rec visit_decedents (explored : Exp.t_ HSet.t) (exps : Exp.t list) :
         visitRes =
       match exps with
@@ -503,17 +503,16 @@ module Derivatives = struct
       print_string (pprint e2);
       equiv e1 e2
 *)
-let gkat_example1 =
-  Exp.seq
-    ( Exp.seq
-        ( Exp.p_act "p7")(
-          Exp.if_then_else
-            ( BExp.pBool "b2")(
-              Exp.p_act "p6")(
-              Exp.seq (Exp.test (BExp.b_not (BExp.pBool "b2")))( Exp.test (BExp.b_not (BExp.pBool "b1"))) ) ))(
-      Exp.test (BExp.b_not (BExp.pBool "b1")) )
+  let gkat_example1 =
+    Exp.seq
+      (Exp.seq (Exp.p_act "p7")
+         (Exp.if_then_else (BExp.pBool "b2") (Exp.p_act "p6")
+            (Exp.seq
+               (Exp.test (BExp.b_not (BExp.pBool "b2")))
+               (Exp.test (BExp.b_not (BExp.pBool "b1"))))))
+      (Exp.test (BExp.b_not (BExp.pBool "b1")))
 
-let gkat_example2 = Exp.seq(Exp.p_act "p7" )( Exp.p_act "p5") 
+  let gkat_example2 = Exp.seq (Exp.p_act "p7") (Exp.p_act "p5")
 end
 
 (* let rec equiv_helper (exp1 : Exp.t) (exp2 : Exp.t) (reject1: BExp.t) (reject2: BExp.t) : bool =
