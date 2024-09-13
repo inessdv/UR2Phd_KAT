@@ -239,13 +239,13 @@ module Derivatives = struct
 
     (** states (expressions) that are known to be dead
   
-  its size 251 is a magic number, as a place holder*)
+    its size 251 is a magic number, as a place holder*)
     let dead_states : ExpHSet.t = ExpHSet.create 251
 
     (** Detect whether an expression is *known* to be dead.
     
-  A fast alternative to `is_dead`, 
-  when it returns `false`, the expression is not necessarily live.*)
+    A fast alternative to `is_dead`, 
+    when it returns `false`, the expression is not necessarily live.*)
     let known_dead exp = ExpHSet.mem exp dead_states
 
     type visitRes =
@@ -329,22 +329,14 @@ module Derivatives = struct
         ExpTbl.add hash_table exp exp_ele;
         exp_ele
 
-  let product (psi_e : (BExp.t_ Hashcons.hash_consed * (Exp.t * string)) list)
-      (psi_f : (BExp.t_ Hashcons.hash_consed * (Exp.t * string)) list) :
-      ((BExp.t_ Hashcons.hash_consed * (Exp.t * string))
-      * (BExp.t_ Hashcons.hash_consed * (Exp.t * string)))
-      list =
-    List.rev
-      (List.fold_left
-         (fun x a -> List.fold_left (fun y b -> (a, b) :: y) x psi_f)
-         [] psi_e)
-
   let print_tuple tup =
     let s, i = tup in
     Printf.printf "(%s, %d)\n" s i
 
-  (** p(e) fucntion ρ(e) = ¬ ϵ(e) ∧ ¬ (⋁_{ψ ↦ (e', p) ∈ δ(e)} ψ)**)
-
+  (** get the reject expression 
+  
+  logically, the expression can be written as follows: 
+  ¬ ϵ(e) ∧ ¬ (⋁_{ψ ↦ (e', p) ∈ δ(e)} ψ) *)
   let reject (exp : Exp.t) : BExp.t =
     let exp_derivatives = derivative exp in
     let epsilon = epsilon exp in
