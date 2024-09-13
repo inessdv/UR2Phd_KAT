@@ -329,7 +329,7 @@ let test_equiv_symb =
        (fun (e1, e2) ->
          (* print_newline (); print_newline ();
             print_endline "starting test cases"; *)
-         GKAT_Symb.Derivatives.equiv_helper (from_gkat_to_hashcon e1)
+         GKAT_Symb.Derivatives.equiv (from_gkat_to_hashcon e1)
            (from_gkat_to_hashcon e2))
 
 let test_symb_vs_aut =
@@ -343,7 +343,7 @@ let test_symb_vs_aut =
           (GenExp.exp_sized bexp_max_size exp_max_size)
           (GenExp.exp_sized bexp_max_size exp_max_size))
        (fun (e1, e2) ->
-         GKAT_Symb.Derivatives.equiv_helper (from_gkat_to_hashcon e1)
+         GKAT_Symb.Derivatives.equiv (from_gkat_to_hashcon e1)
            (from_gkat_to_hashcon e2)
          = GKAT_Aut.equiv e1 e2)
 
@@ -357,6 +357,6 @@ let test_symb_vs_gkat =
           (GenExp.exp_sized bexp_max_size exp_max_size)
           (GenExp.exp_sized bexp_max_size exp_max_size))
        (fun (e1, e2) ->
-         GKAT_Symb.Derivatives.equiv_helper (from_gkat_to_hashcon e1)
+         GKAT_Symb.Derivatives.equiv (from_gkat_to_hashcon e1)
            (from_gkat_to_hashcon e2)
          = GKAT_2.gKat_equiv e1 e2)
