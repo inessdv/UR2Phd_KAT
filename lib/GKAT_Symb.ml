@@ -174,6 +174,8 @@ module Derivatives = struct
 
     let add_to_fst (hset1 : t) (hset2 : Exp.t list) : unit =
       List.iter (fun exp -> add exp hset1) hset2
+      let clear= ExpTbl.clear
+    let length=ExpTbl.length
   end
 
   let rec epsilon (exp : Exp.t) : BExp.t =
@@ -234,6 +236,8 @@ module Derivatives = struct
   module DeadExps : sig
     val is_dead : Exp.t -> bool
     val known_dead : Exp.t -> bool
+    val clear_dead: unit
+    val length: int
   end = struct
     (** The module to encapsolate the logic to check dead*)
 
@@ -247,7 +251,8 @@ module Derivatives = struct
     A fast alternative to `is_dead`, 
     when it returns `false`, the expression is not necessarily live.*)
     let known_dead exp = ExpHSet.mem exp dead_states
-
+    let clear_dead = ExpHSet.clear dead_states
+    let length = ExpHSet.length dead_states
     type visitRes =
       | KnownDead
           (** the visited expression is *known* to be dead, i.e. in `dead_states`*)
@@ -427,7 +432,14 @@ module Derivatives = struct
          print_endline ("assertion3 for: forall ψ_e ↦ (e', p) ∈ δ(e), ψ_f ↦ (f', q) ∈ δ(f) ") ;
          print_endline (string_of_bool assert3); *)
       assert3
+    let equiv (exp1 : Exp.t) (exp2 : Exp.t) : bool =
+        let result = equiv_helper exp1 exp2 in 
+        ExpTbl.clear hash_table ;
+        print_endline("The length of deadsates is " ^ string_of_int DeadExps.length);
+        DeadExps.clear_dead;
+        print_endline("After clear, the length of deadsates is " ^ string_of_int DeadExps.length);
 
+         result
   (*let rec equiv (exp1 : Exp.t) (exp2 : Exp.t) : bool =
     let reject1 = reject exp1 in
     let reject2 = reject exp2 in
