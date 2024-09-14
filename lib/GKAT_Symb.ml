@@ -440,11 +440,6 @@ module Derivatives = struct
     let result = equiv_helper exp1 exp2 in
     ExpTbl.clear hash_table;
     print_endline ("The length of deadsates is " ^ string_of_int DeadExps.length);
-    DeadExps.clear_dead;
-    print_endline
-      ("After clear, the length of deadsates is "
-      ^ string_of_int DeadExps.length);
-
     result
   (*let rec equiv (exp1 : Exp.t) (exp2 : Exp.t) : bool =
     let reject1 = reject exp1 in
