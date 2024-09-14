@@ -326,15 +326,16 @@ module Derivatives = struct
           true
   end
 
-  let hash_table = ExpTbl.create 251
+  (** A table that maps the the expression to its union find element *)
+  let union_find_tbl = ExpTbl.create 251
 
   (** Add expression to hash table if it has not yet been added **)
   let exp_ele (exp : Exp.t) : Exp.t UnionFind.elem =
-    match ExpTbl.find_opt hash_table exp with
+    match ExpTbl.find_opt union_find_tbl exp with
     | Some exp_ele -> exp_ele
     | None ->
         let exp_ele = UnionFind.make exp in
-        ExpTbl.add hash_table exp exp_ele;
+        ExpTbl.add union_find_tbl exp exp_ele;
         exp_ele
 
   let print_tuple tup =
@@ -437,10 +438,12 @@ module Derivatives = struct
       assert3
 
   let equiv (exp1 : Exp.t) (exp2 : Exp.t) : bool =
-    let result = equiv_helper exp1 exp2 in
-    ExpTbl.clear hash_table;
-    print_endline ("The length of deadsates is " ^ string_of_int DeadExps.length);
-    result
+    let equiv = equiv_helper exp1 exp2 in
+    (* clean the union-find table, 
+      as they can incorrectly link unequal expression when equiv_res if false*)
+    if not equiv then ExpTbl.clear union_find_tbl;
+    equiv
+
   (*let rec equiv (exp1 : Exp.t) (exp2 : Exp.t) : bool =
     let reject1 = reject exp1 in
     let reject2 = reject exp2 in
