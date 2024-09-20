@@ -58,18 +58,18 @@ module BExp = struct
     | And (b1, b2) -> mk_and z3_empty_ctx [ to_z3 b1; to_z3 b2 ]
     | Not b1 -> mk_not z3_empty_ctx @@ to_z3 b1
 
+  let solver = Z3.Solver.mk_solver z3_empty_ctx None
+
   (** test if a boolean expression is constant false
       
   In other word, whether it is unsatisfiable. *)
   let is_false (b : t) : bool =
-    let solver = Z3.Solver.mk_solver z3_empty_ctx None in
     match Z3.Solver.check solver [ to_z3 b ] with
     | Z3.Solver.UNSATISFIABLE -> true
     | _ -> false
 
   (** Test if two boolean expressions is semantically equivelant. *)
   let equiv (b1 : t) (b2 : t) : bool =
-    let solver = Z3.Solver.mk_solver z3_empty_ctx None in
     let iff_exp = Z3.Boolean.mk_iff z3_empty_ctx (to_z3 b1) (to_z3 b2) in
     let not_iff_exp = Z3.Boolean.mk_not z3_empty_ctx iff_exp in
     (* if ¬ (b1 ↔ b2) is unsatisfiable, then b1 ↔ b2 is a tautology,
@@ -439,8 +439,8 @@ module Derivatives = struct
 
   let equiv (exp1 : Exp.t) (exp2 : Exp.t) : bool =
     let equiv = equiv_helper exp1 exp2 in
-    (* clean the union-find table, 
-      as they can incorrectly link unequal expression when equiv_res if false*)
+    (* clean the union-find table,
+       as they can incorrectly link unequal expression when equiv_res if false*)
     if not equiv then ExpTbl.clear union_find_tbl;
     equiv
 
