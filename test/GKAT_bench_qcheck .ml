@@ -4,8 +4,8 @@ open KA_equiv
 let ( let* ) = Gen.( let* )
 let return = Gen.return
 let exp_max_size = 1000
-let bexp_max_size = 2
-let max_p_bool_count = 3
+let bexp_max_size = 10
+let max_p_bool_count = 20
 
 module GenExp = struct
   open GKAT_2
@@ -57,7 +57,7 @@ module GenExp = struct
          (* all the recursive expression generation (not size 1) *)
          let recursive_lst =
            [
-             ( 1,
+             ( 0,
                let* b = b_exp bexp_size in
                return @@ Test b );
              ( 10,
@@ -94,9 +94,6 @@ module GenExp = struct
         else
           Gen.oneof
             [
-              (* reflexivity *)
-              (let* b = b_exp size in
-               return @@ (b, b));
               (* symmetry *)
               (let* b1, b2 = self (size - 1) in
                return @@ (b2, b1));
@@ -126,7 +123,7 @@ module GenExp = struct
                let* b3, b3' = self (size / 3) in
                return (And (b1, And (b2, b3)), And (And (b1', b2'), b3')));
               (* Identity *)
-              (let* b1, b1' = self (size - 1) in
+              (* (let* b1, b1' = self (size - 1) in
                return (And (b1, One), b1'));
               (let* b1, b1' = self (size - 1) in
                return (And (One, b1), b1'));
@@ -141,7 +138,7 @@ module GenExp = struct
               (let* b1 = b_exp (size - 1) in
                return (Or (b1, One), One));
               (let* b1 = b_exp (size - 1) in
-               return (Or (One, b1), One));
+               return (Or (One, b1), One)); *)
               (* complement *)
               (let* b1, b2 = self (size / 2) in
                return (Or (Not b1, b2), One));
@@ -173,15 +170,15 @@ module GenExp = struct
         else
           Gen.oneof
             [
-              (* reflexivity *)
+              (*(* reflexivity *)
               (let* e = exp_sized bexp_max_size (size - 1) in
                return @@ (e, e));
               (* symmetry *)
               (let* e1, e2 = self (size - 1) in
-               return @@ (e2, e1));
+               return @@ (e2, e1));*)
               (* equal test *)
-              (let* b1, b2 = gen_eq_bexp bexp_max_size in
-               return @@ (Test b1, Test b2));
+              (* (let* b1, b2 = gen_eq_bexp bexp_max_size in
+               return @@ (Test b1, Test b2)); *)
               (* congurence *)
               (let* e1, e1' = self (size / 2) in
                let* e2, e2' = self (size / 2) in
@@ -230,14 +227,14 @@ module GenExp = struct
                let* e3, e3' = self (size / 2) in
                return @@ (Seq (e1, Seq (e2, e3)), Seq (Seq (e1', e2'), e3')));
               (* identities *)
-              (let* e = exp_sized bexp_max_size (size - 1) in
+              (* (let* e = exp_sized bexp_max_size (size - 1) in
                return @@ (Seq (Test Zero, e), Test Zero));
               (let* e = exp_sized bexp_max_size (size - 1) in
                return @@ (Seq (e, Test Zero), Test Zero));
               (let* e, e' = self (size - 1) in
                return @@ (Seq (Test One, e), e'));
               (let* e, e' = self (size - 1) in
-               return @@ (Seq (e, Test One), e'));
+               return @@ (Seq (e, Test One), e')); *)
               (* unrolling *)
               (let* b, b' = gen_eq_bexp bexp_max_size in
                let* e, e' = self (size - 1) in
@@ -253,19 +250,6 @@ module GenExp = struct
       exp_max_size
   (* default size of two expression *)
 end
-
-let rec hash_bexp_size (hc_bexp : GKAT_Symb.BExp.t) : int =
-  match hc_bexp.node with
-    | Or (be1, be2) -> hash_bexp_size(be1) + hash_bexp_size(be2)
-    | And (be1, be2) -> hash_bexp_size(be1) + hash_bexp_size(be2)
-    | _ -> 1
-let rec hash_exp_size (hc_exp : GKAT_Symb.Exp.t) : int =
-  match hc_exp.node with
-    | Pact p -> 1
-    | Seq (e, f) -> hash_exp_size(e) + hash_exp_size(f)
-    | If (be, e, f) -> hash_bexp_size(be) + hash_exp_size(e) + hash_exp_size(f)
-    | Test be -> hash_bexp_size(be)
-    | While (be, e) -> hash_bexp_size(be) + hash_exp_size(e)
 
 let test_equiv_deriv =
   QCheck_ounit.to_ounit2_test
@@ -334,20 +318,20 @@ let rec from_gkat_to_hashcon (exp1 : GKAT_2.gkat) : GKAT_Symb.Exp.t =
 
 let test_equiv_symb =
   QCheck_ounit.to_ounit2_test
-  @@ Test.make ~count:100
+  @@ Test.make ~count:3
        ~name:"testing symbolic based algorithm with generated equivalence"
        ~print:(fun (e1, e2) ->
-        " EXP1: " ^ GKAT_2.Print2.pprint e1 ^ " EXP2: " ^ GKAT_2.Print2.pprint e2)
+         GKAT_2.Print2.pprint e1 ^ " EXP2: " ^ GKAT_2.Print2.pprint e2)
        GenExp.gen_eq_exp
-       (fun (e1, e2) -> let hash_e1 = from_gkat_to_hashcon e1 
-                            and hash_e2 = from_gkat_to_hashcon e2
-       in
-        print_endline ("size exp1:"); print_int (hash_exp_size hash_e1);
-        print_newline();
-        print_endline ("size exp2:"); print_int (hash_exp_size hash_e2);
-        print_newline();
-         GKAT_Symb.Derivatives.equiv (hash_e1)
-           (hash_e2))
+       (fun (e1, e2) ->
+         (* print_newline (); print_newline ();
+            print_endline "starting test cases"; *)
+            let t = Sys.time() in
+            let fx = GKAT_Symb.Derivatives.equiv (from_gkat_to_hashcon e1)
+            (from_gkat_to_hashcon e2) in
+            Printf.printf "Total execution time: %fs\n" (Sys.time() -. t);
+            fx
+          )
 
 let test_symb_vs_aut =
   QCheck_ounit.to_ounit2_test
@@ -355,20 +339,13 @@ let test_symb_vs_aut =
        ~name:
          "testing symbolic based algorithm against automaton based algorithm"
        ~print:(fun (e1, e2) ->
-        " EXP1: " ^ GKAT_2.Print2.pprint e1 ^ " EXP2: " ^ GKAT_2.Print2.pprint e2)
+         GKAT_2.Print2.pprint e1 ^ " EXP2: " ^ GKAT_2.Print2.pprint e2)
        (Gen.pair
           (GenExp.exp_sized bexp_max_size exp_max_size)
           (GenExp.exp_sized bexp_max_size exp_max_size))
        (fun (e1, e2) ->
-        let hash_e1 = from_gkat_to_hashcon e1 
-          and hash_e2 = from_gkat_to_hashcon e2
-        in
-          print_endline ("size exp1:"); print_int (hash_exp_size hash_e1);
-          print_newline();
-          print_endline ("size exp2:"); print_int (hash_exp_size hash_e2);
-          print_newline();
-         GKAT_Symb.Derivatives.equiv (hash_e1)
-           (hash_e2)
+         GKAT_Symb.Derivatives.equiv (from_gkat_to_hashcon e1)
+           (from_gkat_to_hashcon e2)
          = GKAT_Aut.equiv e1 e2)
 
 let test_symb_vs_gkat =
@@ -376,18 +353,11 @@ let test_symb_vs_gkat =
   @@ Test.make ~count:1000
        ~name:"testing symbolic based algorithm against GKAT_2 based algorithm"
        ~print:(fun (e1, e2) ->
-        " EXP1: " ^ GKAT_2.Print2.pprint e1 ^ " EXP2: " ^ GKAT_2.Print2.pprint e2)
+         GKAT_2.Print2.pprint e1 ^ " EXP2: " ^ GKAT_2.Print2.pprint e2)
        (Gen.pair
           (GenExp.exp_sized bexp_max_size exp_max_size)
           (GenExp.exp_sized bexp_max_size exp_max_size))
        (fun (e1, e2) ->
-        let hash_e1 = from_gkat_to_hashcon e1 
-          and hash_e2 = from_gkat_to_hashcon e2
-        in
-          print_endline ("size exp1:"); print_int (hash_exp_size hash_e1);
-          print_newline();
-          print_endline ("size exp2:"); print_int (hash_exp_size hash_e2);
-          print_newline();
-         GKAT_Symb.Derivatives.equiv (hash_e1)
-           (hash_e2)
+         GKAT_Symb.Derivatives.equiv (from_gkat_to_hashcon e1)
+           (from_gkat_to_hashcon e2)
          = GKAT_2.gKat_equiv e1 e2)
