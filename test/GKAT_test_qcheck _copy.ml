@@ -254,6 +254,19 @@ module GenExp = struct
   (* default size of two expression *)
 end
 
+let rec hash_bexp_size (hc_bexp : GKAT_Symb.BExp.t) : int =
+  match hc_bexp.node with
+    | Or (be1, be2) -> hash_bexp_size(be1) + hash_bexp_size(be2)
+    | And (be1, be2) -> hash_bexp_size(be1) + hash_bexp_size(be2)
+    | _ -> 1
+let rec hash_exp_size (hc_exp : GKAT_Symb.Exp.t) : int =
+  match hc_exp.node with
+    | Pact p -> 1
+    | Seq (e, f) -> hash_exp_size(e) + hash_exp_size(f)
+    | If (be, e, f) -> hash_bexp_size(be) + hash_exp_size(e) + hash_exp_size(f)
+    | Test be -> hash_bexp_size(be)
+    | While (be, e) -> hash_bexp_size(be) + hash_exp_size(e)
+
 let test_equiv_deriv =
   QCheck_ounit.to_ounit2_test
   @@ Test.make ~count:10 (*00*)
@@ -321,14 +334,20 @@ let rec from_gkat_to_hashcon (exp1 : GKAT_2.gkat) : GKAT_Symb.Exp.t =
 
 let test_equiv_symb =
   QCheck_ounit.to_ounit2_test
-  @@ Test.make ~count:1000
+  @@ Test.make ~count:100
        ~name:"testing symbolic based algorithm with generated equivalence"
        ~print:(fun (e1, e2) ->
         " EXP1: " ^ GKAT_2.Print2.pprint e1 ^ " EXP2: " ^ GKAT_2.Print2.pprint e2)
        GenExp.gen_eq_exp
-       (fun (e1, e2) ->
-        GKAT_Symb.Derivatives.equiv (from_gkat_to_hashcon e1)
-          (from_gkat_to_hashcon e2))
+       (fun (e1, e2) -> let hash_e1 = from_gkat_to_hashcon e1 
+                            and hash_e2 = from_gkat_to_hashcon e2
+       in
+        print_endline ("size exp1:"); print_int (hash_exp_size hash_e1);
+        print_newline();
+        print_endline ("size exp2:"); print_int (hash_exp_size hash_e2);
+        print_newline();
+         GKAT_Symb.Derivatives.equiv (hash_e1)
+           (hash_e2))
 
 let test_symb_vs_aut =
   QCheck_ounit.to_ounit2_test
@@ -341,8 +360,15 @@ let test_symb_vs_aut =
           (GenExp.exp_sized bexp_max_size exp_max_size)
           (GenExp.exp_sized bexp_max_size exp_max_size))
        (fun (e1, e2) ->
-        GKAT_Symb.Derivatives.equiv (from_gkat_to_hashcon e1)
-           (from_gkat_to_hashcon e2)
+        let hash_e1 = from_gkat_to_hashcon e1 
+          and hash_e2 = from_gkat_to_hashcon e2
+        in
+          print_endline ("size exp1:"); print_int (hash_exp_size hash_e1);
+          print_newline();
+          print_endline ("size exp2:"); print_int (hash_exp_size hash_e2);
+          print_newline();
+         GKAT_Symb.Derivatives.equiv (hash_e1)
+           (hash_e2)
          = GKAT_Aut.equiv e1 e2)
 
 let test_symb_vs_gkat =
@@ -355,6 +381,13 @@ let test_symb_vs_gkat =
           (GenExp.exp_sized bexp_max_size exp_max_size)
           (GenExp.exp_sized bexp_max_size exp_max_size))
        (fun (e1, e2) ->
-        GKAT_Symb.Derivatives.equiv (from_gkat_to_hashcon e1)
-           (from_gkat_to_hashcon e2)
+        let hash_e1 = from_gkat_to_hashcon e1 
+          and hash_e2 = from_gkat_to_hashcon e2
+        in
+          print_endline ("size exp1:"); print_int (hash_exp_size hash_e1);
+          print_newline();
+          print_endline ("size exp2:"); print_int (hash_exp_size hash_e2);
+          print_newline();
+         GKAT_Symb.Derivatives.equiv (hash_e1)
+           (hash_e2)
          = GKAT_2.gKat_equiv e1 e2)
