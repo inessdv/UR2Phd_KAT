@@ -1,5 +1,6 @@
 open QCheck2
 open KA_equiv
+
 let exp_max_size = 300
 let bexp_max_size = 5
 let max_p_bool_count = 20
@@ -35,49 +36,6 @@ module GenExp = struct
       size
 
   module IntSet = Set.Make (Int)
-
-  (** Generate a CF-GKAT expression *)
-  let exp_sized bexp_size size =
-    (* a function that generate a expression and all the labels in the expression,
-       represented as ints*)
-    (Gen.fix (fun self size ->
-         (* all the expression with size 1 *)
-         let size_one_lst =
-           [
-             ( 5,
-               let* b = b_exp bexp_size in
-               return @@ Test b );
-             ( 5,
-               let* p = Gen.small_nat in
-               return @@ Pact ("p" ^ string_of_int p) );
-           ]
-         in
-         (* all the recursive expression generation (not size 1) *)
-         let recursive_lst =
-           [
-             ( 0,
-               let* b = b_exp bexp_size in
-               return @@ Test b );
-             ( 10,
-               let* e1 = self (size / 2) in
-               let* e2 = self (size / 2) in
-               return @@ Seq (e1, e2) );
-             ( 5,
-               let* b = b_exp bexp_size in
-               let* e1 = self (size / 2) in
-               let* e2 = self (size / 2) in
-               return @@ If (b, e2, e1) );
-             ( 5,
-               let* b = b_exp bexp_size in
-               let* e_loop = self (size - 1) in
-               return @@ While (b, e_loop) );
-           ]
-         in
-         if size <= 1 then Gen.frequency size_one_lst
-         else Gen.frequency @@ size_one_lst @ recursive_lst))
-      (* default configuration for generating expressions:
-         not in loop, with the input labels as start, and the input size*)
-      size
 
   let gen_eq_bexp size =
     Gen.fix
@@ -162,8 +120,9 @@ module GenExp = struct
           Gen.oneof
             [
               (* reflexivity *)
-              (let* e = exp_sized bexp_max_size size in
-               return @@ (e, e));
+              (let* label = Gen.small_nat in
+               return (Pact (string_of_int label), Pact (string_of_int label)));
+              return (Test One, Test One);
             ]
         else
           Gen.oneof
@@ -186,7 +145,7 @@ module GenExp = struct
                let* e2, e2' = self (size / 2) in
                return @@ (If (b, e1, e2), If (b', e1', e2')));
               (let* b, b' = gen_eq_bexp bexp_max_size in
-               let* e, e' = self (size / 2) in
+               let* e, e' = self (size - 1) in
                return @@ (While (b, e), While (b', e')));
               (* idempotence *)
               (let* b = b_exp bexp_max_size in
@@ -200,9 +159,9 @@ module GenExp = struct
               (* skew assoc *)
               (let* b, b' = gen_eq_bexp bexp_max_size in
                let* c, c' = gen_eq_bexp bexp_max_size in
-               let* e1, e1' = self (size / 2) in
-               let* e2, e2' = self (size / 2) in
-               let* e3, e3' = self (size / 2) in
+               let* e1, e1' = self (size / 3) in
+               let* e2, e2' = self (size / 3) in
+               let* e3, e3' = self (size / 3) in
                return
                @@ ( If (c, If (b, e1, e2), e3),
                     If (And (b', c'), e1', If (c, e2', e3')) ));
@@ -220,9 +179,9 @@ module GenExp = struct
                @@ ( Seq (If (b, e1, e2), e3),
                     If (b', Seq (e1', e3'), Seq (e2', e3')) ));
               (* associativity *)
-              (let* e1, e1' = self (size / 2) in
-               let* e2, e2' = self (size / 2) in
-               let* e3, e3' = self (size / 2) in
+              (let* e1, e1' = self (size / 3) in
+               let* e2, e2' = self (size / 3) in
+               let* e3, e3' = self (size / 3) in
                return @@ (Seq (e1, Seq (e2, e3)), Seq (Seq (e1', e2'), e3')));
               (* identities *)
               (* (let* e = exp_sized bexp_max_size (size - 1) in
@@ -235,7 +194,7 @@ module GenExp = struct
                   return @@ (Seq (e, Test One), e')); *)
               (* unrolling *)
               (let* b, b' = gen_eq_bexp bexp_max_size in
-               let* e, e' = self (size - 1) in
+               let* e, e' = self (size / 2) in
                return
                @@ (While (b, e), If (b', Seq (e', While (b, e')), Test One)));
               (* tightening *)
@@ -275,18 +234,36 @@ let rec from_gkat_to_hashcon (exp1 : GKAT_2.gkat) : GKAT_Symb.Exp.t =
 let bench_equiv_symb =
   Test.make ~count:bench_count
     ~name:"benchmarking symbolic algorithm with generated equivalence"
-    ~print:(fun (e1, e2) ->
-      GKAT_2.Print2.pprint e1 ^ " EXP2: " ^ GKAT_2.Print2.pprint e2)
-    GenExp.gen_eq_exp
-    (fun (e1, e2) ->
-      (* print_newline (); print_newline ();
-         print_endline "starting test cases"; *)
-      let t = Sys.time () in
-      let fx =
-        GKAT_Symb.Derivatives.equiv (from_gkat_to_hashcon e1)
-          (from_gkat_to_hashcon e2)
-      in
-      Printf.printf "Execution time: %fs\n" (Sys.time () -. t);
-      fx)
+    GenExp.gen_eq_exp (fun (e1, e2) ->
+      let e1_hashcons = from_gkat_to_hashcon e1 in
+      let e2_hashcons = from_gkat_to_hashcon e2 in
+      print_endline
+        ("exp1: p_acts: "
+        ^ (string_of_int @@ GKAT_Symb.Exp.num_pact e1_hashcons)
+        ^ "; tests: "
+        ^ (string_of_int @@ GKAT_Symb.Exp.num_bexp e1_hashcons)
+        ^ "; if's: "
+        ^ (string_of_int @@ GKAT_Symb.Exp.num_if e1_hashcons)
+        ^ "; seq's: "
+        ^ (string_of_int @@ GKAT_Symb.Exp.num_seq e1_hashcons)
+        ^ "; while's: " ^ string_of_int
+        @@ GKAT_Symb.Exp.num_while e1_hashcons);
+      print_endline
+        ("exp2: p_acts: "
+        ^ (string_of_int @@ GKAT_Symb.Exp.num_pact e2_hashcons)
+        ^ "; tests: "
+        ^ (string_of_int @@ GKAT_Symb.Exp.num_bexp e2_hashcons)
+        ^ "; if's: "
+        ^ (string_of_int @@ GKAT_Symb.Exp.num_if e2_hashcons)
+        ^ "; seq's: "
+        ^ (string_of_int @@ GKAT_Symb.Exp.num_seq e2_hashcons)
+        ^ "; while's: " ^ string_of_int
+        @@ GKAT_Symb.Exp.num_while e2_hashcons);
+      let start_time = Sys.time () in
+      let equiv_res = GKAT_Symb.Derivatives.equiv e1_hashcons e2_hashcons in
+      print_endline
+        ("Execution time: " ^ string_of_float (Sys.time () -. start_time) ^ "s");
+      print_newline ();
+      equiv_res)
 
 let () = Test.check_exn bench_equiv_symb
