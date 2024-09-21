@@ -54,27 +54,59 @@ module Exp = struct
   let hashcons : t_ -> t = Hashcons.hashcons tbl
   let p_act (p : string) : t = hashcons @@ Pact p
   let test (b : BExp.t) : t = hashcons @@ Test b
-  let skip : t = test BExp.one
-  let fail : t = test BExp.zero
 
   let seq (e : t) (f : t) : t =
     match (e.node, f.node) with
     | Test a, Test b -> test (BExp.b_and a b)
-    | _ ->
-        if e == skip then f
-        else if f == skip then e
-        else if e == fail then fail
-        else if f == fail then fail
-        else hashcons @@ Seq (e, f)
+    | _ -> hashcons @@ Seq (e, f)
 
-  let if_then_else (b : BExp.t) (e : t) (f : t) : t =
-    if b == BExp.one then e
-    else if b == BExp.zero then f
-    else if e == fail then seq (test @@ BExp.b_not b) f
-    else if f == fail then seq (test b) e
-    else hashcons @@ If (b, e, f)
-
+  let if_then_else (b : BExp.t) (e : t) (f : t) : t = hashcons @@ If (b, e, f)
   let while_do (b : BExp.t) (e : t) : t = hashcons @@ While (b, e)
+
+  (** Return the number of primitive actions in the expression*)
+  let rec num_pact (e : t) =
+    match e.node with
+    | Pact _ -> 1
+    | Seq (e1, e2) -> num_pact e1 + num_pact e2
+    | If (_, e1, e2) -> num_pact e1 + num_pact e2
+    | Test _ -> 0
+    | While (_, e1) -> num_pact e1
+
+  (** Return the number of test expression in the expression*)
+  let rec num_bexp (e : t) =
+    match e.node with
+    | Pact _ -> 0
+    | Seq (e1, e2) -> num_bexp e1 + num_bexp e2
+    | If (_, e1, e2) -> 1 + num_bexp e1 + num_bexp e2
+    | Test _ -> 1
+    | While (_, e1) -> 1 + num_bexp e1
+
+  (** number of sequencing operation in the input expression *)
+  let rec num_seq (e : t) =
+    match e.node with
+    | Pact _ -> 0
+    | Seq (e1, e2) -> 1 + num_seq e1 + num_seq e2
+    | If (_, e1, e2) -> num_seq e1 + num_seq e2
+    | Test _ -> 0
+    | While (_, e1) -> num_seq e1
+
+  (** number of if statements in the input expression *)
+  let rec num_if (e : t) =
+    match e.node with
+    | Pact _ -> 0
+    | Seq (e1, e2) -> num_if e1 + num_if e2
+    | If (_, e1, e2) -> 1 + num_if e1 + num_if e2
+    | Test _ -> 0
+    | While (_, e1) -> num_if e1
+
+  (** number of while loop in the input expression *)
+  let rec num_while (e : t) =
+    match e.node with
+    | Pact _ -> 0
+    | Seq (e1, e2) -> num_while e1 + num_while e2
+    | If (_, e1, e2) -> num_while e1 + num_while e2
+    | Test _ -> 0
+    | While (_, e1) -> 1 + num_while e1
 
   let pprint (exp : t) =
     let rec helper (exp : t) : string * int =
