@@ -330,28 +330,28 @@ let rec check_atoms ((s1, s2) : State.t * State.t)
           | Some s_pairs1 -> Some (StatePairSet.union s_pairs s_pairs1)))
 
 let bisimimulation (a1 : Automaton.t) (a2 : Automaton.t) : bool =
-  print_endline "Asserting a1.p_tests = a2.p_tests";
+  (* print_endline "Asserting a1.p_tests = a2.p_tests"; *)
   assert (a1.p_tests = a2.p_tests);
-  print_endline "Succeeded Asserting a1.p_tests = a2.p_tests";
+  (* print_endline "Succeeded Asserting a1.p_tests = a2.p_tests"; *)
   let atoms = Atom.of_p_bools a1.p_tests in
-  print_endline
+  (* print_endline
     ("The Atom.of_p_bools a1.p_tests is  "
-    ^ AutomatonPrinter.setListPrinter atoms);
+    ^ AutomatonPrinter.setListPrinter atoms); *)
   (* maps each state in a1 to its corresponding unionfind element *)
   let uf_map1 =
     List.map (fun s -> (s, UnionFind.make s)) (a1.states |> State.Set.to_list)
     |> StateMap.of_list
   in
-  print_endline
+  (* print_endline
     ("the Statemap of a1's states is "
-    ^ AutomatonPrinter.statemap_printer uf_map1);
+    ^ AutomatonPrinter.statemap_printer uf_map1); *)
   let uf_map2 =
     List.map (fun s -> (s, UnionFind.make s)) (a2.states |> State.Set.to_list)
     |> StateMap.of_list
   in
-  print_endline
+  (* print_endline
     ("the Statemap of a2's states is "
-    ^ AutomatonPrinter.statemap_printer uf_map2);
+    ^ AutomatonPrinter.statemap_printer uf_map2); *)
   (* get union find element of automaton 1*)
   let get_elem1 s = StateMap.find s uf_map1 in
   let get_elem2 s = StateMap.find s uf_map2 in
@@ -359,15 +359,15 @@ let bisimimulation (a1 : Automaton.t) (a2 : Automaton.t) : bool =
   let rec help (todo : StatePairSet.t) : bool =
     match StatePairSet.choose_opt todo with
     | None ->
-        print_endline "";
+        (* print_endline "";
         print_endline "Equiv asserted";
-        print_endline "";
+        print_endline ""; *)
         true
     | Some (s1, s2) -> (
         if
           (* if they are already marked bisimilar *)
-          print_endline
-            ("The s1 is " ^ string_of_int s1 ^ " The s2 is " ^ string_of_int s2);
+          (* print_endline
+            ("The s1 is " ^ string_of_int s1 ^ " The s2 is " ^ string_of_int s2); *)
           UnionFind.eq (get_elem1 s1) (get_elem2 s2)
         then help (StatePairSet.remove (s1, s2) todo)
           (*Edited: Should not return true, should filter and continue*)
@@ -375,11 +375,11 @@ let bisimimulation (a1 : Automaton.t) (a2 : Automaton.t) : bool =
           (* add check_atoms inside function to avoid passing a1 and a2??*)
           match check_atoms (s1, s2) atoms a1 a2 with
           | None ->
-              print_endline "check_atom returns false";
+              (* print_endline "check_atom returns false"; *)
               false
           | Some to_check ->
-              print_endline
-                ("to_check:" ^ AutomatonPrinter.statepairSet_printer to_check);
+              (* print_endline
+                ("to_check:" ^ AutomatonPrinter.statepairSet_printer to_check); *)
               (* remove all the checked equal states *)
               let to_check =
                 StatePairSet.filter
@@ -387,14 +387,14 @@ let bisimimulation (a1 : Automaton.t) (a2 : Automaton.t) : bool =
                     not @@ UnionFind.eq (get_elem1 state1) (get_elem2 state2))
                   to_check
               in
-              print_endline
+              (* print_endline
                 ("to_check after: "
-                ^ AutomatonPrinter.statepairSet_printer to_check);
+                ^ AutomatonPrinter.statepairSet_printer to_check); *)
               ignore @@ UnionFind.union (get_elem1 s1) (get_elem2 s2);
-              print_endline
+              (* print_endline
                 ("the new todo is "
                 ^ AutomatonPrinter.statepairSet_printer
-                    (StatePairSet.union to_check todo));
+                    (StatePairSet.union to_check todo)); *)
               help (StatePairSet.union to_check todo))
   in
   let start_pair = StatePairSet.singleton (a1.start, a2.start) in
@@ -537,25 +537,25 @@ let equiv (exp1 : gkat) (exp2 : gkat) : bool =
       (convertFromPautomatonToAutomaton (thompson_construct exp1 p_act p_bool))
   in
 
-  print_endline "The auto1's Pautomaton is ";
+  (* print_endline "The auto1's Pautomaton is ";
   AutomatonPrinter.print_Pautomaton (thompson_construct exp1 p_act p_bool);
   print_endline "The auto1's automaton is ";
   AutomatonPrinter.print_automaton
     (convertFromPautomatonToAutomaton (thompson_construct exp1 p_act p_bool));
   print_endline "The auto1's filtered automaton is";
-  AutomatonPrinter.print_automaton auto1;
+  AutomatonPrinter.print_automaton auto1; *)
   let auto2 =
     normalization
       (convertFromPautomatonToAutomaton (thompson_construct exp2 p_act p_bool))
   in
 
-  print_endline "The auto2's Pautomaton is ";
+  (* print_endline "The auto2's Pautomaton is ";
   AutomatonPrinter.print_Pautomaton (thompson_construct exp2 p_act p_bool);
   print_endline "The auto2's automaton is ";
   AutomatonPrinter.print_automaton
     (convertFromPautomatonToAutomaton (thompson_construct exp2 p_act p_bool));
   print_endline "The auto2's filtered automaton is";
-  AutomatonPrinter.print_automaton auto2;
+  AutomatonPrinter.print_automaton auto2; *)
   bisimimulation auto1 auto2
 
 (* let gkat_example1 =
