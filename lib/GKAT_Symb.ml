@@ -47,9 +47,8 @@ module Exp = struct
     | Test of BExp.t
     | While of BExp.t * t
 
-  (** table used for hash consing 
-  notice because of hash consing, we can build *)
-  let tbl = Hashcons.create 251
+  (** table used for hash consing*)
+  let tbl = Hashcons.create 10003
 
   let hashcons : t_ -> t = Hashcons.hashcons tbl
   let p_act (p : string) : t = hashcons @@ Pact p
