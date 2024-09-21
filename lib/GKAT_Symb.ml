@@ -34,6 +34,9 @@ module BExp = struct
     | _ -> false
 
   let pprint e = Z3.Expr.to_string e
+
+  let compare = Z3.Expr.compare
+  let hash e = Z3.AST.hash @@ Z3.Expr.ast_of_expr e
 end
 
 module Exp = struct
