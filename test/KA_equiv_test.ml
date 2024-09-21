@@ -14,4 +14,4 @@ let _ =
            GKAT_test_qcheck.test_equiv_symb;
            GKAT_test_qcheck.test_symb_vs_gkat; 
            GKAT_test_qcheck.test_symb_vs_aut
-         ])
+  ])

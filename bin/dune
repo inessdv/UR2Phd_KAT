@@ -1,0 +1,4 @@
+(executable
+ (public_name GKAT_Symb)
+ (name main)
+ (libraries KA_equiv qcheck))

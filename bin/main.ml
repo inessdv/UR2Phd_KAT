@@ -1,11 +1,9 @@
 open QCheck2
 open KA_equiv
-
-let ( let* ) = Gen.( let* )
-let return = Gen.return
-let exp_max_size = 1000
-let bexp_max_size = 10
+let exp_max_size = 300
+let bexp_max_size = 5
 let max_p_bool_count = 20
+let bench_count = 10
 
 module GenExp = struct
   open GKAT_2
@@ -124,21 +122,21 @@ module GenExp = struct
                return (And (b1, And (b2, b3)), And (And (b1', b2'), b3')));
               (* Identity *)
               (* (let* b1, b1' = self (size - 1) in
-               return (And (b1, One), b1'));
-              (let* b1, b1' = self (size - 1) in
-               return (And (One, b1), b1'));
-              (let* b1 = b_exp (size - 1) in
-               return (And (b1, Zero), Zero));
-              (let* b1 = b_exp (size - 1) in
-               return (And (Zero, b1), Zero));
-              (let* b1, b1' = self (size - 1) in
-               return (Or (b1, Zero), b1'));
-              (let* b1, b1' = self (size - 1) in
-               return (Or (Zero, b1), b1'));
-              (let* b1 = b_exp (size - 1) in
-               return (Or (b1, One), One));
-              (let* b1 = b_exp (size - 1) in
-               return (Or (One, b1), One)); *)
+                  return (And (b1, One), b1'));
+                 (let* b1, b1' = self (size - 1) in
+                  return (And (One, b1), b1'));
+                 (let* b1 = b_exp (size - 1) in
+                  return (And (b1, Zero), Zero));
+                 (let* b1 = b_exp (size - 1) in
+                  return (And (Zero, b1), Zero));
+                 (let* b1, b1' = self (size - 1) in
+                  return (Or (b1, Zero), b1'));
+                 (let* b1, b1' = self (size - 1) in
+                  return (Or (Zero, b1), b1'));
+                 (let* b1 = b_exp (size - 1) in
+                  return (Or (b1, One), One));
+                 (let* b1 = b_exp (size - 1) in
+                  return (Or (One, b1), One)); *)
               (* complement *)
               (let* b1, b2 = self (size / 2) in
                return (Or (Not b1, b2), One));
@@ -171,14 +169,14 @@ module GenExp = struct
           Gen.oneof
             [
               (*(* reflexivity *)
-              (let* e = exp_sized bexp_max_size (size - 1) in
-               return @@ (e, e));
-              (* symmetry *)
-              (let* e1, e2 = self (size - 1) in
-               return @@ (e2, e1));*)
+                (let* e = exp_sized bexp_max_size (size - 1) in
+                 return @@ (e, e));
+                (* symmetry *)
+                (let* e1, e2 = self (size - 1) in
+                 return @@ (e2, e1));*)
               (* equal test *)
               (* (let* b1, b2 = gen_eq_bexp bexp_max_size in
-               return @@ (Test b1, Test b2)); *)
+                 return @@ (Test b1, Test b2)); *)
               (* congurence *)
               (let* e1, e1' = self (size / 2) in
                let* e2, e2' = self (size / 2) in
@@ -228,13 +226,13 @@ module GenExp = struct
                return @@ (Seq (e1, Seq (e2, e3)), Seq (Seq (e1', e2'), e3')));
               (* identities *)
               (* (let* e = exp_sized bexp_max_size (size - 1) in
-               return @@ (Seq (Test Zero, e), Test Zero));
-              (let* e = exp_sized bexp_max_size (size - 1) in
-               return @@ (Seq (e, Test Zero), Test Zero));
-              (let* e, e' = self (size - 1) in
-               return @@ (Seq (Test One, e), e'));
-              (let* e, e' = self (size - 1) in
-               return @@ (Seq (e, Test One), e')); *)
+                  return @@ (Seq (Test Zero, e), Test Zero));
+                 (let* e = exp_sized bexp_max_size (size - 1) in
+                  return @@ (Seq (e, Test Zero), Test Zero));
+                 (let* e, e' = self (size - 1) in
+                  return @@ (Seq (Test One, e), e'));
+                 (let* e, e' = self (size - 1) in
+                  return @@ (Seq (e, Test One), e')); *)
               (* unrolling *)
               (let* b, b' = gen_eq_bexp bexp_max_size in
                let* e, e' = self (size - 1) in
@@ -250,48 +248,6 @@ module GenExp = struct
       exp_max_size
   (* default size of two expression *)
 end
-
-let test_equiv_deriv =
-  QCheck_ounit.to_ounit2_test
-  @@ Test.make ~count:10 (*00*)
-       ~name:"testing KAT derivative based algorithm with generated equivalence"
-         (* We don't have a printer at this point*)
-       ~print:(fun (e1, e2) ->
-         " EXP1: " ^ GKAT_2.Print2.pprint e1 ^ " EXP2: "
-         ^ GKAT_2.Print2.pprint e2)
-       GenExp.gen_eq_exp
-       (fun (e1, e2) ->
-         (* HACK: ignore generated result with duplicate labels,
-            I cannot deal with labels any more...*)
-         GKAT_2.gKat_equiv e1 e2)
-
-let test_equiv_aut =
-  QCheck_ounit.to_ounit2_test
-  @@ Test.make ~count:10000
-       ~name:
-         "testing thompson's construction based algorithm with generated \
-          equivalence"
-         (* We don't have a printer at this point*)
-       ~print:(fun (e1, e2) ->
-         GKAT_2.Print2.pprint e1 ^ " EXP2: " ^ GKAT_2.Print2.pprint e2)
-       GenExp.gen_eq_exp
-       (fun (e1, e2) -> GKAT_Aut.equiv e1 e2)
-
-let test_aut_vs_deriv =
-  QCheck_ounit.to_ounit2_test
-  @@ Test.make ~count:1000
-       ~name:
-         "the KAT derivative based algorithm and thompson's construction based \
-          algorithm should return the same result"
-         (* We don't have a printer at this point*)
-       ~print:(fun (e1, e2) ->
-         GKAT_2.Print2.pprint e1 ^ " EXP2: " ^ GKAT_2.Print2.pprint e2)
-       (Gen.pair
-          (GenExp.exp_sized bexp_max_size exp_max_size)
-          (GenExp.exp_sized bexp_max_size exp_max_size))
-       (fun (e1, e2) -> GKAT_Aut.equiv e1 e2 = GKAT_2.gKat_equiv e1 e2)
-
-(*A recursion function to change from gkat to gkat hashcon*)
 
 let rec from_be_to_hashcons (be : GKAT_2.bExp) : GKAT_Symb.BExp.t =
   match be with
@@ -316,48 +272,21 @@ let rec from_gkat_to_hashcon (exp1 : GKAT_2.gkat) : GKAT_Symb.Exp.t =
   | While (be, e) ->
       GKAT_Symb.Exp.while_do (from_be_to_hashcons be) (from_gkat_to_hashcon e)
 
-let test_equiv_symb =
-  QCheck_ounit.to_ounit2_test
-  @@ Test.make ~count:1
-       ~name:"testing symbolic based algorithm with generated equivalence"
-       ~print:(fun (e1, e2) ->
-         GKAT_2.Print2.pprint e1 ^ " EXP2: " ^ GKAT_2.Print2.pprint e2)
-       GenExp.gen_eq_exp
-       (fun (e1, e2) ->
-         (* print_newline (); print_newline ();
-            print_endline "starting test cases"; *)
-            let t = Sys.time() in
-            let fx = GKAT_Symb.Derivatives.equiv (from_gkat_to_hashcon e1)
-            (from_gkat_to_hashcon e2) in
-            Printf.printf "Total execution time: %fs\n" (Sys.time() -. t);
-            fx
-          )
+let bench_equiv_symb =
+  Test.make ~count:bench_count
+    ~name:"benchmarking symbolic algorithm with generated equivalence"
+    ~print:(fun (e1, e2) ->
+      GKAT_2.Print2.pprint e1 ^ " EXP2: " ^ GKAT_2.Print2.pprint e2)
+    GenExp.gen_eq_exp
+    (fun (e1, e2) ->
+      (* print_newline (); print_newline ();
+         print_endline "starting test cases"; *)
+      let t = Sys.time () in
+      let fx =
+        GKAT_Symb.Derivatives.equiv (from_gkat_to_hashcon e1)
+          (from_gkat_to_hashcon e2)
+      in
+      Printf.printf "Execution time: %fs\n" (Sys.time () -. t);
+      fx)
 
-let test_symb_vs_aut =
-  QCheck_ounit.to_ounit2_test
-  @@ Test.make ~count:1000
-       ~name:
-         "testing symbolic based algorithm against automaton based algorithm"
-       ~print:(fun (e1, e2) ->
-         GKAT_2.Print2.pprint e1 ^ " EXP2: " ^ GKAT_2.Print2.pprint e2)
-       (Gen.pair
-          (GenExp.exp_sized bexp_max_size exp_max_size)
-          (GenExp.exp_sized bexp_max_size exp_max_size))
-       (fun (e1, e2) ->
-         GKAT_Symb.Derivatives.equiv (from_gkat_to_hashcon e1)
-           (from_gkat_to_hashcon e2)
-         = GKAT_Aut.equiv e1 e2)
-
-let test_symb_vs_gkat =
-  QCheck_ounit.to_ounit2_test
-  @@ Test.make ~count:1000
-       ~name:"testing symbolic based algorithm against GKAT_2 based algorithm"
-       ~print:(fun (e1, e2) ->
-         GKAT_2.Print2.pprint e1 ^ " EXP2: " ^ GKAT_2.Print2.pprint e2)
-       (Gen.pair
-          (GenExp.exp_sized bexp_max_size exp_max_size)
-          (GenExp.exp_sized bexp_max_size exp_max_size))
-       (fun (e1, e2) ->
-         GKAT_Symb.Derivatives.equiv (from_gkat_to_hashcon e1)
-           (from_gkat_to_hashcon e2)
-         = GKAT_2.gKat_equiv e1 e2)
+let () = Test.check_exn bench_equiv_symb
