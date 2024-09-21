@@ -1,76 +1,31 @@
-open GKAT_2
-
 module BExp = struct
   (** Module for working with boolean expressions *)
 
-  type t = t_ Hashcons.hash_consed
-  (** The type for a hashconsed boolean expression *)
+  open Z3.Boolean
 
-  (* The internal type of the boolean expression*)
-  and t_ =
-    | Zero
-    | One
-    | PBool of string
-    | Or of t * t
-    | And of t * t
-    | Not of t
-
-  (** table used for hash consing 
-    notice because of hash consing, we can build *)
-  let tbl = Hashcons.create 251
-
-  let hashcons = Hashcons.hashcons tbl
-  let zero : t = hashcons @@ Zero
-  let one : t = hashcons One
-  let pBool (str : string) : t = hashcons @@ PBool str
-
-  let b_not (b1 : t) : t =
-    if b1 == one then zero else if b1 == zero then one else hashcons @@ Not b1
-
-  let b_or (b1 : t) (b2 : t) : t =
-    if b1 == one then one
-    else if b2 == one then one
-    else if b1 == zero then b2
-    else if b2 == zero then b1
-    else if b1 == b2 then b1
-    else if b1 == b_not b2 then one
-    else hashcons @@ Or (b1, b2)
-
-  let b_and (b1 : t) (b2 : t) : t =
-    if b1 == one then b2
-    else if b2 == one then b1
-    else if b1 == zero then zero
-    else if b2 == zero then zero
-    else if b1 == b2 then b1
-    else if b1 == b_not b2 then zero
-    else hashcons @@ And (b1, b2)
+  type t = Z3.Expr.expr
+  (** Boolean expression is just a z3 expression *)
 
   let z3_empty_ctx = Z3.mk_context []
-
-  (** convert a boolean expression to z3 expression *)
-  let rec to_z3 (b : t) : Z3.Expr.expr =
-    let open Z3.Boolean in
-    match b.node with
-    | Zero -> mk_false z3_empty_ctx
-    | One -> mk_true z3_empty_ctx
-    | PBool str -> mk_const_s z3_empty_ctx str
-    | Or (b1, b2) -> mk_or z3_empty_ctx [ to_z3 b1; to_z3 b2 ]
-    | And (b1, b2) -> mk_and z3_empty_ctx [ to_z3 b1; to_z3 b2 ]
-    | Not b1 -> mk_not z3_empty_ctx @@ to_z3 b1
-
+  let zero : t = mk_false z3_empty_ctx
+  let one : t = mk_true z3_empty_ctx
+  let pBool (str : string) : t = mk_const_s z3_empty_ctx str
+  let b_not (b1 : t) : t = mk_not z3_empty_ctx b1
+  let b_or (b1 : t) (b2 : t) : t = mk_or z3_empty_ctx [ b1; b2 ]
+  let b_and (b1 : t) (b2 : t) : t = mk_and z3_empty_ctx [ b1; b2 ]
   let solver = Z3.Solver.mk_solver z3_empty_ctx None
 
   (** test if a boolean expression is constant false
       
   In other word, whether it is unsatisfiable. *)
   let is_false (b : t) : bool =
-    match Z3.Solver.check solver [ to_z3 b ] with
+    match Z3.Solver.check solver [ b ] with
     | Z3.Solver.UNSATISFIABLE -> true
     | _ -> false
 
   (** Test if two boolean expressions is semantically equivelant. *)
   let equiv (b1 : t) (b2 : t) : bool =
-    let iff_exp = Z3.Boolean.mk_iff z3_empty_ctx (to_z3 b1) (to_z3 b2) in
+    let iff_exp = Z3.Boolean.mk_iff z3_empty_ctx b1 b2 in
     let not_iff_exp = Z3.Boolean.mk_not z3_empty_ctx iff_exp in
     (* if ¬ (b1 ↔ b2) is unsatisfiable, then b1 ↔ b2 is a tautology,
        thus b1 and b2 are semantically equivalent.*)
@@ -78,17 +33,7 @@ module BExp = struct
     | Z3.Solver.UNSATISFIABLE -> true
     | _ -> false
 
-  (*Function to convert hashtype to bExp*)
-  let rec dehashcons (hc_bexp : t) : bExp =
-    match hc_bexp.node with
-    | Zero -> Zero
-    | One -> One
-    | PBool be -> PBool be
-    | Or (be1, be2) -> Or (dehashcons be1, dehashcons be2)
-    | And (be1, be2) -> And (dehashcons be1, dehashcons be2)
-    | Not be -> Not (dehashcons be)
-
-  let pprint e = GKAT_2.Print2.pprint_bexp @@ dehashcons e
+  let pprint e = Z3.Expr.to_string e
 end
 
 module Exp = struct
@@ -131,16 +76,33 @@ module Exp = struct
 
   let while_do (b : BExp.t) (e : t) : t = hashcons @@ While (b, e)
 
-  (*Function to convert hashtype to gkat*)
-  let rec dehashcons (hc_exp : t) : gkat =
-    match hc_exp.node with
-    | Pact p -> Pact p
-    | Seq (e, f) -> Seq (dehashcons e, dehashcons f)
-    | If (be, e, f) -> If (BExp.dehashcons be, dehashcons e, dehashcons f)
-    | Test be -> Test (BExp.dehashcons be)
-    | While (be, e) -> While (BExp.dehashcons be, dehashcons e)
-
-  let pprint e = GKAT_2.Print2.pprint @@ dehashcons e
+  let pprint (exp : t) =
+    let rec helper (exp : t) : string * int =
+      match exp.node with
+      | Pact p -> (p, 0)
+      | Seq (e1, e2) ->
+          let s1, p1 = helper e1 in
+          let s2, p2 = helper e2 in
+          let s1' = if p1 < 2 then s1 else "(" ^ s1 ^ ")" in
+          let s2' = if p2 < 2 then s2 else "(" ^ s2 ^ ")" in
+          (s1' ^ " ; " ^ s2', 2)
+      | If (b, e1, e2) ->
+          let bs = BExp.pprint b in
+          let s1, p1 = helper e1 in
+          let s2, p2 = helper e2 in
+          let s1' = if p1 <= 3 then s1 else "(" ^ s1 ^ ")" in
+          let s2' = if p2 < 3 then s2 else "(" ^ s2 ^ ")" in
+          ("if " ^ bs ^ " then " ^ s1' ^ " else " ^ s2', 3)
+      | Test b ->
+          let bs = BExp.pprint b in
+          (bs, 1)
+      | While (b, e) ->
+          let bs = BExp.pprint b in
+          let s, p = helper e in
+          let s' = if p <= 1 then s else "(" ^ s ^ ")" in
+          ("while " ^ bs ^ " do " ^ s' ^ " done", 1)
+    in
+    fst @@ helper exp
 end
 
 module Derivatives = struct
