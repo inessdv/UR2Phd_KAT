@@ -45,8 +45,7 @@ module GenExp = struct
          (* all the expression with size 1 *)
          let size_one_lst =
            [
-             ( 1,
-               return @@ test One );
+             (1, return @@ test One);
              ( 50,
                let* p = Gen.small_nat in
                return @@ Pact ("p" ^ string_of_int p) );
@@ -118,22 +117,22 @@ module GenExp = struct
                let* b3, b3' = self (size / 3) in
                return (And (b1, And (b2, b3)), And (And (b1', b2'), b3')));
               (* Identity *)
-              (* (let* b1, b1' = self (size - 1) in
-                  return (And (b1, One), b1'));
-                 (let* b1, b1' = self (size - 1) in
-                  return (And (One, b1), b1'));
-                 (let* b1 = b_exp (size - 1) in
+              (let* b1, b1' = self (size - 1) in
+               return (And (b1, One), b1'));
+              (let* b1, b1' = self (size - 1) in
+               return (And (One, b1), b1'));
+              (* (let* b1 = b_exp (size - 1) in
                   return (And (b1, Zero), Zero));
                  (let* b1 = b_exp (size - 1) in
-                  return (And (Zero, b1), Zero));
-                 (let* b1, b1' = self (size - 1) in
-                  return (Or (b1, Zero), b1'));
-                 (let* b1, b1' = self (size - 1) in
-                  return (Or (Zero, b1), b1'));
-                 (let* b1 = b_exp (size - 1) in
-                  return (Or (b1, One), One));
-                 (let* b1 = b_exp (size - 1) in
-                  return (Or (One, b1), One)); *)
+                  return (And (Zero, b1), Zero)); *)
+              (let* b1, b1' = self (size - 1) in
+               return (Or (b1, Zero), b1'));
+              (let* b1, b1' = self (size - 1) in
+               return (Or (Zero, b1), b1'));
+              (let* b1 = b_exp (size - 1) in
+               return (Or (b1, One), One));
+              (let* b1 = b_exp (size - 1) in
+               return (Or (One, b1), One));
               (* complement *)
               (let* b1, b2 = self (size / 2) in
                return (Or (Not b1, b2), One));
@@ -156,92 +155,111 @@ module GenExp = struct
     Gen.fix
       (fun self size ->
         if size <= 1 then
-          Gen.oneof
+          Gen.frequency
             [
-              (* reflexivity *)
-              (let* label = Gen.small_nat in
-               return (Pact (string_of_int label), Pact (string_of_int label)));
-              return (Test One, Test One);
+              (* primitive action *)
+              ( 100,
+                let* label = Gen.small_nat in
+                return (Pact (string_of_int label), Pact (string_of_int label))
+              );
+              (* skip *)
+              (1, return (Test One, Test One));
             ]
         else
-          Gen.oneof
+          Gen.frequency
             [
-              (*(* reflexivity *)
-                (let* e = exp_sized bexp_max_size (size - 1) in
-                 return @@ (e, e));
-                (* symmetry *)
-                (let* e1, e2 = self (size - 1) in
-                 return @@ (e2, e1));*)
+              (* reflexivity *)
+              ( 30,
+                let* e = exp_sized bexp_max_size size in
+                return @@ (e, e) );
+              (* symmetry *)
+              ( 40,
+                let* e1, e2 = self (size - 1) in
+                return @@ (e2, e1) );
               (* equal test *)
               (* (let* b1, b2 = gen_eq_bexp bexp_max_size in
                  return @@ (Test b1, Test b2)); *)
               (* congurence *)
-              (let* e1, e1' = self (size / 2) in
-               let* e2, e2' = self (size / 2) in
-               return @@ (Seq (e1, e2), Seq (e1', e2')));
-              (let* b, b' = gen_eq_bexp bexp_max_size in
-               let* e1, e1' = self (size / 2) in
-               let* e2, e2' = self (size / 2) in
-               return @@ (If (b, e1, e2), If (b', e1', e2')));
-              (let* b, b' = gen_eq_bexp bexp_max_size in
-               let* e, e' = self (size - 1) in
-               return @@ (While (b, e), While (b', e')));
+              ( 50,
+                let* e1, e1' = self (size / 2) in
+                let* e2, e2' = self (size / 2) in
+                return @@ (Seq (e1, e2), Seq (e1', e2')) );
+              ( 20,
+                let* b, b' = gen_eq_bexp bexp_max_size in
+                let* e1, e1' = self (size / 2) in
+                let* e2, e2' = self (size / 2) in
+                return @@ (If (b, e1, e2), If (b', e1', e2')) );
+              ( 2,
+                let* b, b' = gen_eq_bexp bexp_max_size in
+                let* e, e' = self (size - 1) in
+                return @@ (While (b, e), While (b', e')) );
               (* idempotence *)
-              (let* b = b_exp bexp_max_size in
-               let* e, e' = self (size / 2) in
-               return @@ (If (b, e, e'), e));
+              ( 2,
+                let* b = b_exp bexp_max_size in
+                let* e, e' = self (size / 2) in
+                return @@ (If (b, e, e'), e) );
               (* skew commutativity *)
-              (let* b, b' = gen_eq_bexp bexp_max_size in
-               let* e1, e1' = self (size / 2) in
-               let* e2, e2' = self (size / 2) in
-               return @@ (If (b, e1, e2), If (Not b', e2', e1')));
+              ( 2,
+                let* b, b' = gen_eq_bexp bexp_max_size in
+                let* e1, e1' = self (size / 2) in
+                let* e2, e2' = self (size / 2) in
+                return @@ (If (b, e1, e2), If (Not b', e2', e1')) );
               (* skew assoc *)
-              (let* b, b' = gen_eq_bexp bexp_max_size in
-               let* c, c' = gen_eq_bexp bexp_max_size in
-               let* e1, e1' = self (size / 3) in
-               let* e2, e2' = self (size / 3) in
-               let* e3, e3' = self (size / 3) in
-               return
-               @@ ( If (c, If (b, e1, e2), e3),
-                    If (And (b', c'), e1', If (c, e2', e3')) ));
+              ( 2,
+                let* b, b' = gen_eq_bexp bexp_max_size in
+                let* c, c' = gen_eq_bexp bexp_max_size in
+                let* e1, e1' = self (size / 3) in
+                let* e2, e2' = self (size / 3) in
+                let* e3, e3' = self (size / 3) in
+                return
+                @@ ( If (c, If (b, e1, e2), e3),
+                     If (And (b', c'), e1', If (c, e2', e3')) ) );
               (* guardedness *)
-              (let* b, b' = gen_eq_bexp bexp_max_size in
-               let* e1, e1' = self (size / 2) in
-               let* e2, e2' = self (size / 2) in
-               return @@ (If (b, e1, e2), If (b', Seq (Test b', e1'), e2')));
+              ( 2,
+                let* b, b' = gen_eq_bexp bexp_max_size in
+                let* e1, e1' = self (size / 2) in
+                let* e2, e2' = self (size / 2) in
+                return @@ (If (b, e1, e2), If (b', Seq (Test b', e1'), e2')) );
               (* right distribute *)
-              (let* b, b' = gen_eq_bexp bexp_max_size in
-               let* e1, e1' = self (size / 3) in
-               let* e2, e2' = self (size / 3) in
-               let* e3, e3' = self (size / 3) in
-               return
-               @@ ( Seq (If (b, e1, e2), e3),
-                    If (b', Seq (e1', e3'), Seq (e2', e3')) ));
+              ( 2,
+                let* b, b' = gen_eq_bexp bexp_max_size in
+                let* e1, e1' = self (size / 3) in
+                let* e2, e2' = self (size / 3) in
+                let* e3, e3' = self (size / 3) in
+                return
+                @@ ( Seq (If (b, e1, e2), e3),
+                     If (b', Seq (e1', e3'), Seq (e2', e3')) ) );
               (* associativity *)
-              (let* e1, e1' = self (size / 3) in
-               let* e2, e2' = self (size / 3) in
-               let* e3, e3' = self (size / 3) in
-               return @@ (Seq (e1, Seq (e2, e3)), Seq (Seq (e1', e2'), e3')));
+              ( 10,
+                let* e1, e1' = self (size / 3) in
+                let* e2, e2' = self (size / 3) in
+                let* e3, e3' = self (size / 3) in
+                return @@ (Seq (e1, Seq (e2, e3)), Seq (Seq (e1', e2'), e3')) );
               (* identities *)
               (* (let* e = exp_sized bexp_max_size (size - 1) in
                   return @@ (Seq (Test Zero, e), Test Zero));
                  (let* e = exp_sized bexp_max_size (size - 1) in
-                  return @@ (Seq (e, Test Zero), Test Zero));
-                 (let* e, e' = self (size - 1) in
-                  return @@ (Seq (Test One, e), e'));
-                 (let* e, e' = self (size - 1) in
-                  return @@ (Seq (e, Test One), e')); *)
+                  return @@ (Seq (e, Test Zero), Test Zero)); *)
+              ( 2,
+                let* e, e' = self (size - 1) in
+                return @@ (Seq (Test One, e), e') );
+              ( 2,
+                let* e, e' = self (size - 1) in
+                return @@ (Seq (e, Test One), e') );
               (* unrolling *)
-              (let* b, b' = gen_eq_bexp bexp_max_size in
-               let* e, e' = self (size / 2) in
-               return
-               @@ (While (b, e), If (b', Seq (e', While (b, e')), Test One)));
+              ( 5,
+                let* b, b' = gen_eq_bexp bexp_max_size in
+                let* e, e' = self (size / 2) in
+                return
+                @@ (While (b, e), If (b', Seq (e', While (b, e')), Test One)) );
               (* tightening *)
-              (let* b, b' = gen_eq_bexp bexp_max_size in
-               let* c, c' = gen_eq_bexp bexp_max_size in
-               let* e, e' = self (size - 1) in
-               return
-               @@ (While (b, If (c, e, Test One)), While (b', Seq (Test c', e'))));
+              ( 5,
+                let* b, b' = gen_eq_bexp bexp_max_size in
+                let* c, c' = gen_eq_bexp bexp_max_size in
+                let* e, e' = self (size - 1) in
+                return
+                @@ ( While (b, If (c, e, Test One)),
+                     While (b', Seq (Test c', e')) ) );
             ])
       exp_max_size
   (* default size of two expression *)
@@ -350,7 +368,7 @@ let () =
   print_endline "Testing random expressions with symbolic algorithm";
   print_newline ();
   Test.check_exn bench_rand_exp_symb;
-  (* print_newline ();
+  print_newline ();
   print_endline "Testing equivalent expressions with symbolic algorithm";
   print_newline ();
-  Test.check_exn bench_equiv_symb *)
+  Test.check_exn bench_equiv_symb
