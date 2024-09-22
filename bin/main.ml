@@ -1,9 +1,9 @@
 open QCheck2
 open KA_equiv
 
-let exp_max_size = 300
+let exp_max_size = 3000
 let bexp_max_size = 5
-let max_p_bool_count = 20
+let max_p_bool_count = 50
 let bench_count = 10
 
 module GenExp = struct
@@ -36,6 +36,46 @@ module GenExp = struct
       size
 
   module IntSet = Set.Make (Int)
+
+  (** Generate a CF-GKAT expression *)
+  let exp_sized bexp_size size =
+    (* a function that generate a expression and all the labels in the expression,
+       represented as ints*)
+    (Gen.fix (fun self size ->
+         (* all the expression with size 1 *)
+         let size_one_lst =
+           [
+             ( 5,
+               let* b = b_exp bexp_size in
+               return @@ Test b );
+             ( 5,
+               let* p = Gen.small_nat in
+               return @@ Pact ("p" ^ string_of_int p) );
+           ]
+         in
+         (* all the recursive expression generation (not size 1) *)
+         let recursive_lst =
+           [
+             ( 15,
+               let* e1 = self (size / 2) in
+               let* e2 = self (size / 2) in
+               return @@ Seq (e1, e2) );
+             ( 3,
+               let* b = b_exp bexp_size in
+               let* e1 = self (size / 2) in
+               let* e2 = self (size / 2) in
+               return @@ If (b, e2, e1) );
+             ( 1,
+               let* b = b_exp bexp_size in
+               let* e_loop = self (size - 1) in
+               return @@ While (b, e_loop) );
+           ]
+         in
+         if size <= 1 then Gen.frequency size_one_lst
+         else Gen.frequency @@ recursive_lst))
+      (* default configuration for generating expressions:
+         not in loop, with the input labels as start, and the input size*)
+      size
 
   let gen_eq_bexp size =
     Gen.fix
@@ -231,6 +271,46 @@ let rec from_gkat_to_hashcon (exp1 : GKAT_2.gkat) : GKAT_Symb.Exp.t =
   | While (be, e) ->
       GKAT_Symb.Exp.while_do (from_be_to_hashcons be) (from_gkat_to_hashcon e)
 
+let bench_rand_exp_symb =
+  Test.make ~count:bench_count
+    ~name:"benchmarking symbolic algorithm with generated equivalence"
+    (Gen.pair
+       (GenExp.exp_sized bexp_max_size exp_max_size)
+       (GenExp.exp_sized bexp_max_size exp_max_size))
+    (fun (e1, e2) ->
+      let e1_hashcons = from_gkat_to_hashcon e1 in
+      let e2_hashcons = from_gkat_to_hashcon e2 in
+      print_endline
+        ("exp1: p_acts: "
+        ^ (string_of_int @@ GKAT_Symb.Exp.num_pact e1_hashcons)
+        ^ "; tests: "
+        ^ (string_of_int @@ GKAT_Symb.Exp.num_bexp e1_hashcons)
+        ^ "; if's: "
+        ^ (string_of_int @@ GKAT_Symb.Exp.num_if e1_hashcons)
+        ^ "; seq's: "
+        ^ (string_of_int @@ GKAT_Symb.Exp.num_seq e1_hashcons)
+        ^ "; while's: " ^ string_of_int
+        @@ GKAT_Symb.Exp.num_while e1_hashcons);
+      print_endline
+        ("exp2: p_acts: "
+        ^ (string_of_int @@ GKAT_Symb.Exp.num_pact e2_hashcons)
+        ^ "; tests: "
+        ^ (string_of_int @@ GKAT_Symb.Exp.num_bexp e2_hashcons)
+        ^ "; if's: "
+        ^ (string_of_int @@ GKAT_Symb.Exp.num_if e2_hashcons)
+        ^ "; seq's: "
+        ^ (string_of_int @@ GKAT_Symb.Exp.num_seq e2_hashcons)
+        ^ "; while's: " ^ string_of_int
+        @@ GKAT_Symb.Exp.num_while e2_hashcons);
+      let start_time = Sys.time () in
+      print_endline
+        ("result: " ^ string_of_bool
+        @@ GKAT_Symb.Derivatives.equiv e1_hashcons e2_hashcons);
+      print_endline
+        ("Execution time: " ^ string_of_float (Sys.time () -. start_time) ^ "s");
+      print_newline ();
+      true)
+
 let bench_equiv_symb =
   Test.make ~count:bench_count
     ~name:"benchmarking symbolic algorithm with generated equivalence"
@@ -266,4 +346,12 @@ let bench_equiv_symb =
       print_newline ();
       equiv_res)
 
-let () = Test.check_exn bench_equiv_symb
+let () =
+  print_newline ();
+  print_endline "Testing random expressions with symbolic algorithm";
+  print_newline ();
+  Test.check_exn bench_rand_exp_symb;
+  print_newline ();
+  print_endline "Testing equivalent expressions with symbolic algorithm";
+  print_newline ();
+  Test.check_exn bench_equiv_symb
