@@ -1,6 +1,8 @@
 module BExp = struct
   (** Module for working with boolean expressions *)
-  type t = (t_ * Z3.Expr.expr) Hashcons.hash_consed
+  type t_node = (t_ * Z3.Expr.expr) 
+  
+  and t = t_node Hashcons.hash_consed
   (** The type for a hashconsed boolean expression *)
 
   (* The internal type of the boolean expression*)
@@ -13,7 +15,7 @@ module BExp = struct
     | Not of t
 
   module T_node = struct
-    type t = t_ * Z3.Expr.expr
+    type t = t_node
 
     let equal (t1, _) (t2, _) =
       match (t1, t2) with
