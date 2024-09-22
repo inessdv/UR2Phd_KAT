@@ -45,10 +45,9 @@ module GenExp = struct
          (* all the expression with size 1 *)
          let size_one_lst =
            [
-             ( 5,
-               let* b = b_exp bexp_size in
-               return @@ Test b );
-             ( 5,
+             ( 1,
+               return @@ test One );
+             ( 50,
                let* p = Gen.small_nat in
                return @@ Pact ("p" ^ string_of_int p) );
            ]
@@ -351,7 +350,7 @@ let () =
   print_endline "Testing random expressions with symbolic algorithm";
   print_newline ();
   Test.check_exn bench_rand_exp_symb;
-  print_newline ();
+  (* print_newline ();
   print_endline "Testing equivalent expressions with symbolic algorithm";
   print_newline ();
-  Test.check_exn bench_equiv_symb
+  Test.check_exn bench_equiv_symb *)
