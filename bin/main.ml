@@ -3,7 +3,7 @@ open KA_equiv
 
 let exp_max_size = 3000
 let bexp_max_size = 5
-let max_p_bool_count = 50
+let max_p_bool_count = 1000
 let bench_count = 10
 
 module GenExp = struct
