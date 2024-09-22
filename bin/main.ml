@@ -1,9 +1,9 @@
 open QCheck2
 open KA_equiv
 
-let exp_max_size = 3000
-let bexp_max_size = 5
-let max_p_bool_count = 1000
+let exp_max_size = 2000
+let bexp_max_size = 3
+let max_p_bool_count = 800
 let bench_count = 10
 
 module GenExp = struct
