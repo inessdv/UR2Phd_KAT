@@ -15,10 +15,11 @@ depends: [
   "unionFind" {>= "20220122"}
   "hashcons"
   "z3"
+  "msat"
+  "qcheck"
   "utop" {with-dev}
   "dune" {with-dev}
   "ounit2" {with-test}
-  "qcheck"
   "odoc" {with-doc}
 ]
 build: [
