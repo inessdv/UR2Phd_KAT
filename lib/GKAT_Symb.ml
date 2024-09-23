@@ -1,6 +1,8 @@
+open MLBDD
 module BExp = struct
+ 
   (** Module for working with boolean expressions *)
-  type t_node = (t_ * Z3.Expr.expr) 
+  type t_node = (t_ * MLBDD.t) 
   
   and t = t_node Hashcons.hash_consed
   (** The type for a hashconsed boolean expression *)
@@ -43,10 +45,10 @@ module BExp = struct
     notice because of hash consing, we can build *)
   let tbl = HashT.create 251
 
-  let z3_empty_ctx = Z3.mk_context []
+  let bdd_context=MLBDD.init()
   let hashcons = HashT.hashcons tbl
-  let zero : t = hashcons @@ (Zero, Z3.Boolean.mk_false z3_empty_ctx)
-  let one : t = hashcons @@ (One, Z3.Boolean.mk_true z3_empty_ctx)
+  let zero : t = hashcons @@ (Zero, MLBDD.dfalse bdd_context)
+  let one : t = hashcons @@ (One, MLBDD.dtrue bdd_context)
 
   let pBool (str : string) : t =
     hashcons
