@@ -4,7 +4,7 @@ open KAT_Set.Print
 type bExp =
   | Zero
   | One
-  | PBool of string
+  | PBool of int
   | Or of bExp * bExp
   | And of bExp * bExp
   | Not of bExp
@@ -26,7 +26,7 @@ type gkat =
     match exp with
     | Zero -> Zero
     | One -> One
-    | PBool b -> PBool b
+    | PBool b -> PBool (string_of_int b)
     | Or (b1, b2) -> Union (from_BE_to_KAT b1, from_BE_to_KAT b2)
     | And (b1, b2) -> Conc (from_BE_to_KAT b1, from_BE_to_KAT b2)
     | Not b -> (Not (from_BE_to_KAT b))
@@ -60,7 +60,7 @@ type gkat =
       match bexp with
       | Zero -> ("0", 0)
       | One -> ("1", 0)
-      | PBool b -> (b, 0)
+      | PBool b -> ((string_of_int b), 0)
       | Or (b1, b2) ->
         let str1, prec1 = pprint_bexp_with_p b1 in
         let str2, prec2 = pprint_bexp_with_p b2 in
@@ -171,47 +171,3 @@ let gKat_equiv (exp1 : gkat) (exp2 : gkat) : bool =
 
 
 (* Expression 1: if 0 or b1 then b2 else while b2 do b2 done *)
-let example1 = If (
-  Or(Zero, PBool("b1")),   (* 0 or b1 *)
-  Pact("b2"),              (* then b2 *)
-  While(                   (* else *)
-    PBool("b2"),           (* while b2 *)
-    Pact("b1")             (* do b1 *)
-  )
-)
-
-(* Expression 2: if ~b1 then while b2 and 1 do b1 done else b2 *)
-let example2 = If (
-  Not (PBool("b1")),       (* not b1 *)
-  While (And (PBool("b2"),One), Pact("b1")), (* then while b2 and 1 do b1*)
-  Pact("b2")             
-  )
-
-(* 1 *)
-let exp1 = from_BE_to_KAT One
-(* b1 + 1 *)
-let exp2 = from_BE_to_KAT (Or (PBool("b1"),One))
-
-
-let test1 =   While(                   
-PBool("b2"),           
-((Seq (Test(PBool("b1")), Pact("b1")))))
-
-let test2 = 
-  While (
-    PBool("b2"), 
-    Test(PBool("b1"))
-  )
-
-let e1 = 
-  While (
-    Or(PBool("b1"),PBool("b1")), 
-    While((And(PBool("b1"),PBool("b2"))),Pact("p0"))
-  )
-
-let e2 = 
-  While(
-    PBool("b1"), 
-    Test(PBool("b1"))
-)
-

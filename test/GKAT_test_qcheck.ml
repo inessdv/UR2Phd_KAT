@@ -15,7 +15,7 @@ module GenExp = struct
   let ( let* ) = Gen.( let* )
 
   let p_bool : bExp Gen.t =
-    Gen.int_range 1 max_p_bool_count >|= fun n -> PBool ("b" ^ string_of_int n)
+    Gen.int_range 1 max_p_bool_count >|= fun n -> PBool n
 
   let b_exp size : bExp Gen.t =
     Gen.fix

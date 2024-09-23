@@ -1,20 +1,12 @@
-open MLBDD
 module BExp = struct
- 
+  type t_node = t_ * MLBDD.t
   (** Module for working with boolean expressions *)
-  type t_node = (t_ * MLBDD.t) 
-  
+
   and t = t_node Hashcons.hash_consed
   (** The type for a hashconsed boolean expression *)
 
   (* The internal type of the boolean expression*)
-  and t_ =
-    | Zero
-    | One
-    | PBool of int
-    | Or of t * t
-    | And of t * t
-    | Not of t
+  and t_ = Zero | One | PBool of int | Or of t * t | And of t * t | Not of t
 
   module T_node = struct
     type t = t_node
@@ -23,7 +15,7 @@ module BExp = struct
       match (t1, t2) with
       | Zero, Zero -> true
       | One, One -> true
-      | PBool (i), PBool (j) -> i == j
+      | PBool i, PBool j -> i == j
       | Or (x1, y1), Or (x2, y2) -> x1 == x2 && y1 == y2
       | And (x1, y1), And (x2, y2) -> x1 == x2 && y1 == y2
       | Not x1, Not x2 -> x1 == x2
@@ -33,7 +25,7 @@ module BExp = struct
       match t with
       | Zero -> Hashtbl.hash `Zero
       | One -> Hashtbl.hash `One
-      | PBool (i) -> Hashtbl.hash (`PBool i)
+      | PBool i -> Hashtbl.hash (`PBool i)
       | Or (x, y) -> Hashtbl.hash (`Or (x.hkey, y.hkey))
       | And (x, y) -> Hashtbl.hash (`And (x.hkey, y.hkey))
       | Not x -> Hashtbl.hash (`Not x.hkey)
@@ -45,14 +37,13 @@ module BExp = struct
     notice because of hash consing, we can build *)
   let tbl = HashT.create 251
 
-  let bdd_context=MLBDD.init()
+  let bdd_context = MLBDD.init ()
   let hashcons = HashT.hashcons tbl
   let zero : t = hashcons @@ (Zero, MLBDD.dfalse bdd_context)
   let one : t = hashcons @@ (One, MLBDD.dtrue bdd_context)
 
   let pBool (num : int) : t =
-    hashcons
-    @@ (PBool (Hashtbl.hash num), MLBDD.ithvar bdd_context num)
+    hashcons @@ (PBool (Hashtbl.hash num), MLBDD.ithvar bdd_context num)
 
   let b_not (b1 : t) : t =
     if b1 == one then zero
@@ -93,12 +84,10 @@ module BExp = struct
   (** test if a boolean expression is constant false
 
   In other word, whether it is unsatisfiable. *)
-  let is_false (b : t) : bool =
-    MLBDD.is_false (to_bdd b)
+  let is_false (b : t) : bool = MLBDD.is_false (to_bdd b)
 
   (** Test if two boolean expressions is semantically equivelant. *)
-  let equiv (b1 : t) (b2 : t) : bool =
-    MLBDD.equal (to_bdd b1)(to_bdd b2)
+  let equiv (b1 : t) (b2 : t) : bool = MLBDD.equal (to_bdd b1) (to_bdd b2)
 
   let pprint e = MLBDD.to_string (to_bdd e)
 end
@@ -165,83 +154,83 @@ module Exp = struct
     else hashcons @@ If (b, e, f)
 
   let while_do (b : BExp.t) (e : t) : t = hashcons @@ While (b, e)
-    (* if b == BExp.zero then skip
-    else if b == BExp.one then fail
-    else if e == skip || e == fail then test @@ BExp.b_not b 
-    else  *)
+  (* if b == BExp.zero then skip
+     else if b == BExp.one then fail
+     else if e == skip || e == fail then test @@ BExp.b_not b
+     else *)
 
-    (** Return the number of primitive actions in the expression*)
-    let rec num_pact (e : t) =
-      match e.node with
-      | Pact _ -> 1
-      | Seq (e1, e2) -> num_pact e1 + num_pact e2
-      | If (_, e1, e2) -> num_pact e1 + num_pact e2
-      | Test _ -> 0
-      | While (_, e1) -> num_pact e1
-  
-    (** Return the number of test expression in the expression*)
-    let rec num_bexp (e : t) =
-      match e.node with
-      | Pact _ -> 0
-      | Seq (e1, e2) -> num_bexp e1 + num_bexp e2
-      | If (_, e1, e2) -> 1 + num_bexp e1 + num_bexp e2
-      | Test _ -> 1
-      | While (_, e1) -> 1 + num_bexp e1
-  
-    (** number of sequencing operation in the input expression *)
-    let rec num_seq (e : t) =
-      match e.node with
-      | Pact _ -> 0
-      | Seq (e1, e2) -> 1 + num_seq e1 + num_seq e2
-      | If (_, e1, e2) -> num_seq e1 + num_seq e2
-      | Test _ -> 0
-      | While (_, e1) -> num_seq e1
-  
-    (** number of if statements in the input expression *)
-    let rec num_if (e : t) =
-      match e.node with
-      | Pact _ -> 0
-      | Seq (e1, e2) -> num_if e1 + num_if e2
-      | If (_, e1, e2) -> 1 + num_if e1 + num_if e2
-      | Test _ -> 0
-      | While (_, e1) -> num_if e1
-  
-    (** number of while loop in the input expression *)
-    let rec num_while (e : t) =
-      match e.node with
-      | Pact _ -> 0
-      | Seq (e1, e2) -> num_while e1 + num_while e2
-      | If (_, e1, e2) -> num_while e1 + num_while e2
-      | Test _ -> 0
-      | While (_, e1) -> 1 + num_while e1
-  
-    let pprint (exp : t) =
-      let rec helper (exp : t) : string * int =
-        match exp.node with
-        | Pact (p, _) -> (p, 0)
-        | Seq (e1, e2) ->
-            let s1, p1 = helper e1 in
-            let s2, p2 = helper e2 in
-            let s1' = if p1 < 2 then s1 else "(" ^ s1 ^ ")" in
-            let s2' = if p2 < 2 then s2 else "(" ^ s2 ^ ")" in
-            (s1' ^ " ; " ^ s2', 2)
-        | If (b, e1, e2) ->
-            let bs = BExp.pprint b in
-            let s1, p1 = helper e1 in
-            let s2, p2 = helper e2 in
-            let s1' = if p1 <= 3 then s1 else "(" ^ s1 ^ ")" in
-            let s2' = if p2 < 3 then s2 else "(" ^ s2 ^ ")" in
-            ("if " ^ bs ^ " then " ^ s1' ^ " else " ^ s2', 3)
-        | Test b ->
-            let bs = BExp.pprint b in
-            (bs, 1)
-        | While (b, e) ->
-            let bs = BExp.pprint b in
-            let s, p = helper e in
-            let s' = if p <= 1 then s else "(" ^ s ^ ")" in
-            ("while " ^ bs ^ " do " ^ s' ^ " done", 1)
-      in
-      fst @@ helper exp
+  (** Return the number of primitive actions in the expression*)
+  let rec num_pact (e : t) =
+    match e.node with
+    | Pact _ -> 1
+    | Seq (e1, e2) -> num_pact e1 + num_pact e2
+    | If (_, e1, e2) -> num_pact e1 + num_pact e2
+    | Test _ -> 0
+    | While (_, e1) -> num_pact e1
+
+  (** Return the number of test expression in the expression*)
+  let rec num_bexp (e : t) =
+    match e.node with
+    | Pact _ -> 0
+    | Seq (e1, e2) -> num_bexp e1 + num_bexp e2
+    | If (_, e1, e2) -> 1 + num_bexp e1 + num_bexp e2
+    | Test _ -> 1
+    | While (_, e1) -> 1 + num_bexp e1
+
+  (** number of sequencing operation in the input expression *)
+  let rec num_seq (e : t) =
+    match e.node with
+    | Pact _ -> 0
+    | Seq (e1, e2) -> 1 + num_seq e1 + num_seq e2
+    | If (_, e1, e2) -> num_seq e1 + num_seq e2
+    | Test _ -> 0
+    | While (_, e1) -> num_seq e1
+
+  (** number of if statements in the input expression *)
+  let rec num_if (e : t) =
+    match e.node with
+    | Pact _ -> 0
+    | Seq (e1, e2) -> num_if e1 + num_if e2
+    | If (_, e1, e2) -> 1 + num_if e1 + num_if e2
+    | Test _ -> 0
+    | While (_, e1) -> num_if e1
+
+  (** number of while loop in the input expression *)
+  let rec num_while (e : t) =
+    match e.node with
+    | Pact _ -> 0
+    | Seq (e1, e2) -> num_while e1 + num_while e2
+    | If (_, e1, e2) -> num_while e1 + num_while e2
+    | Test _ -> 0
+    | While (_, e1) -> 1 + num_while e1
+
+  let pprint (exp : t) =
+    let rec helper (exp : t) : string * int =
+      match exp.node with
+      | Pact (p, _) -> (p, 0)
+      | Seq (e1, e2) ->
+          let s1, p1 = helper e1 in
+          let s2, p2 = helper e2 in
+          let s1' = if p1 < 2 then s1 else "(" ^ s1 ^ ")" in
+          let s2' = if p2 < 2 then s2 else "(" ^ s2 ^ ")" in
+          (s1' ^ " ; " ^ s2', 2)
+      | If (b, e1, e2) ->
+          let bs = BExp.pprint b in
+          let s1, p1 = helper e1 in
+          let s2, p2 = helper e2 in
+          let s1' = if p1 <= 3 then s1 else "(" ^ s1 ^ ")" in
+          let s2' = if p2 < 3 then s2 else "(" ^ s2 ^ ")" in
+          ("if " ^ bs ^ " then " ^ s1' ^ " else " ^ s2', 3)
+      | Test b ->
+          let bs = BExp.pprint b in
+          (bs, 1)
+      | While (b, e) ->
+          let bs = BExp.pprint b in
+          let s, p = helper e in
+          let s' = if p <= 1 then s else "(" ^ s ^ ")" in
+          ("while " ^ bs ^ " do " ^ s' ^ " done", 1)
+    in
+    fst @@ helper exp
 end
 
 module Derivatives = struct
@@ -537,6 +526,7 @@ module Derivatives = struct
     (* clean the union-find table,
        as they can incorrectly link unequal expression when equiv_res if false*)
     if not equiv then ExpTbl.clear union_find_tbl;
+    MLBDD.clear BExp.bdd_context;
     equiv
 
   (*let rec equiv (exp1 : Exp.t) (exp2 : Exp.t) : bool =
@@ -553,18 +543,18 @@ module Derivatives = struct
        let from_product_to_GKAT(exp)= List.map(fun ((be1,(next_exp1,p)),(be2,(next_exp2,q))) ->
          (dehashcons_bexp be1,(dehashcons_gkat next_exp1,p)),(dehashcons_bexp be2,(dehashcons_gkat next_exp2,q))) (exp) *)
 
-  let example1 =
-    Exp.seq
-      (Exp.test (BExp.pBool "b1"))
-      (Exp.seq (Exp.p_act "p0")
-         (Exp.if_then_else (BExp.pBool "b2") (Exp.p_act "p0") (Exp.p_act "p0")))
+  (* let example1 =
+       Exp.seq
+         (Exp.test (BExp.pBool 1))
+         (Exp.seq (Exp.p_act "p0")
+            (Exp.if_then_else (BExp.pBool 2) (Exp.p_act "p0") (Exp.p_act "p0")))
 
-  (*(b1 * p0) * p0*)
-  let example2 =
-    Exp.seq
-      (Exp.seq (Exp.test (BExp.pBool "b1")) (Exp.p_act "p0"))
-      (Exp.p_act "p0")
-
+     (*(b1 * p0) * p0*)
+     let example2 =
+       Exp.seq
+         (Exp.seq (Exp.test (BExp.pBool 1)) (Exp.p_act "p0"))
+         (Exp.p_act "p0") *)
+  (*
   let example3 =
     Exp.seq (Exp.p_act "p0")
       (Exp.if_then_else (BExp.pBool "b2") (Exp.p_act "p0") (Exp.p_act "p0"))
@@ -577,25 +567,25 @@ module Derivatives = struct
   let second_example1 =
     Exp.if_then_else (BExp.pBool "b2") (Exp.p_act "p0") (Exp.p_act "p0")
 
-  let second_example2 = Exp.p_act "p0"
+  let second_example2 = Exp.p_act "p0" *)
 
   (*b1 * (p0 * (if b2 then p0 else p0))*)
-  let third1 =
-    Exp.seq
-      (Exp.test (BExp.pBool "b1"))
-      (Exp.seq (Exp.p_act "p0")
-         (Exp.if_then_else (BExp.pBool "b2") (Exp.p_act "p0") (Exp.p_act "p0")))
+  (* let third1 =
+     Exp.seq
+       (Exp.test (BExp.pBool "b1"))
+       (Exp.seq (Exp.p_act "p0")
+          (Exp.if_then_else (BExp.pBool "b2") (Exp.p_act "p0") (Exp.p_act "p0"))) *)
 
   (* (b1 * p0) * p0 *)
-  let third2 =
-    Exp.seq
-      (Exp.seq (Exp.test (BExp.pBool "b1")) (Exp.p_act "p0"))
-      (Exp.p_act "p0")
+  (* let third2 =
+       Exp.seq
+         (Exp.seq (Exp.test (BExp.pBool "b1")) (Exp.p_act "p0"))
+         (Exp.p_act "p0")
 
-  let third3 =
-    Exp.seq
-      (Exp.seq (Exp.p_act "p0") (Exp.test (BExp.pBool "b1")))
-      (Exp.p_act "p0")
+     let third3 =
+       Exp.seq
+         (Exp.seq (Exp.p_act "p0") (Exp.test (BExp.pBool "b1")))
+         (Exp.p_act "p0") *)
 
   (*
     let debug (exp1 : gkat): bool =
@@ -614,16 +604,28 @@ module Derivatives = struct
       print_string (pprint e2);
       equiv e1 e2
 *)
-  let gkat_example1 =
-    Exp.seq
-      (Exp.seq (Exp.p_act "p7")
-         (Exp.if_then_else (BExp.pBool "b2") (Exp.p_act "p6")
-            (Exp.seq
-               (Exp.test (BExp.b_not (BExp.pBool "b2")))
-               (Exp.test (BExp.b_not (BExp.pBool "b1"))))))
-      (Exp.test (BExp.b_not (BExp.pBool "b1")))
+  (* let gkat_example1 =
+       Exp.seq
+         (Exp.seq (Exp.p_act "p7")
+            (Exp.if_then_else (BExp.pBool 2) (Exp.p_act "p6")
+               (Exp.seq
+                  (Exp.test (BExp.b_not (BExp.pBool 2)))
+                  (Exp.test (BExp.b_not (BExp.pBool 1))))))
+         (Exp.test (BExp.b_not (BExp.pBool 1)))
 
-  let gkat_example2 = Exp.seq (Exp.p_act "p7") (Exp.p_act "p5")
+     let gkat_example2 = Exp.seq (Exp.p_act "p7") (Exp.p_act "p5") *)
+
+  let gkat_exampl1 =
+    Exp.while_do
+      (BExp.b_or (BExp.pBool 1) (BExp.b_or (BExp.pBool 1) (BExp.pBool 2)))
+      (Exp.if_then_else (BExp.pBool 1)
+         (Exp.test (BExp.pBool 1))
+         (Exp.test (BExp.pBool 1)))
+
+  let gkat_example2 =
+    Exp.while_do
+      (BExp.b_or (BExp.b_or (BExp.pBool 1) (BExp.pBool 1)) (BExp.pBool 2))
+      (Exp.seq (Exp.test (BExp.pBool 1)) (Exp.test (BExp.pBool 1)))
 end
 
 (* let rec equiv_helper (exp1 : Exp.t) (exp2 : Exp.t) (reject1: BExp.t) (reject2: BExp.t) : bool =
