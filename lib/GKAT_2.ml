@@ -60,7 +60,7 @@ type gkat =
       match bexp with
       | Zero -> ("0", 0)
       | One -> ("1", 0)
-      | PBool b -> ((string_of_int b), 0)
+      | PBool b -> ("b"^(string_of_int b), 0)
       | Or (b1, b2) ->
         let str1, prec1 = pprint_bexp_with_p b1 in
         let str2, prec2 = pprint_bexp_with_p b2 in

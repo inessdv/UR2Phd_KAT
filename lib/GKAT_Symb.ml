@@ -617,14 +617,14 @@ module Derivatives = struct
 
   let gkat_exampl1 =
     Exp.while_do
-      (BExp.b_or (BExp.pBool 1) (BExp.b_or (BExp.pBool 1) (BExp.pBool 2)))
+      (BExp.b_or (BExp.pBool 1) (BExp.b_or (BExp.pBool 1) (BExp.pBool 3)))
       (Exp.if_then_else (BExp.pBool 1)
          (Exp.test (BExp.pBool 1))
-         (Exp.test (BExp.pBool 1)))
+         (Exp.test (BExp.one)))
 
   let gkat_example2 =
     Exp.while_do
-      (BExp.b_or (BExp.b_or (BExp.pBool 1) (BExp.pBool 1)) (BExp.pBool 2))
+      (BExp.b_or (BExp.b_or (BExp.pBool 1) (BExp.pBool 1)) (BExp.pBool 3))
       (Exp.seq (Exp.test (BExp.pBool 1)) (Exp.test (BExp.pBool 1)))
 end
 
