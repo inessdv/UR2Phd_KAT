@@ -511,7 +511,7 @@ module Derivatives = struct
       (let assert_rej1 =
          List.for_all
            (fun (be, (exp, _)) ->
-             BExp.disjoint reject1 be || DeadExps.is_dead exp)
+             (BExp.is_false @@ BExp.b_and reject1 be) || DeadExps.is_dead exp)
            f_derivatives
        in
        (* print_endline ("Exp 1: " ^ Exp.pprint exp1);
@@ -524,7 +524,7 @@ module Derivatives = struct
       && (let assert_rej2 =
             List.for_all
               (fun (be, (exp, _)) ->
-                BExp.disjoint reject2 be || DeadExps.is_dead exp)
+                (BExp.is_false @@ BExp.b_and reject2 be) || DeadExps.is_dead exp)
               e_derivatives
           in
           (* print_endline ("Exp 1: " ^ Exp.pprint exp1);
@@ -541,7 +541,7 @@ module Derivatives = struct
         List.for_all
           (fun ((be1, (next_exp1, p)), (be2, (next_exp2, q))) ->
             (* `be1` `be2` disjoint, then skip*)
-            BExp.disjoint be1 be2
+            (BExp.is_false @@ BExp.b_and be1 be2)
             ||
             (* `p` and `q` are the same, then recurse*)
             if p = q then (
