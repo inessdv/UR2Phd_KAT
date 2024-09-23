@@ -11,7 +11,7 @@ module BExp = struct
   and t_ =
     | Zero
     | One
-    | PBool of string * int
+    | PBool of int
     | Or of t * t
     | And of t * t
     | Not of t
@@ -23,7 +23,7 @@ module BExp = struct
       match (t1, t2) with
       | Zero, Zero -> true
       | One, One -> true
-      | PBool (_, i), PBool (_, j) -> i == j
+      | PBool (i), PBool (j) -> i == j
       | Or (x1, y1), Or (x2, y2) -> x1 == x2 && y1 == y2
       | And (x1, y1), And (x2, y2) -> x1 == x2 && y1 == y2
       | Not x1, Not x2 -> x1 == x2
@@ -33,7 +33,7 @@ module BExp = struct
       match t with
       | Zero -> Hashtbl.hash `Zero
       | One -> Hashtbl.hash `One
-      | PBool (_, i) -> Hashtbl.hash (`PBool i)
+      | PBool (i) -> Hashtbl.hash (`PBool i)
       | Or (x, y) -> Hashtbl.hash (`Or (x.hkey, y.hkey))
       | And (x, y) -> Hashtbl.hash (`And (x.hkey, y.hkey))
       | Not x -> Hashtbl.hash (`Not x.hkey)
@@ -50,16 +50,16 @@ module BExp = struct
   let zero : t = hashcons @@ (Zero, MLBDD.dfalse bdd_context)
   let one : t = hashcons @@ (One, MLBDD.dtrue bdd_context)
 
-  let pBool (str : string) : t =
+  let pBool (num : int) : t =
     hashcons
-    @@ (PBool (str, Hashtbl.hash str), Z3.Boolean.mk_const_s z3_empty_ctx str)
+    @@ (PBool (Hashtbl.hash num), MLBDD.ithvar bdd_context num)
 
   let b_not (b1 : t) : t =
     if b1 == one then zero
     else if b1 == zero then one
     else
       let _, b1_ = b1.node in
-      hashcons @@ (Not b1, Z3.Boolean.mk_not z3_empty_ctx b1_)
+      hashcons @@ (Not b1, MLBDD.dnot b1_)
 
   let b_or (b1 : t) (b2 : t) : t =
     if b1 == one then one
@@ -71,7 +71,7 @@ module BExp = struct
     else
       let _, b1_ = b1.node in
       let _, b2_ = b2.node in
-      hashcons @@ (Or (b1, b2), Z3.Boolean.mk_or z3_empty_ctx [ b1_; b2_ ])
+      hashcons @@ (Or (b1, b2), MLBDD.dor b1_ b2_)
 
   let b_and (b1 : t) (b2 : t) : t =
     if b1 == one then b2
@@ -83,32 +83,24 @@ module BExp = struct
     else
       let _, b1_ = b1.node in
       let _, b2_ = b2.node in
-      hashcons @@ (And (b1, b2), Z3.Boolean.mk_and z3_empty_ctx [ b1_; b2_ ])
+      hashcons @@ (And (b1, b2), MLBDD.dand b1_ b2_)
 
   (** convert a boolean expression to z3 expression *)
-  let to_z3 (b : t) : Z3.Expr.expr = snd b.node
+  let to_bdd (b : t) : MLBDD.t = snd b.node
 
-  let solver = Z3.Solver.mk_solver z3_empty_ctx None
+  (* let solver = Z3.Solver.mk_solver z3_empty_ctx None *)
 
   (** test if a boolean expression is constant false
 
   In other word, whether it is unsatisfiable. *)
   let is_false (b : t) : bool =
-    match Z3.Solver.check solver [ to_z3 b ] with
-    | Z3.Solver.UNSATISFIABLE -> true
-    | _ -> false
+    MLBDD.is_false (to_bdd b)
 
   (** Test if two boolean expressions is semantically equivelant. *)
   let equiv (b1 : t) (b2 : t) : bool =
-    let iff_exp = Z3.Boolean.mk_iff z3_empty_ctx (to_z3 b1) (to_z3 b2) in
-    let not_iff_exp = Z3.Boolean.mk_not z3_empty_ctx iff_exp in 
-    (* if ¬ (b1 ↔ b2) is unsatisfiable, then b1 ↔ b2 is a tautology,
-       thus b1 and b2 are semantically equivalent.*)
-    match Z3.Solver.check solver [ not_iff_exp ] with
-    | Z3.Solver.UNSATISFIABLE -> true
-    | _ -> false
+    MLBDD.equal (to_bdd b1)(to_bdd b2)
 
-  let pprint e = Z3.Expr.to_string @@ to_z3 e
+  let pprint e = MLBDD.to_string (to_bdd e)
 end
 
 module Exp = struct
