@@ -336,6 +336,14 @@ module Derivatives = struct
         let derive_e = derivative e in
         while_helper be e derive_e
 
+  let pprint_deriv (deriv : (BExp.t * (Exp.t * int)) list) =
+    String.concat "\n"
+    @@ List.map
+         (fun (bexp, (der, p_act)) ->
+           BExp.pprint bexp ^ " -> " ^ Exp.pprint der ^ ", "
+           ^ string_of_int p_act)
+         deriv
+
   module DeadExps : sig
     val is_dead : Exp.t -> bool
     val known_dead : Exp.t -> bool
@@ -469,8 +477,9 @@ module Derivatives = struct
     let reject1 = reject exp1 in
     let reject2 = reject exp2 in
 
-    (* print_endline ( "Exp 1: " ^Exp.pprint exp1);
-       print_endline ( "Exp 2: " ^Exp.pprint exp2); *)
+    (* print_newline ();
+       print_endline ("Exp 1: " ^ Exp.pprint exp1);
+       print_endline ("Exp 2: " ^ Exp.pprint exp2); *)
     let exp1_ele = exp_ele exp1 in
     let exp2_ele = exp_ele exp2 in
 
@@ -488,41 +497,51 @@ module Derivatives = struct
     else
       (*  Logical connection here instead of if **)
       let epsilon_assert = BExp.equiv (epsilon exp1) (epsilon exp2) in
-      (* print_endline ("Checking same espilon: ");
+      (* print_endline "Checking same espilon: ";
          print_endline (string_of_bool epsilon_assert); *)
       epsilon_assert
       &&
-      let f_derivatives = derivative exp2 in
       let e_derivatives = derivative exp1 in
+      let f_derivatives = derivative exp2 in
 
-      (let assert1 =
+      (* print_endline "exp1 deriv";
+         print_endline @@ pprint_deriv e_derivatives;
+         print_endline "exp2 deriv";
+         print_endline @@ pprint_deriv f_derivatives; *)
+      (let assert_rej1 =
          List.for_all
            (fun (be, (exp, _)) ->
-             BExp.is_false (BExp.b_and reject1 be) || DeadExps.is_dead exp)
+             BExp.disjoint reject1 be || DeadExps.is_dead exp)
            f_derivatives
        in
-       (* print_endline ( "Exp 1: " ^Exp.pprint exp1);
-          print_endline ( "Exp 2: " ^Exp.pprint exp2);
-          print_endline ("assertion1 for: forall ψ_f ↦ (f', q) ∈ δ(f), ( ρ(e) ∧ ψ_f = 0 || is_dead(f')) ");
-          print_endline (string_of_bool assert1); *)
-       assert1)
-      && (let assert2 =
+       (* print_endline ("Exp 1: " ^ Exp.pprint exp1);
+          print_endline ("Exp 2: " ^ Exp.pprint exp2);
+          print_endline "comparing the transition of exp2 to rejection of exp1: ";
+          print_endline
+            "forall ψ_f ↦ (f', q) ∈ δ(f), ( ρ(e) ∧ ψ_f = 0 || is_dead(f'))";
+          print_endline (string_of_bool assert_rej1); *)
+       assert_rej1)
+      && (let assert_rej2 =
             List.for_all
               (fun (be, (exp, _)) ->
-                BExp.is_false (BExp.b_and reject2 be) || DeadExps.is_dead exp)
+                BExp.disjoint reject2 be || DeadExps.is_dead exp)
               e_derivatives
           in
-          (* print_endline ( "Exp 1: " ^Exp.pprint exp1);
-             print_endline ( "Exp 2: " ^Exp.pprint exp2);
-             print_endline ("assertion2 for: forall ψ_e ↦ (e', q) ∈ δ(f), ( ρ(f) ∧ ψ_f = 0 || is_dead(e')) ");
-             print_endline (string_of_bool assert2); *)
-          assert2)
+          (* print_endline ("Exp 1: " ^ Exp.pprint exp1);
+             print_endline ("Exp 2: " ^ Exp.pprint exp2);
+             print_endline
+               "comparing the transition of exp2 to rejection of exp1: ";
+             print_endline
+               "assertion2 for: forall ψ_e ↦ (e', q) ∈ δ(f), ( ρ(f) ∧ ψ_f = 0 || \
+                is_dead(e')) ";
+             print_endline (string_of_bool assert_rej2); *)
+          assert_rej2)
       &&
-      let assert3 =
+      let assert_trans =
         List.for_all
           (fun ((be1, (next_exp1, p)), (be2, (next_exp2, q))) ->
             (* `be1` `be2` disjoint, then skip*)
-            BExp.is_false (BExp.b_and be1 be2)
+            BExp.disjoint be1 be2
             ||
             (* `p` and `q` are the same, then recurse*)
             if p = q then (
@@ -532,11 +551,12 @@ module Derivatives = struct
             else DeadExps.is_dead next_exp1 && DeadExps.is_dead next_exp2)
           (Common.list_prod e_derivatives f_derivatives)
       in
-      (* print_endline ("Exp 1: " ^Exp.pprint exp1);
-         print_endline ("Exp 2: " ^Exp.pprint exp2);
-         print_endline ("assertion3 for: forall ψ_e ↦ (e', p) ∈ δ(e), ψ_f ↦ (f', q) ∈ δ(f) ") ;
-         print_endline (string_of_bool assert3); *)
-      assert3
+      (* print_endline ("Exp 1: " ^ Exp.pprint exp1);
+         print_endline ("Exp 2: " ^ Exp.pprint exp2);
+         print_endline
+           "assertion3 for: forall ψ_e ↦ (e', p) ∈ δ(e), ψ_f ↦ (f', q) ∈ δ(f) ";
+         print_endline (string_of_bool assert_trans); *)
+      assert_trans
 
   let equiv (exp1 : Exp.t) (exp2 : Exp.t) : bool =
     let equiv = equiv_helper exp1 exp2 in
