@@ -253,8 +253,6 @@ end
 module Derivatives = struct
   (** defines derivatives *)
 
-  module Hmap = Hashcons.Hmap
-
   module HSet = Hashcons.Hset
   (** a fast immutable map for hashconsed key *)
 
@@ -279,8 +277,8 @@ module Derivatives = struct
     let mem (exp : Exp.t) (s : t) : bool =
       Option.is_some @@ ExpTbl.find_opt s exp
 
-    let add_to_fst (hset1 : t) (hset2 : Exp.t list) : unit =
-      List.iter (fun exp -> add exp hset1) hset2
+    let add_to_fst (hset1 : t) (hset2 : Exp.t_ HSet.t) : unit =
+      HSet.iter (fun exp -> add exp hset1) hset2
 
     let clear = ExpTbl.clear
     let length = ExpTbl.length
@@ -417,10 +415,9 @@ module Derivatives = struct
          after exploring all of its reachable state,
          then it cannot reach any accepting states,
          hence the state `s` is dead*)
-      | Unknown s ->
+      | Unknown all_explored ->
           (* print_endline ("final result, unknown, hence dead"); *)
-          let exp_list = HSet.elements s in
-          ExpHSet.add_to_fst dead_states exp_list;
+          ExpHSet.add_to_fst dead_states all_explored;
           true
       | Live ->
           (* print_endline "final result, live";  *)
