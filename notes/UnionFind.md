@@ -39,94 +39,72 @@ fun equivCheck (todo: KATPairSets.t) : bool =
 
 # A Symbolic Algorithm for GKAT
 
-A Symbolic GKAT automaton is has a transition of the 
-following type `State -> (State -> (BExp, PAct)) × BExp`
-where `BExp` is the type of boolean expressions, 
-`PAct` is the type of primitive actions.
-`s ↦ (s' ↦ (ϕ, p), ψ)` means that 
-- the state `s` will transition to `s'`
-    when given any atom `α ≤ ϕ` and will always execute `p`.
-- and the state `s` will all the atoms in `ψ`.
-We say that `s` *accepts* `ψ` 
-and `s` will *transition* to `s'` with `ϕ` while executing `p`.
+The symbolic GKAT automata over the alphabet (K, B) 
+is defined by a state set S, and two operations:
+```
+ϵ̂: S → BExp
+δ̂: S → BExp ↛ S × K
+```
+where ↛ means a partial map. Intuitively, all the 
+atoms that satisfy ϵ̂(s) (i.e. α ≤ ϵ̂(s)) will be accepted by the state s;  
+and if δ̂(s, ϕ) = (s', p), then for all the atom α ≤ ϕ, it will transition 
+state s to state s' while executing action p.
 
+We first present the algorithm to detect dead states.
+The main checking algorithm is implemented in `dead_with_discovered`,
+which will take into account of the `discovered_states`.
+This function will return:
+- `live` to indicate the state `s` is live,
+- `unknown` to indicate we were not able to find a live state in its reachable state at this point
+the function `_dead` will return either 
+- `live` to indicate the state `s` is live
+- `dead` with all the reachable state of `s`, to indicate that they are all dead.
+Finally, the `is_dead` function is exposed to the outside, which takes care of the caching by `dead_states`.
 ```ocaml
-type symb_gkat_automaton = {
-    states: StateSet.t;
-    start: state;
-    (*Over parenthesized to avoid ambiguity*)
-    tran: state -> ((state -> (b_exp * p_action)) * b_exp)
-}
-```
-We can further optimize this datatype to let each state record 
-their reachable state, but this complicates the Thompson's construction.
-```ocaml
-type symb_gkat_automaton = {
-    reachablity_map: StateSet.t StateMap.t;
-    start: state;
-    tran: state -> ((state -> (b_exp * p_action)) * b_exp)
-}
-```
-where instead of recording all the states, we record all the reachability in a map,
-where we say that `s'` is reachable from `s`,
-if `(s, s') ↦ (⊥, p)` for any primitive action `p`.
-We can still get the set of all states by getting all the keys of `reachablity_map`.
+let dead_states := ∅
 
-A symbolic GKAT automaton needs to be *deterministic* in the sense that
-all the outgoing transition is disjoint: for all state `s`,
-- if `s` accepts `ψ` and transition to `s'` via `ϕ`, then `ψ ∧ ϕ ≡ ⊥` in boolean algebra
-- given two distinct state `s₁` and `s₂`
-    if `s` transition to `s₁` via `ϕ₁` and `s` transition to `s₂` via `ϕ₂`,
-    then `ϕ₁ ∧ ϕ₂ ≡ ⊥`  in boolean algebra
-**The deterministic property is not enforced by type,** 
-**but the algorithm only works when this property is satisfied**
-
-PsedoCode for the algorithm, we use 
-`ŝ` to denote start state, `S` to denote set of all state, 
-`δ` to denote the transition function;  
-and we use `UF` to denote the global union find data structure.
-```
-Given two automata (S₁, δ₁, ŝ₁) and (S₂, δ₂, ŝ₂):
-    let todo = {(ŝ₁, ŝ₂)} 
-    for (s₁, s₂) in todo:
-        # unpack the transitions
-        let (γ₁, ψ₁) = δ₁(s₁)
-        let (γ₂, ψ₂) = δ₂(s₂)
-
-        # two states accepts different atoms, return false
-        if ψ₁ ≢ ψ₂
-            return false
+(* could be improved by a state monad, but too bad...*)
+let _dead (s ∈ S): = 
+    let discovered_states := ∅ in
+    let dead_with_discovered (s: state) := 
+        if s ∈ discovered_states then unknown
+        (* accepting state is live *)
+        else if ϵ̂(s) ≢ 0 then live 
         else 
-            let rep₁ = UF.find s₁
-            let rep₂ = UF.find s₂
-            # already marked as bisimular, continue
-            if UF.eq rep₁ rep₂
-                then continue
-            else 
-                # mark as bisimular, and check reachable state
-                UF.union s₁ s₂
+            discovered_states := discovered_states ∪ {s}
+            if ∃ s' ∈ {s' ∣ δ̂(s, ϕ) = (s', p), ϕ ≢ 0}, check_dead_with_discovered(s') = live
+            then live else unknown
+    in
 
-                for s₁' in reachable s₁
-                for s₂' in reachable s₂
-                    let (ϕ₁, p₁) = γ₁(s₁')
-                    let (ϕ₂, p₂) = γ₂(s₂')
+    if dead_with_discovered(s) = live 
+    then live else (dead with discovered_states)
 
-                    # there is no overlap between transition, nothing to do
-                    if ϕ₁ ∧ ϕ₂ ≠ ⊥ 
-                        then continue
-
-                    # there is overlap, check bisimulation
-
-                    # the first case, contradiction to bisimulation, return false
-                    else if p₁ ≠ p₂
-                        return false 
-                    # no contradiction found yet, add the check for later
-                    else 
-                        append todo (s₁', s₂')
-                            
-    # finished all the elements in todo
-    return true
+let is_dead (s) := if s ∈ dead_states then true else dead(s)
 ```
-Note that this function is long and monolithic, 
-probably want to split it into several functions,
-to keep the function size small.
+Notice that the above algorithm is implicitly parameterized over the coalgebra.
+In there we assume the coalgebra is `S`. 
+Another module will be produced when we are checking dead states of another coalgebra.
+
+Then the main normalized bisimulation checking algorithm 
+between `s, t` in GKAT coalgebra `S` can be produced as follows:
+```ocaml
+(* rejection, the atoms that does not accept or transition *)
+ρ(s ∈ S) = ¬ ϵ̂(s) ∧ ⋀ {¬ ϕ ∣ δ̂(s, ϕ) is defined }
+
+let bisim (s ∈ S, t ∈ T): 
+    (* already marked as equal *)
+    if UF.eq s t then true
+    else if s ∈ dead_states then is_dead(t)
+    else if t ∈ dead_states then is_dead(s)
+    else 
+        (* epsilon equal *)
+        ϵ̂(s) ≡ ϵ̂(t) && 
+        (* rejection do not overlap *)
+        ∀ ϕ_s ∈ {ϕ ∣ δ̂(s, ϕ) is defined}, ϕ_s ∧ ρ(t) ≡ 0 &&
+        ∀ ϕ_t ∈ {ϕ ∣ δ̂(t, ϕ) is defined}, ϕ_t ∧ ρ(s) ≡ 0 &&
+        (* transition are bisimilar *)
+        UF.union s, t;
+        ∀ δ̂(s, ϕ_s) = (s', p), δ̂(t, ϕ_t) = (t', q)
+        ϕ_s ∧ ϕ_t ≢ 0  ===>  p = q && bisim (s', t')
+```
+
