@@ -1,20 +1,20 @@
 # A UnionFind Based Algorithm For KAT
 
-Ocaml UnionFind Doc: 
+Ocaml UnionFind Doc:
 - How to Construct a Union Find module: https://v3.ocaml.org/p/unionFind/latest/doc/index.html
 - Functions: https://v3.ocaml.org/p/unionFind/latest/doc/UnionFind/index.html
 **Note the unionfind data structure is impure, so try to encapsulate its effect**
 
-PseudoCode: 
+PseudoCode:
 ```Ocaml
 (*build the union find module, I am not sure this will work TBH*)
 module UF = UnionFind.Make(UnionFind.StoreTransactionalRef)
 
 (*Derivatives As Pairs*)
-fun equivCheck (todo: KATPairSets.t) : bool = 
-    case Set.chooseopt todo of 
+fun equivCheck (todo: KATPairSets.t) : bool =
+    case Set.chooseopt todo of
     (*nothing left to check, done*)
-    | None -> True 
+    | None -> True
     (*checking sum1 and sum2*)
     | Some (sum1, sum2) ->
         let rest = KATPairSets.delete (sum1, sum2) todo
@@ -24,30 +24,30 @@ fun equivCheck (todo: KATPairSets.t) : bool =
         if UF.eq (UF.make sum1) (UF.make sum2)
             then equivCheck rest
         (*their epsilon is not the same, hence not bisimular*)
-        else if ep_sum sum1 != ep_sum sum2 
+        else if ep_sum sum1 != ep_sum sum2
             then False
         (*check all the derivatives*)
-        else 
+        else
             (*marks the two derivative as bisimular*)
-            let _ = UF.union sum1 sum2 in 
+            let _ = UF.union sum1 sum2 in
             (*append the derivatives to the rest*)
-            let deriv_pairs = deriv_sum_pairs (sum1, sum2) in 
-            let new_todo = KATPairSets.union rest deriv_pairs in 
+            let deriv_pairs = deriv_sum_pairs (sum1, sum2) in
+            let new_todo = KATPairSets.union rest deriv_pairs in
             equivCheck new_todo
 ```
 
 
-# A Symbolic Algorithm for GKAT
+# A Bisimulation algorithm for Symbolic GKAT Coalgebra
 
-The symbolic GKAT automata over the alphabet (K, B) 
+The symbolic GKAT automata over the alphabet (K, B)
 is defined by a state set S, and two operations:
 ```
 ϵ̂: S → BExp
 δ̂: S → BExp ↛ S × K
 ```
-where ↛ means a partial map. Intuitively, all the 
-atoms that satisfy ϵ̂(s) (i.e. α ≤ ϵ̂(s)) will be accepted by the state s;  
-and if δ̂(s, ϕ) = (s', p), then for all the atom α ≤ ϕ, it will transition 
+where ↛ means a partial map. Intuitively, all the
+atoms that satisfy ϵ̂(s) (i.e. α ≤ ϵ̂(s)) will be accepted by the state s;
+and if δ̂(s, ϕ) = (s', p), then for all the atom α ≤ ϕ, it will transition
 state s to state s' while executing action p.
 
 We first present the algorithm to detect dead states.
@@ -56,7 +56,7 @@ which will take into account of the `discovered_states`.
 This function will return:
 - `live` to indicate the state `s` is live,
 - `unknown` to indicate we were not able to find a live state in its reachable state at this point
-the function `_dead` will return either 
+the function `_dead` will return either
 - `live` to indicate the state `s` is live
 - `dead` with all the reachable state of `s`, to indicate that they are all dead.
 Finally, the `is_dead` function is exposed to the outside, which takes care of the caching by `dead_states`.
@@ -64,41 +64,41 @@ Finally, the `is_dead` function is exposed to the outside, which takes care of t
 let dead_states := ∅
 
 (* could be improved by a state monad, but too bad...*)
-let _dead (s ∈ S): = 
+let _dead (s ∈ S): =
     let discovered_states := ∅ in
-    let dead_with_discovered (s: state) := 
+    let dead_with_discovered (s: state) :=
         if s ∈ discovered_states then unknown
         (* accepting state is live *)
-        else if ϵ̂(s) ≢ 0 then live 
-        else 
+        else if ϵ̂(s) ≢ 0 then live
+        else
             discovered_states := discovered_states ∪ {s}
             if ∃ s' ∈ {s' ∣ δ̂(s, ϕ) = (s', p), ϕ ≢ 0}, check_dead_with_discovered(s') = live
             then live else unknown
     in
 
-    if dead_with_discovered(s) = live 
+    if dead_with_discovered(s) = live
     then live else (dead with discovered_states)
 
 let is_dead (s) := if s ∈ dead_states then true else dead(s)
 ```
 Notice that the above algorithm is implicitly parameterized over the coalgebra.
-In there we assume the coalgebra is `S`. 
+In there we assume the coalgebra is `S`.
 Another module will be produced when we are checking dead states of another coalgebra.
 
-Then the main normalized bisimulation checking algorithm 
+Then the main normalized bisimulation checking algorithm
 between `s, t` in GKAT coalgebra `S` can be produced as follows:
 ```ocaml
 (* rejection, the atoms that does not accept or transition *)
 ρ(s ∈ S) = ¬ ϵ̂(s) ∧ ⋀ {¬ ϕ ∣ δ̂(s, ϕ) is defined }
 
-let bisim (s ∈ S, t ∈ T): 
+let bisim (s ∈ S, t ∈ T):
     (* already marked as equal *)
     if UF.eq s t then true
     else if s ∈ dead_states then is_dead(t)
     else if t ∈ dead_states then is_dead(s)
-    else 
+    else
         (* epsilon equal *)
-        ϵ̂(s) ≡ ϵ̂(t) && 
+        ϵ̂(s) ≡ ϵ̂(t) &&
         (* rejection do not overlap *)
         ∀ ϕ_s ∈ {ϕ ∣ δ̂(s, ϕ) is defined}, ϕ_s ∧ ρ(t) ≡ 0 &&
         ∀ ϕ_t ∈ {ϕ ∣ δ̂(t, ϕ) is defined}, ϕ_t ∧ ρ(s) ≡ 0 &&
@@ -106,5 +106,54 @@ let bisim (s ∈ S, t ∈ T):
         UF.union s, t;
         ∀ δ̂(s, ϕ_s) = (s', p), δ̂(t, ϕ_t) = (t', q)
         ϕ_s ∧ ϕ_t ≢ 0  ===>  p = q && bisim (s', t')
+```
+
+# Constructing a Symbolic GKAT coalgebra, Thompson's construction
+
+Thompson's construction constructs a GKAT coalgebra ⟨S, ϵ̂, δ̂⟩ 
+with a start behavior δ*: BExp ↛ S × K and ϵ*: BExp. 
+The pseudostate is can be seen as the "start state" of the automata,
+and the entire colagebra can be constructed by adding a fresh state *
+that takes the behavior of ι̂, then two expression are equivalent
+iff their start is bisimular. 
+
+test `b` case: 
+```
+S = δ* = ∅; ϵ* = b.
+```
+
+primitive action p case: 
+```
+S = {s}; ϵ* = 0; δ* = {1 ↦ (s, p)} 
+ϵ(s) = 1; δ(s) = ∅
+```
+
+if statement `if b then e1 else e2`:
+```
+S = S1 + S2; 
+ϵ* = (b ∧ ϵ*1) ∨ (¬ b ∧ ϵ*2);
+δ* = {b ∧ ϕ ↦ (s', p) ∣ ϕ ↦ (s', p) ∈ δ*1} ∪ {¬ b ∧ ϕ ↦ (s', p) ∣ ϕ ↦ (s', p) ∈ δ*2}
+ϵ = ϵ1 + ϵ2
+δ = δ1 + δ2
+```
+
+sequencing `e1; e2`:
+```
+S = S1 + S2; 
+ϵ* = ϵ*1 ∧ ϵ*2
+δ* = {ϕ ↦ (s', p) ∣ ϕ ↦ (s', p) ∈ δ*1} ∪ {ψ ∧ ϵ*1 ↦ (s', p) ∣ ϕ ↦ (s', p) ∈ δ*2}
+ϵ(s) = if s ∈ S1 then ϵ1(s) ∧ ϵ*2 else ϵ2(s)
+δ(s) = if s ∈ S1 then 
+    δ1(s) ∪ {ψ ∧ ϕ ↦ (s', p) ∣ ϕ ∈ ϵ1(s), ϕ ↦ (s', p) ∈ δ2(s)}
+    else δ2(s)
+```
+
+while loop `while b do e1`:
+```
+S = S1 
+ϵ* = ¬ b ∨ ϵ*1
+δ* = {b ∧ ϕ ↦ (s', p) ∣ ϕ ↦ (s', p) ∈ δ*1}
+ϵ(s) = ¬ b ∧ ϵ1(s)
+δ(s) = {b ∧ ϵ1(s) ∧ ϕ ↦ (s', p) ∣ ϕ ↦ (s', p) ∈ δ*1} ∪ δ1(s)
 ```
 
