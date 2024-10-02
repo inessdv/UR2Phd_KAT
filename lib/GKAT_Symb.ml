@@ -43,7 +43,7 @@ module BExp = struct
   let one : t = hashcons @@ (One, MLBDD.dtrue bdd_context)
 
   let pBool (num : int) : t =
-    hashcons @@ (PBool (Hashtbl.hash num), MLBDD.ithvar bdd_context num)
+    hashcons @@ (PBool (num), MLBDD.ithvar bdd_context num)
 
   let b_not (b1 : t) : t =
     if b1 == one then zero
@@ -94,7 +94,7 @@ end
 
 module Exp = struct
   type t = t_ Hashcons.hash_consed
-  (** hashconsed GKAT expression*)
+  (** hashconsed GKAT expressson*)
 
   and t_ =
     | Pact of string * int
@@ -546,7 +546,6 @@ module Derivatives = struct
     (* clean the union-find table,
        as they can incorrectly link unequal expression when equiv_res if false*)
     if not equiv then ExpTbl.clear union_find_tbl;
-    MLBDD.clear BExp.bdd_context;
     equiv
 
   (*let rec equiv (exp1 : Exp.t) (exp2 : Exp.t) : bool =
@@ -637,14 +636,14 @@ module Derivatives = struct
 
   let gkat_exampl1 =
     Exp.while_do
-      (BExp.b_or (BExp.pBool 1) (BExp.b_or (BExp.pBool 1) (BExp.pBool 3)))
+      (BExp.b_or (BExp.pBool 1) (BExp.b_or (BExp.pBool 3) (BExp.pBool 2)))
       (Exp.if_then_else (BExp.pBool 1)
          (Exp.test (BExp.pBool 1))
          (Exp.test (BExp.one)))
 
   let gkat_example2 =
     Exp.while_do
-      (BExp.b_or (BExp.b_or (BExp.pBool 1) (BExp.pBool 1)) (BExp.pBool 3))
+      (BExp.b_or (BExp.b_or (BExp.pBool 1) (BExp.pBool 3)) (BExp.pBool 2))
       (Exp.seq (Exp.test (BExp.pBool 1)) (Exp.test (BExp.pBool 1)))
 end
 
