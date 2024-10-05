@@ -1,6 +1,8 @@
-module BExp = struct
+open Solvers
+
+module BExp (S.Solver)= struct
   (** Module for working with boolean expressions *)
-  type t_node = (t_ * Z3.Expr.expr) 
+  type t_node = (t_ * Z3.Expr.expr) (*check t_ type*)
   
   and t = t_node Hashcons.hash_consed
   (** The type for a hashconsed boolean expression *)
@@ -38,26 +40,32 @@ module BExp = struct
   end
 
   module HashT = Hashcons.Make (T_node)
-
   (** table used for hash consing 
     notice because of hash consing, we can build *)
   let tbl = HashT.create 251
 
-  let z3_empty_ctx = Z3.mk_context []
+  let empty_ctx = S.mk_context ()
   let hashcons = HashT.hashcons tbl
-  let zero : t = hashcons @@ (Zero, Z3.Boolean.mk_false z3_empty_ctx)
-  let one : t = hashcons @@ (One, Z3.Boolean.mk_true z3_empty_ctx)
+  let zero : t = hashcons @@ (Zero, S.mk_false empty_ctx)
+  let one : t = hashcons @@ (One, S.mk_true empty_ctx)
 
-  let pBool (str : string) : t =
-    hashcons
-    @@ (PBool (str, Hashtbl.hash str), Z3.Boolean.mk_const_s z3_empty_ctx str)
+  type type_check = (*Is this a good way to do this???? or will we change to always int???*)
+    | IntVal of int
+    | StringVal of string
+
+  (*if both are num than change this func !!!!*)
+  let pBool (value : type_check) : t =
+    match value with
+    | IntVal num -> hashcons @@ (PBool (num), S.mk_pBool)
+    | StringVal str -> hashcons
+    @@ (PBool (str, Hashtbl.hash str), S.mk_pBool)
 
   let b_not (b1 : t) : t =
     if b1 == one then zero
     else if b1 == zero then one
     else
       let _, b1_ = b1.node in
-      hashcons @@ (Not b1, Z3.Boolean.mk_not z3_empty_ctx b1_)
+      hashcons @@ (Not b1, S.mk_not b1_)
 
   let b_or (b1 : t) (b2 : t) : t =
     if b1 == one then one
@@ -69,7 +77,7 @@ module BExp = struct
     else
       let _, b1_ = b1.node in
       let _, b2_ = b2.node in
-      hashcons @@ (Or (b1, b2), Z3.Boolean.mk_or z3_empty_ctx [ b1_; b2_ ])
+      hashcons @@ (Or (b1, b2), S.mk_or ctx [ b1_; b2_ ])
 
   let b_and (b1 : t) (b2 : t) : t =
     if b1 == one then b2
@@ -81,32 +89,20 @@ module BExp = struct
     else
       let _, b1_ = b1.node in
       let _, b2_ = b2.node in
-      hashcons @@ (And (b1, b2), Z3.Boolean.mk_and z3_empty_ctx [ b1_; b2_ ])
+      hashcons @@ (And (b1, b2), S.mk_and empty_ctx [ b1_; b2_ ])
 
-  (** convert a boolean expression to z3 expression *)
-  let to_z3 (b : t) : Z3.Expr.expr = snd b.node
-
-  let solver = Z3.Solver.mk_solver z3_empty_ctx None
+  (** convert a boolean expression to z3 or mbdd expression *)
+  let to_solver (b : t) : S.t = snd b.node
 
   (** test if a boolean expression is constant false
 
   In other word, whether it is unsatisfiable. *)
-  let is_false (b : t) : bool =
-    match Z3.Solver.check solver [ to_z3 b ] with
-    | Z3.Solver.UNSATISFIABLE -> true
-    | _ -> false
+  let is_false (b : t) : bool = S.is_false
 
   (** Test if two boolean expressions is semantically equivelant. *)
-  let equiv (b1 : t) (b2 : t) : bool =
-    let iff_exp = Z3.Boolean.mk_iff z3_empty_ctx (to_z3 b1) (to_z3 b2) in
-    let not_iff_exp = Z3.Boolean.mk_not z3_empty_ctx iff_exp in 
-    (* if ¬ (b1 ↔ b2) is unsatisfiable, then b1 ↔ b2 is a tautology,
-       thus b1 and b2 are semantically equivalent.*)
-    match Z3.Solver.check solver [ not_iff_exp ] with
-    | Z3.Solver.UNSATISFIABLE -> true
-    | _ -> false
+  let equiv (context: ctx)(b1 : t) (b2 : t) : bool = S.equiv context b1 b2
 
-  let pprint e = Z3.Expr.to_string @@ to_z3 e
+  let pprint e = Z3.Expr.to_string @@ to_z3 e (*CHECK*)
 end
 
 module Exp = struct
