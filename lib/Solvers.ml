@@ -1,5 +1,4 @@
 (***** Solver functor *****)
-
 module type Solver = sig
     (*functor for solvers*)
     type func_t
@@ -44,7 +43,7 @@ module Z3_solver: Solver = struct
   
   (*let mk_solver (ctx:context) (a: 'a option): solver = (*check option type?*)
     Z3.Solver.mk_solver ctx None*)
-    
+
   let to_z3 (b:'a * func_t): func_t = snd b
   let is_false (ctx:context) (b_z1:'a * func_t): bool =
     match Z3.Solver.check (Z3.Solver.mk_solver ctx None) [ to_z3 b_z1 ] with
