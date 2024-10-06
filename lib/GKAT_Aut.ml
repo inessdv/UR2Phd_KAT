@@ -204,7 +204,7 @@ let rec satisfy (at : Atom.t) (iota : bExp) : bool =
   match iota with
   | Zero -> false
   | One -> true
-  | PBool b -> Atom.mem b at
+  | PBool b -> Atom.mem (string_of_int b) at
   | Or (i, b) -> satisfy at i || satisfy at b
   | And (i, b) -> satisfy at i && satisfy at b
   | Not b -> not (satisfy at b)
@@ -487,7 +487,7 @@ let rec be_to_pbool (be : bExp) (p_bool : PBoolSet.t) : PBoolSet.t =
   match be with
   | GKAT_2.Zero -> p_bool
   | GKAT_2.One -> p_bool
-  | GKAT_2.PBool b -> PBoolSet.add b p_bool
+  | GKAT_2.PBool b -> PBoolSet.add (string_of_int b) p_bool
   | GKAT_2.Or (be1, be2) ->
       PBoolSet.union (be_to_pbool be1 p_bool) (be_to_pbool be2 p_bool)
   | GKAT_2.And (be1, be2) ->

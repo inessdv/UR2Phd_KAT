@@ -1,8 +1,103 @@
-open Solvers
+(***** Solver functor *****)
+module type Solver = sig
+  (*functor for solvers*)
+  type func_t
+  type context
+  type solver
+  
+  val mk_context: context
+  val mk_true: context -> func_t
+  val mk_false: context -> func_t
+  val mk_pBool: context -> int -> func_t
+  val mk_not: context -> func_t -> func_t
+  val mk_or: context -> func_t -> func_t -> func_t
+  val mk_and: context -> func_t -> func_t -> func_t
+  (*val mk_solver: context -> 'a option -> solver*)
+  val to_solver: 'a * func_t -> func_t
+  (*val mk_iff: context -> 'a * func_t -> 'a * func_t -> func_t*)
+  val is_false: context -> 'a * func_t -> bool
+  val equiv: context -> 'a * func_t -> 'a * func_t -> bool
+  val to_string: func_t -> string
+end
 
-module BExp (S.Solver)= struct
+
+module Z3_solver: Solver = struct
+
+type func_t = Z3.Expr.expr
+type context =  Z3.context
+type solver = Z3.Solver.solver
+
+let mk_context: context = 
+  Z3.mk_context []
+let mk_true (ctx: context) : func_t =
+  Z3.Boolean.mk_true ctx
+
+let mk_false (ctx: context) : func_t =
+  Z3.Boolean.mk_true ctx
+
+let mk_pBool (ctx:context) (num: int): func_t =
+  let s_num = string_of_int num in
+  Z3.Boolean.mk_const_s ctx ("b"^s_num)
+let mk_not (ctx:context) (z:func_t): func_t =
+  Z3.Boolean.mk_not ctx z
+let mk_or (ctx: context) (b1_z3:func_t) (b2_z3:func_t): func_t =
+  Z3.Boolean.mk_or ctx [ b1_z3; b2_z3 ]
+let mk_and (ctx: context) (b1_z3:func_t) (b2_z3:func_t): func_t =
+  Z3.Boolean.mk_and ctx [ b1_z3; b2_z3 ]
+
+let to_solver (b:'a * func_t): func_t = snd b
+let is_false (ctx:context) (b_z1:'a * func_t): bool =
+  match Z3.Solver.check (Z3.Solver.mk_solver ctx None) [ to_solver b_z1 ] with
+ | Z3.Solver.UNSATISFIABLE -> true
+ | _ -> false
+
+let equiv (ctx: context) (b_z1:'a * func_t) (b_z2:'a * func_t) : bool =
+  let iff_exp = Z3.Boolean.mk_iff ctx (to_solver b_z1) (to_solver b_z2) in
+  let not_iff_exp = mk_not ctx iff_exp in 
+  (* if ¬ (b1 ↔ b2) is unsatisfiable, then b1 ↔ b2 is a tautology,
+     thus b1 and b2 are semantically equivalent.*)
+  match Z3.Solver.check (Z3.Solver.mk_solver ctx None) [ not_iff_exp ] with
+  | Z3.Solver.UNSATISFIABLE -> true
+  | _ -> false
+
+  let to_string (e: func_t): string = Z3.Expr.to_string @@ e 
+end
+
+module Mlbdd_solver: Solver = struct
+type func_t = MLBDD.t
+type context = MLBDD.man
+type solver = unit
+
+let mk_context: context = 
+  MLBDD.init ()
+let mk_true (ctx: context) : func_t =
+  MLBDD.dtrue ctx
+let mk_false (ctx: context) : func_t =
+  MLBDD.dfalse ctx
+let mk_pBool (ctx:context) (num: int): func_t =
+  MLBDD.ithvar ctx num
+let mk_not (ctx:context) (z:func_t): func_t =
+  MLBDD.dnot z
+let mk_or (ctx: context) (b1_:func_t) (b2_:func_t): func_t =
+  MLBDD.dor b1_ b2_
+let mk_and (ctx: context) (b1_:func_t) (b2_:func_t): func_t =
+  MLBDD.dand b1_ b2_
+
+let to_solver (b:'a * func_t): func_t = snd b
+let is_false (ctx:context) (b_:'a * func_t): bool =
+  MLBDD.is_false (to_solver b_)
+
+let equiv (ctx: context) (b1_:'a * func_t) (b2_:'a * func_t) : bool =
+  MLBDD.equal (to_solver b1_) (to_solver b2_)
+
+let to_string(e: func_t): string =
+  MLBDD.to_string e
+
+end
+
+module BExp (S: Solver)= struct
   (** Module for working with boolean expressions *)
-  type t_node = (t_ * Z3.Expr.expr) (*check t_ type*)
+  type t_node = (t_ * S.func_t) (*check t_ type*)
   
   and t = t_node Hashcons.hash_consed
   (** The type for a hashconsed boolean expression *)
@@ -11,7 +106,7 @@ module BExp (S.Solver)= struct
   and t_ =
     | Zero
     | One
-    | PBool of string * int
+    | PBool of int
     | Or of t * t
     | And of t * t
     | Not of t
@@ -23,7 +118,7 @@ module BExp (S.Solver)= struct
       match (t1, t2) with
       | Zero, Zero -> true
       | One, One -> true
-      | PBool (_, i), PBool (_, j) -> i == j
+      | PBool i, PBool j -> i == j
       | Or (x1, y1), Or (x2, y2) -> x1 == x2 && y1 == y2
       | And (x1, y1), And (x2, y2) -> x1 == x2 && y1 == y2
       | Not x1, Not x2 -> x1 == x2
@@ -33,7 +128,7 @@ module BExp (S.Solver)= struct
       match t with
       | Zero -> Hashtbl.hash `Zero
       | One -> Hashtbl.hash `One
-      | PBool (_, i) -> Hashtbl.hash (`PBool i)
+      | PBool i -> Hashtbl.hash (`PBool i)
       | Or (x, y) -> Hashtbl.hash (`Or (x.hkey, y.hkey))
       | And (x, y) -> Hashtbl.hash (`And (x.hkey, y.hkey))
       | Not x -> Hashtbl.hash (`Not x.hkey)
@@ -44,12 +139,13 @@ module BExp (S.Solver)= struct
     notice because of hash consing, we can build *)
   let tbl = HashT.create 251
 
-  let empty_ctx = S.mk_context ()
+  let empty_ctx = S.mk_context
   let hashcons = HashT.hashcons tbl
   let zero : t = hashcons @@ (Zero, S.mk_false empty_ctx)
   let one : t = hashcons @@ (One, S.mk_true empty_ctx)
 
-  type type_check = (*Is this a good way to do this???? or will we change to always int???*)
+(*Is this a good way to do this???? or will we change to always int???
+  type type_check = 
     | IntVal of int
     | StringVal of string
 
@@ -59,13 +155,16 @@ module BExp (S.Solver)= struct
     | IntVal num -> hashcons @@ (PBool (num), S.mk_pBool)
     | StringVal str -> hashcons
     @@ (PBool (str, Hashtbl.hash str), S.mk_pBool)
+  *)
+  let pBool (num : int) : t =
+    hashcons @@ (PBool (num), S.mk_pBool empty_ctx num)
 
   let b_not (b1 : t) : t =
     if b1 == one then zero
     else if b1 == zero then one
     else
       let _, b1_ = b1.node in
-      hashcons @@ (Not b1, S.mk_not b1_)
+      hashcons @@ (Not b1, S.mk_not empty_ctx b1_)
 
   let b_or (b1 : t) (b2 : t) : t =
     if b1 == one then one
@@ -77,7 +176,9 @@ module BExp (S.Solver)= struct
     else
       let _, b1_ = b1.node in
       let _, b2_ = b2.node in
-      hashcons @@ (Or (b1, b2), S.mk_or ctx [ b1_; b2_ ])
+      hashcons @@ (Or (b1, b2), S.mk_or empty_ctx b1_ b2_)
+      (*hashcons @@ (Or (b1, b2), MLBDD.dor b1_ b2_)*)
+
 
   let b_and (b1 : t) (b2 : t) : t =
     if b1 == one then b2
@@ -89,20 +190,21 @@ module BExp (S.Solver)= struct
     else
       let _, b1_ = b1.node in
       let _, b2_ = b2.node in
-      hashcons @@ (And (b1, b2), S.mk_and empty_ctx [ b1_; b2_ ])
+      hashcons @@ (And (b1, b2), S.mk_and empty_ctx b1_ b2_)
+      (*hashcons @@ (And (b1, b2), MLBDD.dand b1_ b2_)*)
 
   (** convert a boolean expression to z3 or mbdd expression *)
-  let to_solver (b : t) : S.t = snd b.node
+  let to_solver (b : t) : S.func_t = snd b.node
 
   (** test if a boolean expression is constant false
 
   In other word, whether it is unsatisfiable. *)
-  let is_false (b : t) : bool = S.is_false
+  let is_false (b : t) : bool = S.is_false empty_ctx b.node
 
   (** Test if two boolean expressions is semantically equivelant. *)
-  let equiv (context: ctx)(b1 : t) (b2 : t) : bool = S.equiv context b1 b2
+  let equiv (b1 : t) (b2 : t) : bool = S.equiv empty_ctx b1.node b2.node
 
-  let pprint e = Z3.Expr.to_string @@ to_z3 e (*CHECK*)
+  let pprint e = S.to_string (to_solver e) (*CHECK*)
 end
 
 module Exp = struct
@@ -577,109 +679,58 @@ module Derivatives = struct
 
   let example1 =
     Exp.seq
-      (Exp.test (BExp.pBool "b1"))
+      (Exp.test (BExp.pBool 1))
       (Exp.seq (Exp.p_act "p0")
-         (Exp.if_then_else (BExp.pBool "b2") (Exp.p_act "p0") (Exp.p_act "p0")))
+         (Exp.if_then_else (BExp.pBool 2) (Exp.p_act "p0") (Exp.p_act "p0")))
 
   (*(b1 * p0) * p0*)
   let example2 =
     Exp.seq
-      (Exp.seq (Exp.test (BExp.pBool "b1")) (Exp.p_act "p0"))
+      (Exp.seq (Exp.test (BExp.pBool 1)) (Exp.p_act "p0"))
       (Exp.p_act "p0")
 
   let example3 =
     Exp.seq (Exp.p_act "p0")
-      (Exp.if_then_else (BExp.pBool "b2") (Exp.p_act "p0") (Exp.p_act "p0"))
+      (Exp.if_then_else (BExp.pBool 2) (Exp.p_act "p0") (Exp.p_act "p0"))
 
   let example5 =
-    Exp.if_then_else (BExp.pBool "b2") (Exp.p_act "p0") (Exp.p_act "p0")
+    Exp.if_then_else (BExp.pBool 2) (Exp.p_act "p0") (Exp.p_act "p0")
 
-  let example4 = Exp.test (BExp.pBool "b1")
+  let example4 = Exp.test (BExp.pBool 1)
 
   let second_example1 =
-    Exp.if_then_else (BExp.pBool "b2") (Exp.p_act "p0") (Exp.p_act "p0")
+    Exp.if_then_else (BExp.pBool 2) (Exp.p_act "p0") (Exp.p_act "p0")
 
   let second_example2 = Exp.p_act "p0"
 
   (*b1 * (p0 * (if b2 then p0 else p0))*)
   let third1 =
     Exp.seq
-      (Exp.test (BExp.pBool "b1"))
+      (Exp.test (BExp.pBool 1))
       (Exp.seq (Exp.p_act "p0")
-         (Exp.if_then_else (BExp.pBool "b2") (Exp.p_act "p0") (Exp.p_act "p0")))
+         (Exp.if_then_else (BExp.pBool 2) (Exp.p_act "p0") (Exp.p_act "p0")))
 
   (* (b1 * p0) * p0 *)
   let third2 =
     Exp.seq
-      (Exp.seq (Exp.test (BExp.pBool "b1")) (Exp.p_act "p0"))
+      (Exp.seq (Exp.test (BExp.pBool 1)) (Exp.p_act "p0"))
       (Exp.p_act "p0")
 
   let third3 =
     Exp.seq
-      (Exp.seq (Exp.p_act "p0") (Exp.test (BExp.pBool "b1")))
+      (Exp.seq (Exp.p_act "p0") (Exp.test (BExp.pBool 1)))
       (Exp.p_act "p0")
 
-  (*
-    let debug (exp1 : gkat): bool =
-      let e1 = from_GKAT_to_KAT exp1 in
-      
-      (** checking if conversion is correct**)
-      print_string "GKAT expression! = ";
-      print_string (Print2.pprint exp1);
-      print_endline "KAT expression! = ";
-      print_string (Print2.pprint e1);
-      
-      let e2 = from_GKAT_to_KAT exp2 in
-      print_string "GKAT expression! = ";
-      print_string (Print2.pprint exp2);
-      print_endline "KAT expression! = ";
-      print_string (pprint e2);
-      equiv e1 e2
-*)
-  let gkat_example1 =
-    Exp.seq
-      (Exp.seq (Exp.p_act "p7")
-         (Exp.if_then_else (BExp.pBool "b2") (Exp.p_act "p6")
-            (Exp.seq
-               (Exp.test (BExp.b_not (BExp.pBool "b2")))
-               (Exp.test (BExp.b_not (BExp.pBool "b1"))))))
-      (Exp.test (BExp.b_not (BExp.pBool "b1")))
 
-  let gkat_example2 = Exp.seq (Exp.p_act "p7") (Exp.p_act "p5")
+let gkat_exampl1 =
+  Exp.while_do
+    (BExp.b_or (BExp.pBool 1) (BExp.b_or (BExp.pBool 1) (BExp.pBool 2)))
+    (Exp.if_then_else (BExp.pBool 1)
+       (Exp.test (BExp.pBool 1))
+       (Exp.test (BExp.pBool 1)))
+let gkat_example2 =
+  Exp.while_do
+    (BExp.b_or (BExp.b_or (BExp.pBool 1) (BExp.pBool 1)) (BExp.pBool 2))
+    (Exp.seq (Exp.test (BExp.pBool 1)) (Exp.test (BExp.pBool 1)))
 end
 
-(* let rec equiv_helper (exp1 : Exp.t) (exp2 : Exp.t) (reject1: BExp.t) (reject2: BExp.t) : bool =
-           let exp1_ele = exp_ele exp1 in
-           let exp2_ele = exp_ele exp2 in
-
-           (** Check if the expressions have already been marked as equiv **)
-           if UnionFind.eq exp1_ele exp2_ele then true else
-
-           (** if both are dead, then they are equivalent **)
-           if ExpHSet.mem exp1 dead_states then is_dead exp2 else
-           if ExpHSet.mem exp2 dead_states then is_dead exp1 else
-
-           (**  Logical connection here instead of if **)
-             (BExp.equiv (epsilon exp1) (epsilon exp2)) &&
-
-               let f_derivatives = derivative exp2 in
-               let e_derivatives = derivative exp1 in
-
-               List.for_all (fun(be,(exp,_))->
-                 is_dead exp  || BExp.is_false (BExp.b_and reject1 be))  f_derivatives
-               &&
-               List.for_all (fun(be,(exp,_))->
-                 is_dead exp  || BExp.is_false (BExp.b_and reject2 be))  e_derivatives
-               &&
-
-               List.for_all(fun ((be1,(next_exp1,p)),(be2,(next_exp2,q)))->
-                 BExp.is_false (BExp.b_and be1 be2) ||
-                 if p = q then (ignore @@UnionFind.union exp1_ele exp2_ele;
-                 if equiv_helper next_exp1 next_exp2 reject1 reject2 then true else false)
-               else
-                 (if (is_dead(next_exp1) && is_dead(next_exp2)) then true else false)) (product e_derivatives f_derivatives)
-   let rec equiv (exp1 : Exp.t) (exp2 : Exp.t) : bool =
-     let reject1 = reject exp1 in
-     let reject2 = reject exp2 in
-       equiv_helper exp1 exp2 reject1 reject2
-*)
