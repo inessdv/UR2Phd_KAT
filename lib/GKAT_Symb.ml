@@ -207,16 +207,18 @@ module BExp (S: Solver)= struct
   let pprint e = S.to_string (to_solver e) (*CHECK*)
 end
 
-module Exp = struct
+module Exp (S:Solver) = struct
+  module S_BExp = BExp(S)
+
   type t = t_ Hashcons.hash_consed
   (** hashconsed GKAT expression*)
 
   and t_ =
     | Pact of string * int
     | Seq of t * t
-    | If of BExp.t * t * t
-    | Test of BExp.t
-    | While of BExp.t * t
+    | If of S_BExp.t * t * t
+    | Test of S_BExp.t
+    | While of S_BExp.t * t
 
   module T_node = struct
     type t = t_
@@ -247,13 +249,13 @@ module Exp = struct
 
   let hashcons : t_ -> t = HashT.hashcons tbl
   let p_act (p : string) : t = hashcons @@ Pact (p, Hashtbl.hash p)
-  let test (b : BExp.t) : t = hashcons @@ Test b
-  let skip : t = test BExp.one
-  let fail : t = test BExp.zero
+  let test (b : S_BExp.t) : t = hashcons @@ Test b
+  let skip : t = test S_BExp.one
+  let fail : t = test S_BExp.zero
 
   let seq (e : t) (f : t) : t =
     match (e.node, f.node) with
-    | Test a, Test b -> test (BExp.b_and a b)
+    | Test a, Test b -> test (S_BExp.b_and a b)
     | _ ->
         if e == skip then f
         else if f == skip then e
@@ -261,14 +263,14 @@ module Exp = struct
         else if f == fail then fail
         else hashcons @@ Seq (e, f)
 
-  let if_then_else (b : BExp.t) (e : t) (f : t) : t =
-    if b == BExp.one then e
-    else if b == BExp.zero then f
-    else if e == fail then seq (test @@ BExp.b_not b) f
+  let if_then_else (b : S_BExp.t) (e : t) (f : t) : t =
+    if b == S_BExp.one then e
+    else if b == S_BExp.zero then f
+    else if e == fail then seq (test @@ S_BExp.b_not b) f
     else if f == fail then seq (test b) e
     else hashcons @@ If (b, e, f)
 
-  let while_do (b : BExp.t) (e : t) : t = hashcons @@ While (b, e)
+  let while_do (b : S_BExp.t) (e : t) : t = hashcons @@ While (b, e)
     (* if b == BExp.zero then skip
     else if b == BExp.one then fail
     else if e == skip || e == fail then test @@ BExp.b_not b 
@@ -330,17 +332,17 @@ module Exp = struct
             let s2' = if p2 < 2 then s2 else "(" ^ s2 ^ ")" in
             (s1' ^ " ; " ^ s2', 2)
         | If (b, e1, e2) ->
-            let bs = BExp.pprint b in
+            let bs = S_BExp.pprint b in
             let s1, p1 = helper e1 in
             let s2, p2 = helper e2 in
             let s1' = if p1 <= 3 then s1 else "(" ^ s1 ^ ")" in
             let s2' = if p2 < 3 then s2 else "(" ^ s2 ^ ")" in
             ("if " ^ bs ^ " then " ^ s1' ^ " else " ^ s2', 3)
         | Test b ->
-            let bs = BExp.pprint b in
+            let bs = S_BExp.pprint b in
             (bs, 1)
         | While (b, e) ->
-            let bs = BExp.pprint b in
+            let bs = S_BExp.pprint b in
             let s, p = helper e in
             let s' = if p <= 1 then s else "(" ^ s ^ ")" in
             ("while " ^ bs ^ " do " ^ s' ^ " done", 1)
@@ -348,8 +350,10 @@ module Exp = struct
       fst @@ helper exp
 end
 
-module Derivatives = struct
+module Derivatives(S:Solver) = struct
   (** defines derivatives *)
+  module S_Exp = Exp(S)
+  module S_BExp = BExp(S)
 
   module HSet = Hashcons.Hset
   (** a fast immutable map for hashconsed key *)
@@ -359,7 +363,7 @@ module Derivatives = struct
   that is accepted by the expression *)
 
   module ExpTbl = Hashtbl.Make (struct
-    type t = Exp.t
+    type t = S_Exp.t
 
     let hash (e : t) = e.hkey
     let equal e1 e2 = e1 == e2
@@ -369,57 +373,57 @@ module Derivatives = struct
     type t = unit ExpTbl.t
 
     let create : int -> t = ExpTbl.create
-    let add (exp : Exp.t) (s : t) : unit = ExpTbl.add s exp ()
-    let remove (exp : Exp.t) (s : t) : unit = ExpTbl.remove s exp
+    let add (exp : S_Exp.t) (s : t) : unit = ExpTbl.add s exp ()
+    let remove (exp : S_Exp.t) (s : t) : unit = ExpTbl.remove s exp
 
-    let mem (exp : Exp.t) (s : t) : bool =
+    let mem (exp : S_Exp.t) (s : t) : bool =
       Option.is_some @@ ExpTbl.find_opt s exp
 
-    let add_to_fst (hset1 : t) (hset2 : Exp.t_ HSet.t) : unit =
+    let add_to_fst (hset1 : t) (hset2 : S_Exp.t_ HSet.t) : unit =
       HSet.iter (fun exp -> add exp hset1) hset2
 
     let clear = ExpTbl.clear
     let length = ExpTbl.length
   end
 
-  let rec epsilon (exp : Exp.t) : BExp.t =
+  let rec epsilon (exp : S_Exp.t) : S_Exp.t =
     match exp.node with
-    | Pact _ -> BExp.zero
-    | Seq (e, f) -> BExp.b_and (epsilon e) (epsilon f)
+    | Pact _ -> S_Exp.BExp.zero
+    | Seq (e, f) -> S_BExp.b_and (epsilon e) (epsilon f)
     | If (be, e, f) ->
         BExp.b_or
           (BExp.b_and be (epsilon e))
           (BExp.b_and (BExp.b_not be) (epsilon f))
     | Test be -> be
-    | While (be, _) -> BExp.b_not be
+    | While (be, _) -> S_BExp.b_not be
 
   (** The derivative of a expression: δ ∈ exp -> (BExp ↛ exp × Σ)
   This uses the map representation of the derivative for the ease of implementation,
   and primitive action is encoded as a string *)
 
-  let combine_BE_with_a (be : BExp.t) (m : (BExp.t * (Exp.t * int)) list) :
-      (BExp.t * (Exp.t * int)) list =
+  let combine_BE_with_a (be : S_Exp.t) (m : (S_Exp.t * (S_Exp.t * int)) list) :
+      (S_Exp.t * (S_Exp.t * int)) list =
     List.map (fun (a, b) -> (BExp.b_and a be, b)) m
 
-  let while_helper (be : BExp.t) (exp : Exp.t)
-      (m : (BExp.t * (Exp.t * int)) list) : (BExp.t * (Exp.t * int)) list =
+  let while_helper (be : S_Exp.t) (exp : S_Exp.t)
+      (m : (S_Exp.t * (S_Exp.t * int)) list) : (S_Exp.t * (S_Exp.t * int)) list =
     List.map
       (fun (a, (e', p)) ->
         (BExp.b_and a be, (Exp.seq e' (Exp.while_do be exp), p)))
       m
 
-  let sequence_helper_without_epsilon (exp2 : Exp.t)
-      (m : (BExp.t * (Exp.t * int)) list) : (BExp.t * (Exp.t * int)) list =
+  let sequence_helper_without_epsilon (exp2 : S_Exp.t)
+      (m : (BS_Exp.t * (S_Exp.t * int)) list) : (BS_Exp.t * (S_Exp.t * int)) list =
     List.map (fun (b, (e', p)) -> (b, (Exp.seq e' exp2, p))) m
 
-  let sequence_helper_with_epsilon (eps : BExp.t)
-      (m : (BExp.t * (Exp.t * int)) list) : (BExp.t * (Exp.t * int)) list =
+  let sequence_helper_with_epsilon (eps : BS_Exp.t)
+      (m : (BS_Exp.t * (S_Exp.t * int)) list) : (BS_Exp.t * (S_Exp.t * int)) list =
     List.map (fun (b, pair) -> (BExp.b_and b eps, pair)) m
 
-  let rec derivative (exp : Exp.t) : (BExp.t * (Exp.t * int)) list =
+  let rec derivative (exp : S_Exp.t) : (BS_Exp.t * (S_Exp.t * int)) list =
     match exp.node with
     | Test _ -> []
-    | Pact (_, p) -> [ (BExp.one, (Exp.test BExp.one, p)) ]
+    | Pact (_, p) -> [ (BExp.one, (S_Exp.test BExp.one, p)) ]
     | If (be, exp1, exp2) ->
         (* get rid of repetitions--> do List.sort_uniq**)
         combine_BE_with_a be (derivative exp1)
@@ -434,7 +438,7 @@ module Derivatives = struct
         let derive_e = derivative e in
         while_helper be e derive_e
 
-  let pprint_deriv (deriv : (BExp.t * (Exp.t * int)) list) =
+  let pprint_deriv (deriv : (BS_Exp.t * (S_Exp.t * int)) list) =
     String.concat "\n"
     @@ List.map
          (fun (bexp, (der, p_act)) ->
@@ -443,8 +447,8 @@ module Derivatives = struct
          deriv
 
   module DeadExps : sig
-    val is_dead : Exp.t -> bool
-    val known_dead : Exp.t -> bool
+    val is_dead : S_Exp.t -> bool
+    val known_dead : S_Exp.t -> bool
     val clear_dead : unit
     val length : int
   end = struct
@@ -469,7 +473,7 @@ module Derivatives = struct
           (** the visited expression is *known* to be dead, i.e. in `dead_states`*)
       | Live
           (** the visited node is live, i.e. accepting state is found in the visit *)
-      | Unknown of Exp.t_ HSet.t
+      | Unknown of S_Exp.t_ HSet.t
           (** the visited node is unknown to be dead or live, 
           the arugument is all the explored expressions while visiting that node*)
 
@@ -478,7 +482,7 @@ module Derivatives = struct
     - return `Live` if any of them is returning live, 
     - return `Dead` if all of them are returning dead, 
     - return `Unknown` otherwise *)
-    let rec visit_decedents (explored : Exp.t_ HSet.t) (exps : Exp.t list) :
+    let rec visit_decedents (explored : S_Exp.t_ HSet.t) (exps : S_Exp.t list) :
         visitRes =
       match exps with
       | [] -> Unknown explored
@@ -489,7 +493,7 @@ module Derivatives = struct
           | Unknown states -> visit_decedents (HSet.union explored states) xs)
 
     (** visit a single expression, *)
-    and visit (explored : Exp.t_ HSet.t) (exp : Exp.t) : visitRes =
+    and visit (explored : S_Exp.t_ HSet.t) (exp : S_Exp.t) : visitRes =
       (* print_endline ("visiting "^Exp.pprint exp); *)
       if known_dead exp then KnownDead
       else if HSet.mem exp explored then Unknown explored
@@ -514,7 +518,7 @@ module Derivatives = struct
     (** Check whether an expression is dead.
     
     When it returns false, the expression is necessarily live.*)
-    let is_dead (exp : Exp.t) : bool =
+    let is_dead (exp : S_Exp.t) : bool =
       (* print_endline ("checking whether exp "^Exp.pprint exp^" is dead");  *)
       match visit HSet.empty exp with
       (* if it is unknown wether it is dead
@@ -537,7 +541,7 @@ module Derivatives = struct
   let union_find_tbl = ExpTbl.create 251
 
   (** Add expression to hash table if it has not yet been added **)
-  let exp_ele (exp : Exp.t) : Exp.t UnionFind.elem =
+  let exp_ele (exp : S_Exp.t) : S_Exp.t UnionFind.elem =
     match ExpTbl.find_opt union_find_tbl exp with
     | Some exp_ele -> exp_ele
     | None ->
@@ -553,7 +557,7 @@ module Derivatives = struct
   
   logically, the expression can be written as follows: 
   ¬ ϵ(e) ∧ ¬ (⋁_{ψ ↦ (e', p) ∈ δ(e)} ψ) *)
-  let reject (exp : Exp.t) : BExp.t =
+  let reject (exp : S_Exp.t) : BS_Exp.t =
     let exp_derivatives = derivative exp in
     let epsilon = epsilon exp in
     let transitions =
@@ -571,7 +575,7 @@ module Derivatives = struct
       print_tuple (Print2.pprint_bexp  result_dehash);*)
     result
 
-  let rec equiv_helper (exp1 : Exp.t) (exp2 : Exp.t) : bool =
+  let rec equiv_helper (exp1 : S_Exp.t) (exp2 : S_Exp.t) : bool =
     let reject1 = reject exp1 in
     let reject2 = reject exp2 in
 
@@ -656,14 +660,14 @@ module Derivatives = struct
          print_endline (string_of_bool assert_trans); *)
       assert_trans
 
-  let equiv (exp1 : Exp.t) (exp2 : Exp.t) : bool =
+  let equiv (exp1 : S_Exp.t) (exp2 : S_Exp.t) : bool =
     let equiv = equiv_helper exp1 exp2 in
     (* clean the union-find table,
        as they can incorrectly link unequal expression when equiv_res if false*)
     if not equiv then ExpTbl.clear union_find_tbl;
     equiv
 
-  (*let rec equiv (exp1 : Exp.t) (exp2 : Exp.t) : bool =
+  (*let rec equiv (exp1 : S_Exp.t) (exp2 : S_Exp.t) : bool =
     let reject1 = reject exp1 in
     let reject2 = reject exp2 in
       equiv_helper exp1 exp2 reject1 reject2 *)
@@ -671,66 +675,66 @@ module Derivatives = struct
   (**Testing purposes**)
   (*b1 * (p0 * (if b2 then p0 else p0))*)
   (*
-       let from_hash_to_GKAT(exp: (BExp.t * (Exp.t * string)) list):(bExp * (gkat * string)) list =
+       let from_hash_to_GKAT(exp: (BS_Exp.t * (S_Exp.t * string)) list):(bExp * (gkat * string)) list =
         List.map(fun (be,(next_exp,p))->(dehashcons_bexp be,(dehashcons_gkat next_exp,p))) exp
 
        let from_product_to_GKAT(exp)= List.map(fun ((be1,(next_exp1,p)),(be2,(next_exp2,q))) ->
          (dehashcons_bexp be1,(dehashcons_gkat next_exp1,p)),(dehashcons_bexp be2,(dehashcons_gkat next_exp2,q))) (exp) *)
 
   let example1 =
-    Exp.seq
-      (Exp.test (BExp.pBool 1))
-      (Exp.seq (Exp.p_act "p0")
-         (Exp.if_then_else (BExp.pBool 2) (Exp.p_act "p0") (Exp.p_act "p0")))
+    S_Exp.seq
+      (S_Exp.test (BExp.pBool 1))
+      (S_Exp.seq (S_Exp.p_act "p0")
+         (Exp.if_then_else (BExp.pBool 2) (S_Exp.p_act "p0") (S_Exp.p_act "p0")))
 
   (*(b1 * p0) * p0*)
   let example2 =
-    Exp.seq
-      (Exp.seq (Exp.test (BExp.pBool 1)) (Exp.p_act "p0"))
-      (Exp.p_act "p0")
+    S_Exp.seq
+      (S_Exp.seq (S_Exp.test (BExp.pBool 1)) (S_Exp.p_act "p0"))
+      (S_Exp.p_act "p0")
 
   let example3 =
-    Exp.seq (Exp.p_act "p0")
-      (Exp.if_then_else (BExp.pBool 2) (Exp.p_act "p0") (Exp.p_act "p0"))
+    S_Exp.seq (S_Exp.p_act "p0")
+      (S_Exp.if_then_else (BExp.pBool 2) (S_Exp.p_act "p0") (S_Exp.p_act "p0"))
 
   let example5 =
-    Exp.if_then_else (BExp.pBool 2) (Exp.p_act "p0") (Exp.p_act "p0")
+    S_Exp.if_then_else (BExp.pBool 2) (S_Exp.p_act "p0") (S_Exp.p_act "p0")
 
-  let example4 = Exp.test (BExp.pBool 1)
+  let example4 = S_Exp.test (BExp.pBool 1)
 
   let second_example1 =
-    Exp.if_then_else (BExp.pBool 2) (Exp.p_act "p0") (Exp.p_act "p0")
+    S_Exp.if_then_else (BExp.pBool 2) (S_Exp.p_act "p0") (S_Exp.p_act "p0")
 
-  let second_example2 = Exp.p_act "p0"
+  let second_example2 = S_Exp.p_act "p0"
 
   (*b1 * (p0 * (if b2 then p0 else p0))*)
   let third1 =
-    Exp.seq
-      (Exp.test (BExp.pBool 1))
-      (Exp.seq (Exp.p_act "p0")
-         (Exp.if_then_else (BExp.pBool 2) (Exp.p_act "p0") (Exp.p_act "p0")))
+    S_Exp.seq
+      (S_Exp.test (BExp.pBool 1))
+      (S_Exp.seq (S_Exp.p_act "p0")
+         (S_Exp.if_then_else (BExp.pBool 2) (S_Exp.p_act "p0") (S_Exp.p_act "p0")))
 
   (* (b1 * p0) * p0 *)
   let third2 =
-    Exp.seq
-      (Exp.seq (Exp.test (BExp.pBool 1)) (Exp.p_act "p0"))
-      (Exp.p_act "p0")
+    S_Exp.seq
+      (S_Exp.seq (S_Exp.test (BExp.pBool 1)) (S_Exp.p_act "p0"))
+      (S_Exp.p_act "p0")
 
   let third3 =
-    Exp.seq
-      (Exp.seq (Exp.p_act "p0") (Exp.test (BExp.pBool 1)))
-      (Exp.p_act "p0")
+    S_Exp.seq
+      (S_Exp.seq (S_Exp.p_act "p0") (S_Exp.test (BExp.pBool 1)))
+      (S_Exp.p_act "p0")
 
 
 let gkat_exampl1 =
-  Exp.while_do
+  S_Exp.while_do
     (BExp.b_or (BExp.pBool 1) (BExp.b_or (BExp.pBool 1) (BExp.pBool 2)))
-    (Exp.if_then_else (BExp.pBool 1)
-       (Exp.test (BExp.pBool 1))
-       (Exp.test (BExp.pBool 1)))
+    (S_Exp.if_then_else (BExp.pBool 1)
+       (S_Exp.test (BExp.pBool 1))
+       (S_Exp.test (BExp.pBool 1)))
 let gkat_example2 =
-  Exp.while_do
+  S_Exp.while_do
     (BExp.b_or (BExp.b_or (BExp.pBool 1) (BExp.pBool 1)) (BExp.pBool 2))
-    (Exp.seq (Exp.test (BExp.pBool 1)) (Exp.test (BExp.pBool 1)))
+    (Exp.seq (S_Exp.test (BExp.pBool 1)) (S_Exp.test (BExp.pBool 1)))
 end
 
