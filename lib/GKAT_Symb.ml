@@ -17,7 +17,7 @@ module BExp = struct
   module T_node = struct
     type t = t_node
 
-    let equal (t1, _) (t2, _) =
+    let equal (t1) (t2) =
       match (t1, t2) with
       | Zero, Zero -> true
       | One, One -> true
@@ -27,7 +27,7 @@ module BExp = struct
       | Not x1, Not x2 -> x1 == x2
       | _ -> false
 
-    let hash (t, _) =
+    let hash (t) =
       match t with
       | Zero -> Hashtbl.hash `Zero
       | One -> Hashtbl.hash `One
@@ -37,7 +37,7 @@ module BExp = struct
       | Not x -> Hashtbl.hash (`Not x.hkey)
   end
 
-  module HashT = Hashcons.Make (T_node)
+  module HashT = Hashcons.Make(T_node)
   (** table used for hash consing 
     notice because of hash consing, we can build *)
   let tbl = HashT.create 251
@@ -80,34 +80,34 @@ module BExp = struct
     else if b1 == b_not b2 then zero
     else
       hashcons @@ And (b1, b2)
+    
+      let rec pprint_bexp_with_p (bexp : t_) =
+        match bexp with
+        | Zero -> ("0", 0)
+        | One -> ("1", 0)
+        | PBool b -> ("b"^(string_of_int b), 0)
+        | Or (b1, b2) ->
+          let str1, prec1 = pprint_bexp_with_p b1.node in
+          let str2, prec2 = pprint_bexp_with_p b2.node in
+          let str1' = if prec1 > 2 then "(" ^ str1 ^ ")" else str1 in
+          let str2' = if prec2 > 2 then "(" ^ str2 ^ ")" else str2 in
+          (str1' ^ " or " ^ str2', 3)
+        | And (b1, b2) ->
+          let str1, prec1 = pprint_bexp_with_p b1.node in
+          let str2, prec2 = pprint_bexp_with_p b2.node in
+          let str1' = if prec1 > 2 then "(" ^ str1 ^ ")" else str1 in
+          let str2' = if prec2 > 2 then "(" ^ str2 ^ ")" else str2 in
+          (str1' ^ " and " ^ str2', 3)
+        | Not b ->
+          let str, prec = pprint_bexp_with_p b.node in
+    
+          if prec > 0 then ("~(" ^ str ^ ")", 1) else ("~" ^ str, 1)
+        
+        (* Print bexp without precedence number *)
+        let pprint (bexp : t_) =
+        let str, _ = pprint_bexp_with_p bexp in
+        str
 
-  (**let pprint =
-    let rec pprint_bexp_with_p (bexp : t_) =
-      match bexp with
-      | Zero -> ("0", 0)
-      | One -> ("1", 0)
-      | PBool b -> ("b"^(string_of_int b), 0)
-      | Or (b1, b2) ->
-        let str1, prec1 = pprint_bexp_with_p b1 in
-        let str2, prec2 = pprint_bexp_with_p b2 in
-        let str1' = if prec1 > 2 then "(" ^ str1 ^ ")" else str1 in
-        let str2' = if prec2 > 2 then "(" ^ str2 ^ ")" else str2 in
-        (str1' ^ " or " ^ str2', 3)
-      | And (b1, b2) ->
-        let str1, prec1 = pprint_bexp_with_p b1 in
-        let str2, prec2 = pprint_bexp_with_p b2 in
-        let str1' = if prec1 > 2 then "(" ^ str1 ^ ")" else str1 in
-        let str2' = if prec2 > 2 then "(" ^ str2 ^ ")" else str2 in
-        (str1' ^ " and " ^ str2', 3)
-      | Not b ->
-        let str, prec = pprint_bexp_with_p b in
-  
-        if prec > 0 then ("~(" ^ str ^ ")", 1) else ("~" ^ str, 1)
-      
-      (* Print bexp without precedence number *)
-      let pprint_bexp (bexp : bExp) =
-      let str, _ = pprint_bexp_with_p bexp in
-      str**)
 end
 
 
@@ -224,7 +224,7 @@ module Exp = struct
       | Test _ -> 0
       | While (_, e1) -> 1 + num_while e1
   
-    (**let pprint (exp : t) =
+    let pprint (exp : t) =
       let rec helper (exp : t) : string * int =
         match exp.node with
         | Pact (p, _) -> (p, 0)
@@ -235,22 +235,22 @@ module Exp = struct
             let s2' = if p2 < 2 then s2 else "(" ^ s2 ^ ")" in
             (s1' ^ " ; " ^ s2', 2)
         | If (b, e1, e2) ->
-            let bs = BExp.pprint b in
+            let bs = BExp.pprint b.node in
             let s1, p1 = helper e1 in
             let s2, p2 = helper e2 in
             let s1' = if p1 <= 3 then s1 else "(" ^ s1 ^ ")" in
             let s2' = if p2 < 3 then s2 else "(" ^ s2 ^ ")" in
             ("if " ^ bs ^ " then " ^ s1' ^ " else " ^ s2', 3)
         | Test b ->
-            let bs = BExp.pprint b in
+            let bs = BExp.pprint b.node in
             (bs, 1)
         | While (b, e) ->
-            let bs = BExp.pprint b in
+            let bs = BExp.pprint b.node in
             let s, p = helper e in
             let s' = if p <= 1 then s else "(" ^ s ^ ")" in
             ("while " ^ bs ^ " do " ^ s' ^ " done", 1)
       in
-      fst @@ helper exp**)
+      fst @@ helper exp
 end
 
 
@@ -258,98 +258,63 @@ end
 (***** Solver functor *****)
 module type Solver = sig
   (*functor for solvers*)
-  type func_t
-  type context
-  type solver
-  
-  val mk_context: context
-  (*
-  val mk_true: context -> func_t
-  val mk_false: context -> func_t
-  val mk_pBool: context -> int -> func_t
-  val mk_not: context -> func_t -> func_t
-  val mk_or: context -> func_t -> func_t -> func_t
-  val mk_and: context -> func_t -> func_t -> func_t
-  (*val mk_solver: context -> 'a option -> solver*)
-  *)
-  (*val mk_iff: context -> 'a * func_t -> 'a * func_t -> func_t
-   *)
-  val is_false: context -> BExp.t_ -> bool
-  val to_solver: BExp.t_ -> context -> func_t
-  val equiv: context -> BExp.t_ -> BExp.t_ -> bool
-  val to_string: func_t -> string
+  val is_false: BExp.t_ -> bool
+  val equiv: BExp.t_ -> BExp.t_ -> bool
+
 end
 
 
 module Z3_solver: Solver = struct
 
-type func_t = Z3.Expr.expr
-type context =  Z3.context
-type solver = Z3.Solver.solver
+  let ctx = Z3.mk_context []
+  let rec to_solver (b: BExp.t_): Z3.Expr.expr = 
+    match b with
+    | Zero -> Z3.Boolean.mk_false ctx
+    | One -> Z3.Boolean.mk_true ctx
+    | PBool b -> let s_num = string_of_int b in
+        Z3.Boolean.mk_const_s ctx ("b"^s_num)
+    | Or (b1,b2) -> Z3.Boolean.mk_or ctx [ (to_solver b1.node); (to_solver b2.node) ]
+    | And (b1,b2) -> Z3.Boolean.mk_and ctx [ (to_solver b1.node); (to_solver b2.node) ]
+    | Not b1 -> Z3.Boolean.mk_not ctx (to_solver b1.node)
 
-let mk_context: context = 
-  Z3.mk_context []
-
-let rec to_solver (b: BExp.t_) (ctx: context): func_t = 
-  match b with
-  | Zero -> Z3.Boolean.mk_false ctx
-  | One -> Z3.Boolean.mk_true ctx
-  | PBool b1 -> let s_num = string_of_int b1 in
-      Z3.Boolean.mk_const_s ctx ("b"^s_num)
-  | Or (b1,b2) -> Z3.Boolean.mk_or ctx [ (to_solver b1 ctx); (to_solver b2 ctx) ]
-  | And (b1,b2) -> Z3.Boolean.mk_and ctx [ (to_solver b1 ctx); (to_solver b2 ctx) ]
-  | Not b1 -> Z3.Boolean.mk_not ctx (to_solver b1 ctx)
-
-let is_false (ctx:context) (b1: BExp.t_): bool =
-  match Z3.Solver.check (Z3.Solver.mk_solver ctx None) [ to_solver b1 ctx ] with
- | Z3.Solver.UNSATISFIABLE -> true
- | _ -> false
-
-let equiv (ctx: context) (b1: BExp.t_) (b2: BExp.t_) : bool =
-  let iff_exp = Z3.Boolean.mk_iff ctx (to_solver b1 ctx) (to_solver b2 ctx) in
-  let not_iff_exp = Z3.Boolean.mk_not ctx iff_exp in 
-  (* if ¬ (b1 ↔ b2) is unsatisfiable, then b1 ↔ b2 is a tautology,
-     thus b1 and b2 are semantically equivalent.*)
-  match Z3.Solver.check (Z3.Solver.mk_solver ctx None) [ not_iff_exp ] with
+  let is_false (b1: BExp.t_): bool =
+    match Z3.Solver.check (Z3.Solver.mk_solver ctx None) [ to_solver b1] with
   | Z3.Solver.UNSATISFIABLE -> true
   | _ -> false
 
-  let to_string (e: func_t): string = Z3.Expr.to_string @@ e 
+  let equiv (b1: BExp.t_) (b2: BExp.t_) : bool =
+    let iff_exp = Z3.Boolean.mk_iff ctx (to_solver b1) (to_solver b2) in
+    let not_iff_exp = Z3.Boolean.mk_not ctx iff_exp in 
+    (* if ¬ (b1 ↔ b2) is unsatisfiable, then b1 ↔ b2 is a tautology,
+      thus b1 and b2 are semantically equivalent.*)
+    match Z3.Solver.check (Z3.Solver.mk_solver ctx None) [ not_iff_exp ] with
+    | Z3.Solver.UNSATISFIABLE -> true
+    | _ -> false
+
 end
 
-module Mlbdd_solver: Solver = struct
-type func_t = MLBDD.t
-type context = MLBDD.man
-type solver = unit
+module Mlbdd_solver(): Solver = struct
+  let ctx = MLBDD.init ()
+  let rec to_solver (b: BExp.t_): MLBDD.t =
+    match b with
+    | Zero -> MLBDD.dfalse ctx
+    | One -> MLBDD.dtrue ctx
+    | PBool b1 -> MLBDD.ithvar ctx b1
+    | Or (b1,b2) -> MLBDD.dor (to_solver b1.node) (to_solver b2.node)
+    | And (b1,b2) -> MLBDD.dand (to_solver b1.node) (to_solver b2.node)
+    | Not b1 -> MLBDD.dnot (to_solver b1.node)
 
-let mk_context: context = 
-  MLBDD.init ()
+  let is_false (b1: BExp.t_): bool =
+    MLBDD.is_false (to_solver b1)
 
-let rec to_solver (b: BExp.t_) (ctx: context): func_t = 
-  match b with
-  | Zero -> MLBDD.dfalse ctx
-  | One -> MLBDD.dtrue ctx
-  | PBool b1 -> MLBDD.ithvar ctx b1
-  | Or (b1,b2) -> MLBDD.dor (to_solver b1 ctx); (to_solver b2 ctx)
-  | And (b1,b2) -> MLBDD.dand (to_solver b1 ctx); (to_solver b2 ctx)
-  | Not b1 -> MLBDD.dnot (to_solver b1 ctx)
-
-let is_false (ctx:context) (b1: BExp.t_): bool =
-  MLBDD.is_false (to_solver b1 ctx)
-
-let equiv (ctx: context) (b1: BExp.t_) (b2: BExp.t_) : bool =
-  MLBDD.equal (to_solver b1 ctx) (to_solver b2 ctx)
-
-let to_string(e: func_t): string =
-  MLBDD.to_string e
-
+  let equiv (b1: BExp.t_) (b2: BExp.t_) : bool =
+    MLBDD.equal (to_solver b1) (to_solver b2)
 end
 
 
 module Derivatives(S:Solver) = struct
-  let empty_ctx = S.mk_context
-  let b_is_false (b : BExp.t) : bool = S.is_false empty_ctx b.node
-  let b_equiv (b1 : BExp.t) (b2 : BExp.t) : bool = S.equiv empty_ctx b1.node b2.node
+  let b_is_false (b : BExp.t) : bool = S.is_false b.node
+  let b_equiv (b1 : BExp.t) (b2 : BExp.t) : bool = S.equiv b1.node b2.node
 
 
   (** defines derivatives *)
@@ -436,11 +401,11 @@ module Derivatives(S:Solver) = struct
         let derive_e = derivative e in
         while_helper be e derive_e
 
-  let pprint_deriv (deriv : (BExp.t * (Exp.t * int)) list) =
+  let pprint_deriv (deriv : (BExp.t_ * (Exp.t * int)) list) =
     String.concat "\n"
     @@ List.map
          (fun (bexp, (der, p_act)) ->
-           BExp.pprint bexp ^ " -> " ^ Exp.pprint der ^ ", "
+          BExp.pprint bexp ^ " -> " ^ Exp.pprint der ^ ", "
            ^ string_of_int p_act)
          deriv
 
