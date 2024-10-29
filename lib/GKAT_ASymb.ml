@@ -1,9 +1,11 @@
 open Common
+open PointedCoprod
 module PActSet = Set.Make (String)
+
 module BExp = struct
+  type t_node = t_ * Z3.Expr.expr
   (** Module for working with boolean expressions *)
-  type t_node = (t_ * Z3.Expr.expr) 
-  
+
   and t = t_node Hashcons.hash_consed
   (** The type for a hashconsed boolean expression *)
 
@@ -101,7 +103,7 @@ module BExp = struct
   (** Test if two boolean expressions is semantically equivelant. *)
   let equiv (b1 : t) (b2 : t) : bool =
     let iff_exp = Z3.Boolean.mk_iff z3_empty_ctx (to_z3 b1) (to_z3 b2) in
-    let not_iff_exp = Z3.Boolean.mk_not z3_empty_ctx iff_exp in 
+    let not_iff_exp = Z3.Boolean.mk_not z3_empty_ctx iff_exp in
     (* if ¬ (b1 ↔ b2) is unsatisfiable, then b1 ↔ b2 is a tautology,
        thus b1 and b2 are semantically equivalent.*)
     match Z3.Solver.check solver [ not_iff_exp ] with
@@ -173,150 +175,248 @@ module Exp = struct
     else hashcons @@ If (b, e, f)
 
   let while_do (b : BExp.t) (e : t) : t = hashcons @@ While (b, e)
-    (* if b == BExp.zero then skip
-    else if b == BExp.one then fail
-    else if e == skip || e == fail then test @@ BExp.b_not b 
-    else  *)
+  (* if b == BExp.zero then skip
+     else if b == BExp.one then fail
+     else if e == skip || e == fail then test @@ BExp.b_not b
+     else *)
 
-    (** Return the number of primitive actions in the expression*)
-    let rec num_pact (e : t) =
-      match e.node with
-      | Pact _ -> 1
-      | Seq (e1, e2) -> num_pact e1 + num_pact e2
-      | If (_, e1, e2) -> num_pact e1 + num_pact e2
-      | Test _ -> 0
-      | While (_, e1) -> num_pact e1
-  
-    (** Return the number of test expression in the expression*)
-    let rec num_bexp (e : t) =
-      match e.node with
-      | Pact _ -> 0
-      | Seq (e1, e2) -> num_bexp e1 + num_bexp e2
-      | If (_, e1, e2) -> 1 + num_bexp e1 + num_bexp e2
-      | Test _ -> 1
-      | While (_, e1) -> 1 + num_bexp e1
-  
-    (** number of sequencing operation in the input expression *)
-    let rec num_seq (e : t) =
-      match e.node with
-      | Pact _ -> 0
-      | Seq (e1, e2) -> 1 + num_seq e1 + num_seq e2
-      | If (_, e1, e2) -> num_seq e1 + num_seq e2
-      | Test _ -> 0
-      | While (_, e1) -> num_seq e1
-  
-    (** number of if statements in the input expression *)
-    let rec num_if (e : t) =
-      match e.node with
-      | Pact _ -> 0
-      | Seq (e1, e2) -> num_if e1 + num_if e2
-      | If (_, e1, e2) -> 1 + num_if e1 + num_if e2
-      | Test _ -> 0
-      | While (_, e1) -> num_if e1
-  
-    (** number of while loop in the input expression *)
-    let rec num_while (e : t) =
-      match e.node with
-      | Pact _ -> 0
-      | Seq (e1, e2) -> num_while e1 + num_while e2
-      | If (_, e1, e2) -> num_while e1 + num_while e2
-      | Test _ -> 0
-      | While (_, e1) -> 1 + num_while e1
-  
-    let pprint (exp : t) =
-      let rec helper (exp : t) : string * int =
-        match exp.node with
-        | Pact (p, _) -> (p, 0)
-        | Seq (e1, e2) ->
-            let s1, p1 = helper e1 in
-            let s2, p2 = helper e2 in
-            let s1' = if p1 < 2 then s1 else "(" ^ s1 ^ ")" in
-            let s2' = if p2 < 2 then s2 else "(" ^ s2 ^ ")" in
-            (s1' ^ " ; " ^ s2', 2)
-        | If (b, e1, e2) ->
-            let bs = BExp.pprint b in
-            let s1, p1 = helper e1 in
-            let s2, p2 = helper e2 in
-            let s1' = if p1 <= 3 then s1 else "(" ^ s1 ^ ")" in
-            let s2' = if p2 < 3 then s2 else "(" ^ s2 ^ ")" in
-            ("if " ^ bs ^ " then " ^ s1' ^ " else " ^ s2', 3)
-        | Test b ->
-            let bs = BExp.pprint b in
-            (bs, 1)
-        | While (b, e) ->
-            let bs = BExp.pprint b in
-            let s, p = helper e in
-            let s' = if p <= 1 then s else "(" ^ s ^ ")" in
-            ("while " ^ bs ^ " do " ^ s' ^ " done", 1)
-      in
-      fst @@ helper exp
+  (** Return the number of primitive actions in the expression*)
+  let rec num_pact (e : t) =
+    match e.node with
+    | Pact _ -> 1
+    | Seq (e1, e2) -> num_pact e1 + num_pact e2
+    | If (_, e1, e2) -> num_pact e1 + num_pact e2
+    | Test _ -> 0
+    | While (_, e1) -> num_pact e1
+
+  (** Return the number of test expression in the expression*)
+  let rec num_bexp (e : t) =
+    match e.node with
+    | Pact _ -> 0
+    | Seq (e1, e2) -> num_bexp e1 + num_bexp e2
+    | If (_, e1, e2) -> 1 + num_bexp e1 + num_bexp e2
+    | Test _ -> 1
+    | While (_, e1) -> 1 + num_bexp e1
+
+  (** number of sequencing operation in the input expression *)
+  let rec num_seq (e : t) =
+    match e.node with
+    | Pact _ -> 0
+    | Seq (e1, e2) -> 1 + num_seq e1 + num_seq e2
+    | If (_, e1, e2) -> num_seq e1 + num_seq e2
+    | Test _ -> 0
+    | While (_, e1) -> num_seq e1
+
+  (** number of if statements in the input expression *)
+  let rec num_if (e : t) =
+    match e.node with
+    | Pact _ -> 0
+    | Seq (e1, e2) -> num_if e1 + num_if e2
+    | If (_, e1, e2) -> 1 + num_if e1 + num_if e2
+    | Test _ -> 0
+    | While (_, e1) -> num_if e1
+
+  (** number of while loop in the input expression *)
+  let rec num_while (e : t) =
+    match e.node with
+    | Pact _ -> 0
+    | Seq (e1, e2) -> num_while e1 + num_while e2
+    | If (_, e1, e2) -> num_while e1 + num_while e2
+    | Test _ -> 0
+    | While (_, e1) -> 1 + num_while e1
+
+  let pprint (exp : t) =
+    let rec helper (exp : t) : string * int =
+      match exp.node with
+      | Pact (p, _) -> (p, 0)
+      | Seq (e1, e2) ->
+          let s1, p1 = helper e1 in
+          let s2, p2 = helper e2 in
+          let s1' = if p1 < 2 then s1 else "(" ^ s1 ^ ")" in
+          let s2' = if p2 < 2 then s2 else "(" ^ s2 ^ ")" in
+          (s1' ^ " ; " ^ s2', 2)
+      | If (b, e1, e2) ->
+          let bs = BExp.pprint b in
+          let s1, p1 = helper e1 in
+          let s2, p2 = helper e2 in
+          let s1' = if p1 <= 3 then s1 else "(" ^ s1 ^ ")" in
+          let s2' = if p2 < 3 then s2 else "(" ^ s2 ^ ")" in
+          ("if " ^ bs ^ " then " ^ s1' ^ " else " ^ s2', 3)
+      | Test b ->
+          let bs = BExp.pprint b in
+          (bs, 1)
+      | While (b, e) ->
+          let bs = BExp.pprint b in
+          let s, p = helper e in
+          let s' = if p <= 1 then s else "(" ^ s ^ ")" in
+          ("while " ^ bs ^ " do " ^ s' ^ " done", 1)
+    in
+    fst @@ helper exp
 end
 
-
 module Derivatives = struct
-  type res = Accept | Reject | To of State.t * int(*changed from Pact*)
+  type res = To of State.t * int (*changed from Pact*)
   type trans = State.t -> BExp.t -> res
-  type be_input=State.t -> BExp.t
+  type be_res_map = BExp.t * res
+
+  module BE_res_map_set = Set.Make (struct
+    type t = be_res_map
+
+    let compare = compare
+  end)
+
   type automaton = {
-    p_tests : BExp.t;
-    accept_BE_input : be_input;
+    p_accept : BExp.t; (* ϵ* : The overall boolean expression accept *)
+    accept : State.t -> BExp.t;
+    (*  ϵ̂ *)
+    (*all the atoms that the input state accepts*)
     states : State.Set.t;
-    trans : trans;
+    trans : State.t -> BE_res_map_set.t;
+        (* δ̂ all the atoms that will transition to a certain result*)
     start : State.t;
   }
+
   type pAutomaton = {
     p_accept : BExp.t; (* ϵ* : The overall boolean expression accept *)
-    accept : State.t -> BExp.t; (*  ϵ̂ *)(*all the atoms that the input state accepts*)
+    accept : State.t -> BExp.t;
+    (*  ϵ̂ *)
+    (*all the atoms that the input state accepts*)
     states : State.Set.t;
-    trans : trans; (* δ̂ all the atoms that will transition to a certain result*)
-    p_trans : BExp.t -> res; 
-    (* δ* set of (BExp.t , (s,p))  when compare, compare the tag of BE let compare b1 b2 = compare b1.tag b2.tag*)
+    trans : State.t -> BE_res_map_set.t;
+        (* δ̂ all the atoms that will transition to a certain result*)
+    p_trans : BE_res_map_set.t;
+        (* δ* set of (BExp.t , (s,p))  when compare, compare the tag of BE let compare b1 b2 = compare b1.tag b2.tag*)
   }
+
   type epsilonTrans = State.t -> res
 
+  let res_to_left (r : BE_res_map_set.t) (coprod : MakePosInt.coprodRes) :
+      BE_res_map_set.t =
+    BE_res_map_set.map
+      (fun (boolean_expression, To (state, action)) ->
+        (boolean_expression, To (coprod.to_left state, action)))
+      r
+
+  let res_to_right (r : BE_res_map_set.t) (coprod : MakePosInt.coprodRes) :
+      BE_res_map_set.t =
+    BE_res_map_set.map
+      (fun (boolean_expression, To (state, action)) ->
+        (boolean_expression, To (coprod.to_right state, action)))
+      r
 
   (* let rec satisfy (at : BExp.t) (iota : BExp.t) : bool =
-    match iota.node with
-    | Zero -> false
-    | BExp.One -> true
-    | PBool b -> Atom.mem b at
-    | Or (i, b) -> satisfy at i || satisfy at b
-    | And (i, b) -> satisfy at i && satisfy at b
-    | Not b -> not (satisfy at b)
-   *)
+     match iota.node with
+     | Zero -> false
+     | BExp.One -> true
+     | PBool b -> Atom.mem b at
+     | Or (i, b) -> satisfy at i || satisfy at b
+     | And (i, b) -> satisfy at i && satisfy at b
+     | Not b -> not (satisfy at b)
+  *)
   let rec thompson_construct (exp : Exp.t) : pAutomaton =
-  match exp.node with
-  | Test b->
-      {
-        p_tests = b; (* ϵ* : The overall boolean expression *)
-        accept_BE_input = (fun _ -> Accept); (*  ϵ̂ *)
-        states = State.Set.empty;(* S *)
-        trans = (fun _  _ -> Accept);  (* δ̂ all the atoms that will transition to a certain result*)
-        p_start = (fun _ -> Reject); (* δ*  ???*)
-      }
-
-  |Pact (_, p) ->  
-    {        
-      p_tests = BExp.zero; (* ϵ* : The overall boolean expression *)
-      accept_BE_input = (fun _ -> Accept); (*  ϵ̂ *)
-      states = State.Set.singleton State.elem;(* S *)
-      trans = (fun _  _ -> Reject);  (* why it is empty? *)
-      p_start = (fun _ -> To (State.elem, p)); (* δ*  ???*)
-    }
-  |If(b,exp1,exp2) ->
-    let auto1 = thompson_construct exp1  in
-    let auto2 = thompson_construct exp2  in
-    let coprod, all_states =
-        State.coprod_with_dom auto1.states auto2.states in 
-        
-    {
-    states= all_states;
-    p_tests= BExp.b_or (BExp.b_and (b) (auto1.p_tests))(BExp.b_and (BExp.b_not (b)) (auto2.p_tests));
-    accept_BE_input=_;
-    trans = _;
-    p_start= _ ;
-    }
-  | _->
-
-
+    match exp.node with
+    | Test b ->
+        {
+          p_accept = b;
+          (* ϵ* : The overall boolean expression *)
+          accept = (fun _ -> BExp.one);
+          (*  ϵ̂ *)
+          states = State.Set.empty;
+          (* S *)
+          trans = (fun _ -> BE_res_map_set.empty);
+          (* δ̂ all the atoms that will transition to a certain result*)
+          p_trans = BE_res_map_set.empty;
+          (* δ*  ???*)
+        }
+    | Pact (_, p) ->
+        {
+          p_accept = BExp.zero;
+          (* ϵ* : The overall boolean expression *)
+          accept = (fun _ -> BExp.one);
+          (*  ϵ̂ *)
+          states = State.Set.singleton State.elem;
+          (* S *)
+          trans = (fun _ -> BE_res_map_set.empty);
+          (* why it is empty? *)
+          p_trans = BE_res_map_set.singleton (BExp.one, To (State.elem, p));
+          (* δ*  ???*)
+        }
+    | If (b, exp1, exp2) ->
+        let auto1 = thompson_construct exp1 in
+        let auto2 = thompson_construct exp2 in
+        let coprod, all_states =
+          State.coprod_with_dom auto1.states auto2.states
+        in
+        {
+          states = all_states;
+          p_accept =
+            BExp.b_or
+              (BExp.b_and b auto1.p_accept)
+              (BExp.b_and (BExp.b_not b) auto2.p_accept);
+          accept =
+            (fun s ->
+              match coprod.from_coprod s with
+              | Right state -> auto2.accept state
+              | Left state -> auto1.accept state);
+          p_trans = BE_res_map_set.union auto1.p_trans auto2.p_trans;
+          trans =
+            (fun s ->
+              match coprod.from_coprod s with
+              | Right state -> res_to_right (auto2.trans state) coprod
+              | Left state -> res_to_left (auto1.trans state) coprod);
+        }
+    | Seq (exp1, exp2) ->
+        let auto1 = thompson_construct exp1 in
+        let auto2 = thompson_construct exp2 in
+        let coprod, all_states =
+          State.coprod_with_dom auto1.states auto2.states
+        in
+        {
+          states = all_states;
+          p_accept = BExp.b_and auto1.p_accept auto2.p_accept;
+          accept =
+            (fun s ->
+              match coprod.from_coprod s with
+              | Right state -> auto2.accept state
+              | Left state -> BExp.b_and (auto1.accept state) auto2.p_accept);
+          (*?*)
+          p_trans =
+            BE_res_map_set.union auto1.p_trans
+              (BE_res_map_set.map
+                 (fun (boolean_expression, To (state, action)) ->
+                   ( BExp.b_and boolean_expression auto1.p_accept,
+                     To (state, action) ))
+                 auto2.p_trans);
+          trans =
+            (fun s ->
+              match coprod.from_coprod s with
+              | Right state -> res_to_right (auto2.trans state) coprod
+              | Left state ->
+                  BE_res_map_set.union
+                    (res_to_left (auto1.trans state) coprod)
+                    (res_to_right(BE_res_map_set.map
+                       (fun (boolean_expression, To (state, action)) ->
+                         ( BExp.b_and boolean_expression (auto1.accept (state)),
+                           To (state, action) ))
+                       auto2.p_trans)coprod));
+        }
+    | While(be,exp) -> 
+      let auto = thompson_construct exp in
+        {
+          states = auto.states;
+          p_accept =
+            BExp.b_or (BExp.b_not be) (auto.p_accept);
+          accept =
+            (fun state -> BExp.b_or (BExp.b_not be) (auto.accept state));
+          p_trans = (BE_res_map_set.map
+          (fun (boolean_expression, To (state, action)) ->
+            ( BExp.b_and boolean_expression be,
+              To (state, action) ))
+          auto.p_trans);
+          trans =
+            (fun s ->
+              match auto.trans s with
+              | Right state -> res_to_right (auto2.trans state) coprod
+              | Left state -> res_to_left (auto1.trans state) coprod);
+        }(* if b or e1(s), do p_trans 1, elese trans1 *)
 end
