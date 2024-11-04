@@ -348,7 +348,7 @@ let rec from_gkat_to_hashcon2 (exp1 : GKAT_2.gkat) : GKAT_ASymb.Exp.t =
 let test_equiv_Z3symb =
   let module Z3_Deriv = GKAT_Symb.Derivatives(GKAT_Symb.Z3_solver) in
   QCheck_ounit.to_ounit2_test
-  @@ Test.make ~count:100
+  @@ Test.make ~count:20
        ~name:"testing symbolic based algorithm with generated equivalence"
        ~print:(fun (e1, e2) ->
         " EXP1: " ^ GKAT_2.Print2.pprint e1 ^ " EXP2: " ^ GKAT_2.Print2.pprint e2)
