@@ -14,8 +14,9 @@ module GenExp = struct
   let ( >|= ) = Gen.( >|= )
   let ( let* ) = Gen.( let* )
 
+  (** "b" ^ string_of_int **)
   let p_bool : bExp Gen.t =
-    Gen.int_range 1 max_p_bool_count >|= fun n -> PBool ("b" ^ string_of_int n)
+    Gen.int_range 1 max_p_bool_count >|= fun n -> PBool (n)
 
   let b_exp size : bExp Gen.t =
     Gen.fix
@@ -343,7 +344,21 @@ let rec from_gkat_to_hashcon2 (exp1 : GKAT_2.gkat) : GKAT_ASymb.Exp.t =
       GKAT_ASymb.Exp.while_do (from_be_to_hashcons2 be)
         (from_gkat_to_hashcon2 e)
 
-let test_equiv_symb =
+(***** CHOOSE a solver for Symbolic Algorithm *****)
+let test_equiv_Z3symb =
+  let module Z3_Deriv = GKAT_Symb.Derivatives(GKAT_Symb.Z3_solver) in
+  QCheck_ounit.to_ounit2_test
+  @@ Test.make ~count:100
+       ~name:"testing symbolic based algorithm with generated equivalence"
+       ~print:(fun (e1, e2) ->
+        " EXP1: " ^ GKAT_2.Print2.pprint e1 ^ " EXP2: " ^ GKAT_2.Print2.pprint e2)
+       GenExp.gen_eq_exp
+       (fun (e1, e2) ->
+        Z3_Deriv.equiv Z3_Deriv.(from_gkat_to_hashcon e1)
+        Z3_Deriv.(from_gkat_to_hashcon e2))
+
+let test_equiv_MLBDDsymb =
+  let module MLBDD_Deriv = GKAT_Symb.Derivatives(GKAT_Symb.Mlbdd_solver()) in
   QCheck_ounit.to_ounit2_test
   @@ Test.make ~count:1000
        ~name:"testing symbolic based algorithm with generated equivalence"
@@ -352,8 +367,25 @@ let test_equiv_symb =
          ^ GKAT_2.Print2.pprint e2)
        GenExp.gen_eq_exp
        (fun (e1, e2) ->
-         GKAT_Symb.Derivatives.equiv (from_gkat_to_hashcon e1)
-           (from_gkat_to_hashcon e2))
+        MLBDD_Deriv.equiv MLBDD_Deriv.(from_gkat_to_hashcon e1)
+        MLBDD_Deriv.(from_gkat_to_hashcon e2))
+
+(***Symb vs Aut with Z3 as solver***)
+let test_Z3symb_vs_aut =
+  let module Z3_Deriv = GKAT_Symb.Derivatives(GKAT_Symb.Z3_solver) in
+  QCheck_ounit.to_ounit2_test
+  @@ Test.make ~count:1000
+       ~name:
+         "testing symbolic based algorithm against automaton based algorithm"
+       ~print:(fun (e1, e2) ->
+        " EXP1: " ^ GKAT_2.Print2.pprint e1 ^ " EXP2: " ^ GKAT_2.Print2.pprint e2)
+       (Gen.pair
+          (GenExp.exp_sized bexp_max_size exp_max_size)
+          (GenExp.exp_sized bexp_max_size exp_max_size))
+       (fun (e1, e2) ->
+        Z3_Deriv.equiv Z3_Deriv.(from_gkat_to_hashcon e1)
+        Z3_Deriv.(from_gkat_to_hashcon e2)
+         = GKAT_Aut.equiv e1 e2)
 
 let test_equiv_Asymb =
   QCheck_ounit.to_ounit2_test
@@ -369,7 +401,9 @@ let test_equiv_Asymb =
          GKAT_ASymb.Derivatives.equiv (from_gkat_to_hashcon2 e1)
            (from_gkat_to_hashcon2 e2))
 
-let test_symb_vs_aut =
+(***Symb vs Aut with MLBDD as solver***)
+let test_MLBDDsymb_vs_aut =
+  let module MLBDD_Deriv = GKAT_Symb.Derivatives(GKAT_Symb.Mlbdd_solver()) in
   QCheck_ounit.to_ounit2_test
   @@ Test.make ~count:1000
        ~name:
@@ -381,11 +415,13 @@ let test_symb_vs_aut =
           (GenExp.exp_sized bexp_max_size exp_max_size)
           (GenExp.exp_sized bexp_max_size exp_max_size))
        (fun (e1, e2) ->
-         GKAT_Symb.Derivatives.equiv (from_gkat_to_hashcon e1)
+        GKAT_Symb.Derivatives.equiv (from_gkat_to_hashcon e1)
            (from_gkat_to_hashcon e2)
          = GKAT_Aut.equiv e1 e2)
 
-let test_symb_vs_gkat =
+(***Symb vs Gkat with z3 as solver***)
+let test_Z3symb_vs_gkat =
+  let module Z3_Deriv = GKAT_Symb.Derivatives(GKAT_Symb.Z3_solver) in
   QCheck_ounit.to_ounit2_test
   @@ Test.make ~count:1000
        ~name:"testing symbolic based algorithm against GKAT_2 based algorithm"
@@ -396,6 +432,22 @@ let test_symb_vs_gkat =
           (GenExp.exp_sized bexp_max_size exp_max_size)
           (GenExp.exp_sized bexp_max_size exp_max_size))
        (fun (e1, e2) ->
-         GKAT_Symb.Derivatives.equiv (from_gkat_to_hashcon e1)
-           (from_gkat_to_hashcon e2)
+        Z3_Deriv.equiv Z3_Deriv.(from_gkat_to_hashcon e1)
+           Z3_Deriv.(from_gkat_to_hashcon e2)
+         = GKAT_2.gKat_equiv e1 e2)
+
+(***Symb vs Gkat with MLBDD as solver***)
+let test_MLBDDsymb_vs_gkat =
+  let module MLBDD_Deriv = GKAT_Symb.Derivatives(GKAT_Symb.Mlbdd_solver()) in
+  QCheck_ounit.to_ounit2_test
+  @@ Test.make ~count:1000
+       ~name:"testing symbolic based algorithm against GKAT_2 based algorithm"
+       ~print:(fun (e1, e2) ->
+        " EXP1: " ^ GKAT_2.Print2.pprint e1 ^ " EXP2: " ^ GKAT_2.Print2.pprint e2)
+       (Gen.pair
+          (GenExp.exp_sized bexp_max_size exp_max_size)
+          (GenExp.exp_sized bexp_max_size exp_max_size))
+       (fun (e1, e2) ->
+        MLBDD_Deriv.equiv MLBDD_Deriv.(from_gkat_to_hashcon e1)
+        MLBDD_Deriv.(from_gkat_to_hashcon e2)
          = GKAT_2.gKat_equiv e1 e2)

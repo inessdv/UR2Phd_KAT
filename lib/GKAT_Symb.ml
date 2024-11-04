@@ -38,8 +38,8 @@ module BExp = struct
   end
 
   module HashT = Hashcons.Make(T_node)
-  (** table used for hash consing 
-    notice because of hash consing, we can build *)
+  (*** table used for hash consing 
+    notice because of hash consing, we can build ***)
   let tbl = HashT.create 251
 
   (*let empty_ctx = S.mk_context*)
