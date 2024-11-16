@@ -393,32 +393,46 @@ module Derivatives = struct
               | Left state ->
                   BE_res_map_set.union
                     (res_to_left (auto1.trans state) coprod)
-                    (res_to_right(BE_res_map_set.map
-                       (fun (boolean_expression, To (state, action)) ->
-                         ( BExp.b_and boolean_expression (auto1.accept (state)),
-                           To (state, action) ))
-                       auto2.p_trans)coprod));
+                    (res_to_right
+                       (BE_res_map_set.map
+                          (fun (boolean_expression, To (state, action)) ->
+                            ( BExp.b_and boolean_expression (auto1.accept state),
+                              To (state, action) ))
+                          auto2.p_trans)
+                       coprod));
         }
-    | While(be,exp) -> 
-      let auto = thompson_construct exp in
+    | While (be, exp) ->
+        let auto = thompson_construct exp in
         {
           states = auto.states;
-          p_accept =
-            BExp.b_or (BExp.b_not be) (auto.p_accept);
-          accept =
-            (fun state -> BExp.b_or (BExp.b_not be) (auto.accept state));
-          p_trans = (BE_res_map_set.map
-          (fun (boolean_expression, To (state, action)) ->
-            ( BExp.b_and boolean_expression be,
-              To (state, action) ))
-          auto.p_trans);
+          p_accept = BExp.b_or (BExp.b_not be) auto.p_accept;
+          accept = (fun state -> BExp.b_or (BExp.b_not be) (auto.accept state));
+          p_trans =
+            BE_res_map_set.map
+              (fun (boolean_expression, To (state, action)) ->
+                (BExp.b_and boolean_expression be, To (state, action)))
+              auto.p_trans;
           trans =
-            (fun s ->let set= auto.trans s in 
-            (BE_res_map_set.map
-          (fun (boolean_expression, To (state, action)) ->
-            ( BExp.b_and(BExp.b_and boolean_expression be)(auto.accept s),
-              To (state, action) ))
-          set)
-            );
-        }(* if b or e1(s), do p_trans 1, elese trans1 *)
+            (fun s ->
+              let set = auto.trans s in
+              BE_res_map_set.map
+                (fun (boolean_expression, To (state, action)) ->
+                  ( BExp.b_and (BExp.b_and boolean_expression be) (auto.accept s),
+                    To (state, action) ))
+                set);
+        }
+  let convert(p_auto:pAutomaton):automaton=
+    let newStart = State.fresh p_auto.states in
+          {
+            states= State.Set.add newStart p_auto.states;
+            accept= (fun state ->
+              match state == newStart with
+              | true -> p_auto.p_accept
+              | false ->p_auto.accept state) ;
+            trans=(fun state ->
+              match state == newStart with
+              | true -> p_auto.p_trans
+              | false ->p_auto.trans state);
+            start=newStart;
+          }
 end
