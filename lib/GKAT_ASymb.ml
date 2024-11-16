@@ -259,18 +259,18 @@ module Derivatives = struct
   type trans = State.t -> BExp.t -> res
   type be_res_map = BExp.t * res
 
-  module BE_res_map_set = Set.Make (struct
+  (* module BE_res_map_set = Set.Make (struct
     type t = be_res_map
 
     let compare = compare
-  end)
+  end) *)
 
   type automaton = {
     accept : State.t -> BExp.t;
     (*  ϵ̂ *)
     (*all the atoms that the input state accepts*)
     states : State.Set.t;
-    trans : State.t -> BE_res_map_set.t;
+    trans : State.t -> be_res_map list;
         (* δ̂ all the atoms that will transition to a certain result*)
     start : State.t;
   }
@@ -281,27 +281,30 @@ module Derivatives = struct
     (*  ϵ̂ *)
     (*all the atoms that the input state accepts*)
     states : State.Set.t;
-    trans : State.t -> BE_res_map_set.t;
+    trans : State.t -> be_res_map list;
         (* δ̂ all the atoms that will transition to a certain result*)
-    p_trans : BE_res_map_set.t;
+    p_trans : be_res_map list;
         (* δ* set of (BExp.t , (s,p))  when compare, compare the tag of BE let compare b1 b2 = compare b1.tag b2.tag*)
   }
-
+  module StateMap = Map.Make (State)
   type epsilonTrans = State.t -> res
 
-  let res_to_left (r : BE_res_map_set.t) (coprod : MakePosInt.coprodRes) :
-      BE_res_map_set.t =
-    BE_res_map_set.map
+  let res_to_left (r : be_res_map list) (coprod : MakePosInt.coprodRes) :
+  be_res_map list =
+   List.map
       (fun (boolean_expression, To (state, action)) ->
         (boolean_expression, To (coprod.to_left state, action)))
       r
 
-  let res_to_right (r : BE_res_map_set.t) (coprod : MakePosInt.coprodRes) :
-      BE_res_map_set.t =
-    BE_res_map_set.map
+  let res_to_right (r : be_res_map list) (coprod : MakePosInt.coprodRes) :
+  be_res_map list =
+    List.map
       (fun (boolean_expression, To (state, action)) ->
         (boolean_expression, To (coprod.to_right state, action)))
       r
+  let reject(trans:be_res_map list)(acc:BExp.t):BExp.t=
+        let res= BExp.b_not acc in 
+       List.fold_left(fun (acc)(be,_)-> BExp.b_and(BExp.b_not be)(acc))(res)(trans)
 
   (* let rec satisfy (at : BExp.t) (iota : BExp.t) : bool =
      match iota.node with
@@ -322,9 +325,9 @@ module Derivatives = struct
           (*  ϵ̂ *)
           states = State.Set.empty;
           (* S *)
-          trans = (fun _ -> BE_res_map_set.empty);
+          trans = (fun _ -> []);
           (* δ̂ all the atoms that will transition to a certain result*)
-          p_trans = BE_res_map_set.empty;
+          p_trans = [];
           (* δ*  ???*)
         }
     | Pact (_, p) ->
@@ -335,9 +338,9 @@ module Derivatives = struct
           (*  ϵ̂ *)
           states = State.Set.singleton State.elem;
           (* S *)
-          trans = (fun _ -> BE_res_map_set.empty);
+          trans = (fun _ -> []);
           (* why it is empty? *)
-          p_trans = BE_res_map_set.singleton (BExp.one, To (State.elem, p));
+          p_trans = [BExp.one, To (State.elem, p)];
           (* δ*  ???*)
         }
     | If (b, exp1, exp2) ->
@@ -357,7 +360,7 @@ module Derivatives = struct
               match coprod.from_coprod s with
               | Right state -> auto2.accept state
               | Left state -> auto1.accept state);
-          p_trans = BE_res_map_set.union auto1.p_trans auto2.p_trans;
+          p_trans = List.append auto1.p_trans  auto2.p_trans;
           trans =
             (fun s ->
               match coprod.from_coprod s with
@@ -380,8 +383,8 @@ module Derivatives = struct
               | Left state -> BExp.b_and (auto1.accept state) auto2.p_accept);
           (*?*)
           p_trans =
-            BE_res_map_set.union auto1.p_trans
-              (BE_res_map_set.map
+            List.append auto1.p_trans
+              (List.map
                  (fun (boolean_expression, To (state, action)) ->
                    ( BExp.b_and boolean_expression auto1.p_accept,
                      To (state, action) ))
@@ -391,10 +394,10 @@ module Derivatives = struct
               match coprod.from_coprod s with
               | Right state -> res_to_right (auto2.trans state) coprod
               | Left state ->
-                  BE_res_map_set.union
+                  List.append
                     (res_to_left (auto1.trans state) coprod)
                     (res_to_right
-                       (BE_res_map_set.map
+                       (List.map
                           (fun (boolean_expression, To (state, action)) ->
                             ( BExp.b_and boolean_expression (auto1.accept state),
                               To (state, action) ))
@@ -408,14 +411,14 @@ module Derivatives = struct
           p_accept = BExp.b_or (BExp.b_not be) auto.p_accept;
           accept = (fun state -> BExp.b_or (BExp.b_not be) (auto.accept state));
           p_trans =
-            BE_res_map_set.map
+            List.map
               (fun (boolean_expression, To (state, action)) ->
                 (BExp.b_and boolean_expression be, To (state, action)))
               auto.p_trans;
           trans =
             (fun s ->
               let set = auto.trans s in
-              BE_res_map_set.map
+              List.map
                 (fun (boolean_expression, To (state, action)) ->
                   ( BExp.b_and (BExp.b_and boolean_expression be) (auto.accept s),
                     To (state, action) ))
@@ -435,4 +438,64 @@ module Derivatives = struct
               | false ->p_auto.trans state);
             start=newStart;
           }
+  let rec equiv (auto1:automaton)(auto2:automaton):bool=
+  let uf_map1 =
+    List.map (fun s -> (s, UnionFind.make s)) (auto1.states |> State.Set.to_list)
+    |> StateMap.of_list
+  in
+  (* print_endline
+    ("the Statemap of a1's states is "
+    ^ AutomatonPrinter.statemap_printer uf_map1); *)
+  let uf_map2 =
+    List.map (fun s -> (s, UnionFind.make s)) (auto2.states |> State.Set.to_list)
+    |> StateMap.of_list
+  in
+  (* print_endline
+    ("the Statemap of a2's states is "
+    ^ AutomatonPrinter.statemap_printer uf_map2); *)
+  (* get union find element of automaton 1*)
+  let get_elem1 s = StateMap.find s uf_map1 in
+  let get_elem2 s = StateMap.find s uf_map2 in
+    let rec help (todo : StatePairSet.t) : bool = 
+      match StatePairSet.choose_opt todo with
+    | None ->
+        (* print_endline "";
+        print_endline "Equiv asserted";
+        print_endline ""; *)
+        true
+    | Some (s1, s2)-> 
+      if
+        (* if they are already marked bisimilar *)
+        (* print_endline
+          ("The s1 is " ^ string_of_int s1 ^ " The s2 is " ^ string_of_int s2); *)
+        UnionFind.eq (get_elem1 s1) (get_elem2 s2)
+      then help (StatePairSet.remove (s1, s2) todo)
+        (*Edited: Should not return true, should filter and continue*)
+      else
+        let reject1 = reject (auto1.trans s1) (auto1.accept s1)in
+        let reject2 = reject (auto2.trans s2) (auto1.accept s2) in
+        let epsilon_assert = BExp.equiv (auto1.accept s1) (auto2.accept s2) in 
+        epsilon_assert
+      &&
+      let auto1_transition = auto1.trans s1 in
+      let auto2_transition = auto2.trans s2 in
+      (let assert_rej1 =
+        List.for_all
+          (fun (be, To(exp, _)) ->
+            (BExp.is_false @@ BExp.b_and reject1 be))
+          auto2_transition
+      in
+      assert_rej1)
+      && (let assert_rej2 =
+       List.for_all
+          (fun (be, To(exp, _)) ->
+            (BExp.is_false @@ BExp.b_and reject2 be))
+          auto1_transition
+      in
+      assert_rej2)
+    in     
+      let start_pair = StatePairSet.singleton (a1.start, a2.start) in
+       help start_pair
+
+
 end
