@@ -266,7 +266,6 @@ module Derivatives = struct
   end)
 
   type automaton = {
-    p_accept : BExp.t; (* ϵ* : The overall boolean expression accept *)
     accept : State.t -> BExp.t;
     (*  ϵ̂ *)
     (*all the atoms that the input state accepts*)
@@ -414,9 +413,12 @@ module Derivatives = struct
               To (state, action) ))
           auto.p_trans);
           trans =
-            (fun s ->
-              match auto.trans s with
-              | Right state -> res_to_right (auto2.trans state) coprod
-              | Left state -> res_to_left (auto1.trans state) coprod);
+            (fun s ->let set= auto.trans s in 
+            (BE_res_map_set.map
+          (fun (boolean_expression, To (state, action)) ->
+            ( BExp.b_and(BExp.b_and boolean_expression be)(auto.accept s),
+              To (state, action) ))
+          set)
+            );
         }(* if b or e1(s), do p_trans 1, elese trans1 *)
 end
