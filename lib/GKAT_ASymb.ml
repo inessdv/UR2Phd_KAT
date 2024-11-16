@@ -493,8 +493,25 @@ module Derivatives = struct
           auto1_transition
       in
       assert_rej2)
+      &&
+      let assert_trans =
+        List.for_all
+          (fun ((be1, To(next_state1, p)), (be2, To(next_state2, q))) ->
+            (* `be1` `be2` disjoint, then skip*)
+            (BExp.is_false @@ BExp.b_and be1 be2)
+            ||
+            (* `p` and `q` are the same, then recurse*)
+            if p = q then (
+              (* ignore @@ UnionFind.union exp1_ele exp2_ele; *)
+              help (StatePairSet.singleton (next_state1 ,next_state2))
+              (* `p` and `q` are not the same, then both need to be dead*))
+            (* else DeadExps.is_dead next_exp1 && DeadExps.is_dead next_exp2) *)
+              else false)
+          (Common.list_prod auto1_transition auto2_transition)
+      in
+      assert_trans
     in     
-      let start_pair = StatePairSet.singleton (a1.start, a2.start) in
+      let start_pair = StatePairSet.singleton (auto1.start, auto2.start) in
        help start_pair
 
 
