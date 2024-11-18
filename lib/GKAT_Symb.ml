@@ -363,7 +363,7 @@ module Derivatives = struct
     when it returns `false`, the expression is not necessarily live.*)
     let known_dead exp = ExpHSet.mem exp dead_states
 
-    let clear_dead = ExpHSet.clear dead_states
+    let clear_dead = ExpHSet.clear dead_states (*do we ever use this??*)
     let length = ExpHSet.length dead_states
 
     type visitRes =
