@@ -511,11 +511,8 @@ module Derivatives = struct
               | false ->p_auto.trans state);
             start=newStart;
           }
-  let equiv (auto1:automaton)(auto2:automaton):bool =
-    (** Initializing maps: union find and dead states before recursive equiv_help to keep track within the recursions**)
-    let auto1_status_map = DeadStates.clear_dead in
-    let auto2_status_map = DeadStates.clear_dead in
 
+  let union_find_maps (auto1:automaton)(auto2:automaton): (int UnionFind.elem StateMap.t) * (int UnionFind.elem StateMap.t) =
     let uf_map1 =
       List.map (fun s -> (s, UnionFind.make s)) (auto1.states |> State.Set.to_list)
       |> StateMap.of_list
@@ -526,19 +523,34 @@ module Derivatives = struct
     let uf_map2 =
       List.map (fun s -> (s, UnionFind.make s)) (auto2.states |> State.Set.to_list)
       |> StateMap.of_list
-    in
+    in 
     (* print_endline
       ("the Statemap of a2's states is "
       ^ AutomatonPrinter.statemap_printer uf_map2); *)
+    uf_map1, uf_map2
+  
+  let assert_rej (reject: BExp.t)(auto_transition:be_res_map list): bool =
+    List.for_all (fun (be, To(exp, _)) ->
+      (BExp.is_false @@ BExp.b_and reject be))
+       auto_transition
 
+  let equiv_help (auto1:automaton)(auto2:automaton):bool =
+    (*create dead maps to keep track of dead states*)
+
+    let auto1_deadmap = DeadStates.clear_dead in
+    let auto2_deadmap = DeadStates.clear_dead in
+
+    (* get union find maps for each auto*)
+    let uf_map1, uf_map2 = union_find_maps auto1 auto2 in
     (* get union find element of automatons*)
     let get_elem1 s = StateMap.find s uf_map1 in
     let get_elem2 s = StateMap.find s uf_map2 in
     
     (*Main equivalent function*)
-      let rec equiv_help (todo : StatePairSet.t): bool = 
+      let rec helper (todo : StatePairSet.t) (auto1_deadmap: DeadStates.state_status_map_t) (auto2_deadmap: DeadStates.state_status_map_t): 
+      bool * DeadStates.state_status_map_t * DeadStates.state_status_map_t  = 
         match StatePairSet.choose_opt todo with
-      | None -> true
+      | None -> true, auto1_deadmap, auto2_deadmap
           (* print_endline "";
           print_endline "Equiv asserted";
           print_endline ""; *)
@@ -548,55 +560,52 @@ module Derivatives = struct
           (* print_endline
             ("The s1 is " ^ string_of_int s1 ^ " The s2 is " ^ string_of_int s2); *)
           UnionFind.eq (get_elem1 s1) (get_elem2 s2)
-        then equiv_help ((StatePairSet.remove (s1, s2)) todo)
+        then 
+          let new_todo = (StatePairSet.remove (s1, s2)) todo (*remove checked from todo*)
+          in helper new_todo auto1_deadmap auto2_deadmap
           (*Edited: Should not return true, should filter and continue*)
         else
           (*checking for dead states on the fly*)
-          let s1_is_dead, _ = (DeadStates.is_dead s1 auto1 auto1_status_map) in
-          let s2_is_dead, _ = (DeadStates.is_dead s2 auto2 auto2_status_map) in
-          if s1_is_dead then s2_is_dead
-          else if s2_is_dead then s1_is_dead
+          let s1_is_dead, auto1_deadmap = (DeadStates.is_dead s1 auto1 auto1_deadmap) in
+          let s2_is_dead, auto2_deadmap = (DeadStates.is_dead s2 auto2 auto2_deadmap) in
+          if s1_is_dead then s2_is_dead, auto1_deadmap, auto2_deadmap
+          else if s2_is_dead then s1_is_dead, auto1_deadmap, auto2_deadmap
         else
           let reject1 = reject (auto1.trans s1) (auto1.accept s1)in
           let reject2 = reject (auto2.trans s2) (auto2.accept s2) in
-          let epsilon_assert = BExp.equiv (auto1.accept s1) (auto2.accept s2) in 
-          epsilon_assert
-        &&
-        let auto1_transition = auto1.trans s1 in
-        let auto2_transition = auto2.trans s2 in
-        (let assert_rej1 =
-          List.for_all
-            (fun (be, To(exp, _)) ->
-              (BExp.is_false @@ BExp.b_and reject1 be))
-            auto2_transition
-        in
-        assert_rej1)
-        && (let assert_rej2 =
-        List.for_all
-            (fun (be, To(exp, _)) ->
-              (BExp.is_false @@ BExp.b_and reject2 be))
-            auto1_transition
-        in
-        assert_rej2)
-        &&
-        let assert_trans =
-          List.for_all
-            (fun ((be1, To(next_state1, p)), (be2, To(next_state2, q))) ->
-              (* `be1` `be2` disjoint, then skip*)
-              (BExp.is_false @@ BExp.b_and be1 be2)
-              ||
-              (* `p` and `q` are the same, then recurse*)
-              if p = q then (
-                (* ignore @@ UnionFind.union exp1_ele exp2_ele; *)
-                equiv_help (StatePairSet.singleton (next_state1 ,next_state2))
-                (* `p` and `q` are not the same, then both need to be dead*))
-              (* else DeadExps.is_dead next_exp1 && DeadExps.is_dead next_exp2) *)
-                else false)
-            (Common.list_prod auto1_transition auto2_transition)
-        in
-        assert_trans
+          let auto1_transition = auto1.trans s1 in
+          let auto2_transition = auto2.trans s2 in
+
+          (**Check assertions one by one or calculate and at once ???**)
+          let epsilon_assert = BExp.equiv (auto1.accept s1) (auto2.accept s2) in
+          let assert_rej1 = assert_rej reject1 auto1_transition in 
+          let assert_rej2 = assert_rej reject2 auto2_transition in
+          
+          if epsilon_assert && assert_rej1 && assert_rej2 then
+            (*if first 3 assertions are true, move to assert_trans*)
+              let assert_trans, auto1_deadmap, auto2_deadmap = 
+
+                  List.fold_left2
+
+                  (fun (acc, deadm1, deadm2) (be1, To(next_state1, p)) (be2, To(next_state2, q)) ->
+                    if not acc then (false, deadm1, deadm2)  (* If already false, stop early *)
+                    else if BExp.is_false @@ BExp.b_and be1 be2 then (acc, deadm1, deadm2)  (* Skip disjoint *)
+                    else if p = q then
+                      (*ignore @@ UnionFind.union exp1_ele exp2_ele;???*)
+                      let new_todo = StatePairSet.singleton (next_state1, next_state2) in
+                      let result, deadm1, deadm2 = helper new_todo deadm1 deadm2 in
+                      (acc && result, deadm1, deadm2)  (* Update the result and maps: all result should be true!*)
+                    else
+                      (false, deadm1, deadm2))  (* Fails if `p` and `q` don't match *)
+
+                    (true, auto1_deadmap, auto2_deadmap) (* first argument for fold_left2: acc = true to begin with *)
+                    auto1_transition auto2_transition    (*the two lists taken by the fold: transitions from both autos (be_res_map list*)
+
+              in (assert_trans, auto1_deadmap, auto2_deadmap)
+          else (false, auto1_deadmap, auto2_deadmap)
       in     
         let start_pair = StatePairSet.singleton (auto1.start, auto2.start) in
-        equiv_help start_pair
+        let result,_,_ = helper start_pair auto1_deadmap auto2_deadmap in
+          result
 
 end
