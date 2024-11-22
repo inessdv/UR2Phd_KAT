@@ -280,73 +280,57 @@ module Derivatives = struct
     p_trans : be_res_map list;
         (* δ* set of (BExp.t , (s,p))  when compare, compare the tag of BE let compare b1 b2 = compare b1.tag b2.tag*)
   }
-
-  module StateMap = Map.Make (State)
-
+  
+  module StateMap = Map.Make(State)
   type epsilonTrans = State.t -> res
 
   module DeadStates : sig
-    type state_status_map_t = bool StateMap.t
-
     val is_dead :
-      State.t -> automaton -> state_status_map_t -> bool * state_status_map_t
+      State.t -> automaton -> bool
 
-    val known_dead : State.t -> state_status_map_t -> bool
-    val clear_dead : state_status_map_t
+    val known_dead : State.t -> bool
+    val clear_dead : unit -> unit
 
-    val length :
-      state_status_map_t -> int (*Is this necessary??? testing purposes?*)
   end = struct
-    type state_status_map_t = bool StateMap.t
+    module StateSet = Set.Make(State)
+    let dead_states : StateSet.t ref = ref StateSet.empty
+    let known_dead state = StateSet.mem state !dead_states
 
-    let known_dead state state_status_map =
-      match StateMap.find_opt state state_status_map with
-      | Some true -> true
-      | _ -> false
-
-    let clear_dead = StateMap.empty
-    let length state_status_map = StateMap.cardinal state_status_map
+    let clear_dead () = dead_states := StateSet.empty
 
     type visitRes =
       | KnownDead
           (** The visited state is *known* to be dead, i.e., in `state_status_map` *)
       | Live
           (** The visited state is live, i.e., it can reach an accepting state *)
-      | Unknown of State.t list
+      | Unknown of StateSet.t
           (** The visited state is unknown to be dead or live. 
             The argument is all the explored states while visiting that state. *)
 
     (** Helper to `visit`, visit all the descendants of a state, return a visit result *)
 
-    let rec visit_descendants (explored : State.t list) (states : State.t list)
-        (automaton : automaton) (state_status_map : state_status_map_t) :
-        visitRes * state_status_map_t =
+    let rec visit_descendants (explored : StateSet.t) (states : State.t list)(auto: automaton):
+        visitRes=
       match states with
-      | [] -> (Unknown explored, state_status_map)
+      | [] -> Unknown explored
       | s :: rest -> (
-          let result, state_status_map =
-            visit explored s automaton state_status_map
-          in
-          match result with
-          | Live -> (Live, state_status_map)
-          | KnownDead ->
-              visit_descendants (s :: explored) rest automaton state_status_map
-          | Unknown more_states ->
-              visit_descendants
-                (List.append explored more_states)
-                rest automaton state_status_map)
+        match visit explored s auto with
+        | Live -> Live
+        | KnownDead -> visit_descendants (StateSet.add s explored) rest auto
+        | Unknown unknown_states -> visit_descendants (StateSet.union explored unknown_states) rest auto 
+        )
+
 
     (** Visit a single state *)
-    and visit (explored : State.t list) (state : State.t) (auto : automaton)
-        (state_status_map : state_status_map_t) : visitRes * state_status_map_t
-        =
-      if known_dead state state_status_map then (KnownDead, state_status_map)
-      else if List.mem state explored then (Unknown explored, state_status_map)
+    and visit (explored: StateSet.t) (state : State.t) (auto : automaton): 
+    visitRes =
+      if known_dead state then KnownDead
+      else if StateSet.mem state explored then Unknown explored
       else
         (* Explore the current state *)
-        let explored = state :: explored in
+        let explored = StateSet.add state explored in
         if not (BExp.is_false (auto.accept state)) then
-          (Live, StateMap.add state false state_status_map)
+          Live
         else
           (* Get the next reachable states from transitions *)
           let transitions = auto.trans state in
@@ -356,25 +340,18 @@ module Derivatives = struct
                 if BExp.is_false cond then None else Some next_state)
               transitions
           in
-          let result, state_status_map =
-            visit_descendants explored next_states auto state_status_map
-          in
-          match result with
-          | Live -> (Live, StateMap.add state false state_status_map)
-          | KnownDead -> (KnownDead, StateMap.add state true state_status_map)
-          | Unknown _ -> (KnownDead, StateMap.add state true state_status_map)
-    (*final result, unknown, hence dead!*)
+            visit_descendants explored next_states auto
 
     (** Check whether a state is dead.
       When it returns false, the state is necessarily live. *)
 
-    let is_dead (state : State.t) (auto : automaton)
-        (state_status_map : state_status_map_t) : bool * state_status_map_t =
-      let result, state_status_map = visit [] state auto state_status_map in
-      match result with
-      | Live -> (false, state_status_map)
-      | KnownDead -> (true, state_status_map)
-      | Unknown _ -> (true, state_status_map)
+    let is_dead (state : State.t) (auto : automaton): bool =
+      match visit StateSet.empty state auto with
+      | Live -> false
+      | KnownDead -> true
+      | Unknown all_explored->
+        dead_states := StateSet.union !dead_states all_explored;
+        true
   end
 
   let res_to_left (r : be_res_map list) (coprod : MakePosInt.coprodRes) :
@@ -560,9 +537,6 @@ module Derivatives = struct
       auto_transition
 
   let equiv_help (auto1 : automaton) (auto2 : automaton) : bool =
-    (*create dead maps to keep track of dead states*)
-    let auto1_deadmap = DeadStates.clear_dead in
-    let auto2_deadmap = DeadStates.clear_dead in
 
     (* get union find maps for each auto*)
     let uf_map1, uf_map2 = union_find_maps auto1 auto2 in
@@ -571,13 +545,9 @@ module Derivatives = struct
     let get_elem2 s = StateMap.find s uf_map2 in
 
     (*Main equivalent function*)
-    let rec helper (todo : StatePairSet.t)
-        (auto1_deadmap : DeadStates.state_status_map_t)
-        (auto2_deadmap : DeadStates.state_status_map_t) :
-        bool * DeadStates.state_status_map_t * DeadStates.state_status_map_t =
+    let rec helper (todo : StatePairSet.t): bool =
       match StatePairSet.choose_opt todo with
-      | None ->
-          (true, auto1_deadmap, auto2_deadmap)
+      | None -> true
           (* print_endline "";
              print_endline "Equiv asserted";
              print_endline ""; *)
@@ -591,18 +561,16 @@ module Derivatives = struct
             let new_todo =
               (StatePairSet.remove (s1, s2)) todo (*remove checked from todo*)
             in
-            helper new_todo auto1_deadmap auto2_deadmap
+            helper new_todo
             (*Edited: Should not return true, should filter and continue*)
           else
             (*checking for dead states on the fly*)
-            let s1_is_dead, auto1_deadmap =
-              DeadStates.is_dead s1 auto1 auto1_deadmap
-            in
-            let s2_is_dead, auto2_deadmap =
-              DeadStates.is_dead s2 auto2 auto2_deadmap
-            in
-            if s1_is_dead then (s2_is_dead, auto1_deadmap, auto2_deadmap)
-            else if s2_is_dead then (s1_is_dead, auto1_deadmap, auto2_deadmap)
+            if DeadStates.known_dead s1
+            then 
+              DeadStates.is_dead s2 auto2
+            else if DeadStates.known_dead s2 
+            then 
+              DeadStates.is_dead s1 auto1
             else
               let reject1 = reject (auto1.trans s1) (auto1.accept s1) in
               let reject2 = reject (auto2.trans s2) (auto2.accept s2) in
@@ -618,36 +586,24 @@ module Derivatives = struct
 
               if epsilon_assert && assert_rej1 && assert_rej2 then
                 (*if first 3 assertions are true, move to assert_trans*)
-                let assert_trans, auto1_deadmap, auto2_deadmap =
-                  List.fold_left2
-                    (fun (acc, deadm1, deadm2) (be1, To (next_state1, p))
-                         (be2, To (next_state2, q)) ->
-                      if not acc then (false, deadm1, deadm2)
-                        (* If already false, stop early *)
-                      else if BExp.is_false @@ BExp.b_and be1 be2 then
-                        (acc, deadm1, deadm2) (* Skip disjoint *)
-                      else if p = q then
-                        (*ignore @@ UnionFind.union exp1_ele exp2_ele;???*)
-                        let new_todo =
-                          StatePairSet.singleton (next_state1, next_state2)
-                        in
-                        let result, deadm1, deadm2 =
-                          helper new_todo deadm1 deadm2
-                        in
-                        (acc && result, deadm1, deadm2)
-                        (* Update the result and maps: all result should be true!*)
-                      else (false, deadm1, deadm2))
-                      (* Fails if `p` and `q` don't match *)
-                    (true, auto1_deadmap, auto2_deadmap)
-                    (* first argument for fold_left2: acc = true to begin with *)
-                    auto1_transition auto2_transition
-                  (*the two lists taken by the fold: transitions from both autos (be_res_map list*)
-                in
-
-                (assert_trans, auto1_deadmap, auto2_deadmap)
-              else (false, auto1_deadmap, auto2_deadmap)
+                  let assert_trans =
+                    List.for_all
+                      (fun ((be1, To(next_state1, p)), (be2, To(next_state2, q))) ->
+                        (* `be1` `be2` disjoint, then skip*)
+                        (BExp.is_false @@ BExp.b_and be1 be2)
+                        ||
+                        (* `p` and `q` are the same, then recurse*)
+                        if p = q then (
+                          (* ignore @@ UnionFind.union exp1_ele exp2_ele; *)
+                          helper (StatePairSet.singleton (next_state1 ,next_state2))
+                          (* `p` and `q` are not the same, then both need to be dead*))
+                        (* else DeadExps.is_dead next_exp1 && DeadExps.is_dead next_exp2) *)
+                          else false)
+                      (Common.list_prod auto1_transition auto2_transition)
+                  in
+                  assert_trans
+              else false
     in
     let start_pair = StatePairSet.singleton (auto1.start, auto2.start) in
-    let result, _, _ = helper start_pair auto1_deadmap auto2_deadmap in
-    result
+    helper start_pair
 end

@@ -139,6 +139,7 @@ module Exp = struct
       | If (b, x, y) -> Hashtbl.hash (`If (b.hkey, x.hkey, y.hkey))
       | Test b -> Hashtbl.hash (`Text b.hkey)
       | While (b, x) -> Hashtbl.hash (`While (b.hkey, x.hkey))
+      
   end
 
   module HashT = Hashcons.Make (T_node)
