@@ -586,7 +586,7 @@ module Derivatives = struct
             && (let assert_rej2 =
                   List.for_all
                     (fun (be, To (state, _)) ->
-                      BExp.is_false @@ BExp.b_and reject2 be)
+                      BExp.is_false @@ BExp.b_and reject2 be || DeadStates.is_dead state auto2)
                     auto1_transition
                 in
                 assert_rej2)
@@ -612,4 +612,22 @@ module Derivatives = struct
     in
     let start_pair = StatePairSet.singleton (auto1.start, auto2.start) in
     helper start_pair
+
+
+    let equiv(exp1 : Exp.t) (exp2 : Exp.t) : bool =
+      let auto1=convert(thompson_construct exp1) in 
+      let auto2=convert(thompson_construct exp2) in
+      equiv_help auto1 auto2
+
+    let example1 =
+      Exp.seq
+        (Exp.test (BExp.pBool "b1"))
+        (Exp.seq (Exp.p_act "p0")
+           (Exp.if_then_else (BExp.pBool "b2") (Exp.p_act "p0") (Exp.p_act "p0")))
+  
+    (*(b1 * p0) * p0*)
+    let example2 =
+      Exp.seq
+        (Exp.seq (Exp.test (BExp.pBool "b1")) (Exp.p_act "p0"))
+        (Exp.p_act "p0")
 end

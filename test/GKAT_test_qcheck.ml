@@ -319,16 +319,55 @@ let rec from_gkat_to_hashcon (exp1 : GKAT_2.gkat) : GKAT_Symb.Exp.t =
   | While (be, e) ->
       GKAT_Symb.Exp.while_do (from_be_to_hashcons be) (from_gkat_to_hashcon e)
 
+let rec from_be_to_hashcons2 (be : GKAT_2.bExp) : GKAT_ASymb.BExp.t =
+  match be with
+  | Zero -> GKAT_ASymb.BExp.zero
+  | One -> GKAT_ASymb.BExp.one
+  | PBool str -> GKAT_ASymb.BExp.pBool str
+  | Or (b1, b2) ->
+      GKAT_ASymb.BExp.b_or (from_be_to_hashcons2 b1) (from_be_to_hashcons2 b2)
+  | And (b1, b2) ->
+      GKAT_ASymb.BExp.b_and (from_be_to_hashcons2 b1) (from_be_to_hashcons2 b2)
+  | Not b1 -> GKAT_ASymb.BExp.b_not (from_be_to_hashcons2 b1)
+
+let rec from_gkat_to_hashcon2 (exp1 : GKAT_2.gkat) : GKAT_ASymb.Exp.t =
+  match exp1 with
+  | Pact p -> GKAT_ASymb.Exp.p_act p
+  | Seq (e, f) ->
+      GKAT_ASymb.Exp.seq (from_gkat_to_hashcon2 e) (from_gkat_to_hashcon2 f)
+  | If (be, e, f) ->
+      GKAT_ASymb.Exp.if_then_else (from_be_to_hashcons2 be)
+        (from_gkat_to_hashcon2 e) (from_gkat_to_hashcon2 f)
+  | Test be -> GKAT_ASymb.Exp.test (from_be_to_hashcons2 be)
+  | While (be, e) ->
+      GKAT_ASymb.Exp.while_do (from_be_to_hashcons2 be)
+        (from_gkat_to_hashcon2 e)
+
 let test_equiv_symb =
   QCheck_ounit.to_ounit2_test
   @@ Test.make ~count:1000
        ~name:"testing symbolic based algorithm with generated equivalence"
        ~print:(fun (e1, e2) ->
-        " EXP1: " ^ GKAT_2.Print2.pprint e1 ^ " EXP2: " ^ GKAT_2.Print2.pprint e2)
+         " EXP1: " ^ GKAT_2.Print2.pprint e1 ^ " EXP2: "
+         ^ GKAT_2.Print2.pprint e2)
        GenExp.gen_eq_exp
        (fun (e1, e2) ->
-        GKAT_Symb.Derivatives.equiv (from_gkat_to_hashcon e1)
-          (from_gkat_to_hashcon e2))
+         GKAT_Symb.Derivatives.equiv (from_gkat_to_hashcon e1)
+           (from_gkat_to_hashcon e2))
+
+let test_equiv_Asymb =
+  QCheck_ounit.to_ounit2_test
+  @@ Test.make ~count:1000
+       ~name:
+         "testing automaton- symbolic based algorithm with generated \
+          equivalence"
+       ~print:(fun (e1, e2) ->
+         " EXP1: " ^ GKAT_2.Print2.pprint e1 ^ " EXP2: "
+         ^ GKAT_2.Print2.pprint e2)
+       GenExp.gen_eq_exp
+       (fun (e1, e2) ->
+         GKAT_ASymb.Derivatives.equiv (from_gkat_to_hashcon2 e1)
+           (from_gkat_to_hashcon2 e2))
 
 let test_symb_vs_aut =
   QCheck_ounit.to_ounit2_test
@@ -336,12 +375,13 @@ let test_symb_vs_aut =
        ~name:
          "testing symbolic based algorithm against automaton based algorithm"
        ~print:(fun (e1, e2) ->
-        " EXP1: " ^ GKAT_2.Print2.pprint e1 ^ " EXP2: " ^ GKAT_2.Print2.pprint e2)
+         " EXP1: " ^ GKAT_2.Print2.pprint e1 ^ " EXP2: "
+         ^ GKAT_2.Print2.pprint e2)
        (Gen.pair
           (GenExp.exp_sized bexp_max_size exp_max_size)
           (GenExp.exp_sized bexp_max_size exp_max_size))
        (fun (e1, e2) ->
-        GKAT_Symb.Derivatives.equiv (from_gkat_to_hashcon e1)
+         GKAT_Symb.Derivatives.equiv (from_gkat_to_hashcon e1)
            (from_gkat_to_hashcon e2)
          = GKAT_Aut.equiv e1 e2)
 
@@ -350,11 +390,12 @@ let test_symb_vs_gkat =
   @@ Test.make ~count:1000
        ~name:"testing symbolic based algorithm against GKAT_2 based algorithm"
        ~print:(fun (e1, e2) ->
-        " EXP1: " ^ GKAT_2.Print2.pprint e1 ^ " EXP2: " ^ GKAT_2.Print2.pprint e2)
+         " EXP1: " ^ GKAT_2.Print2.pprint e1 ^ " EXP2: "
+         ^ GKAT_2.Print2.pprint e2)
        (Gen.pair
           (GenExp.exp_sized bexp_max_size exp_max_size)
           (GenExp.exp_sized bexp_max_size exp_max_size))
        (fun (e1, e2) ->
-        GKAT_Symb.Derivatives.equiv (from_gkat_to_hashcon e1)
+         GKAT_Symb.Derivatives.equiv (from_gkat_to_hashcon e1)
            (from_gkat_to_hashcon e2)
          = GKAT_2.gKat_equiv e1 e2)
