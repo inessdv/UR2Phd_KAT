@@ -678,4 +678,23 @@ module Derivatives = struct
       Exp.seq
         (Exp.seq (Exp.test (BExp.pBool "b1")) (Exp.p_act "p0"))
         (Exp.p_act "p0")
+    let gkat_example1 =
+          Exp.seq
+            (Exp.seq (Exp.p_act "p7")
+               (Exp.if_then_else (BExp.pBool "b2") (Exp.p_act "p6")
+                  (Exp.seq
+                     (Exp.test (BExp.b_not (BExp.pBool "b2")))
+                     (Exp.test (BExp.b_not (BExp.pBool "b1"))))))
+            (Exp.test (BExp.b_not (BExp.pBool "b1")))
+      
+    let gkat_example2 = Exp.seq (Exp.p_act "p7") (Exp.p_act "p5")
+
+    (*EXP1: if b2 and b1 then p1 else p0*)
+    let ex1 = Exp.if_then_else (BExp.b_and ((BExp.pBool "b2"))((BExp.pBool "b1")))(Exp.p_act "p1") (Exp.p_act "p0")
+    (*EXP2: if ~(b2 and b1) then p0 else p1*)
+    let ex2 = Exp.if_then_else 
+        (BExp.b_not(BExp.b_and (BExp.pBool "b2")(BExp.pBool "b1")))
+        (Exp.p_act "p0")
+        (Exp.p_act "p1")
+
 end

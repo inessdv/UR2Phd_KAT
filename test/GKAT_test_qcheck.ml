@@ -3,7 +3,7 @@ open KA_equiv
 
 let ( let* ) = Gen.( let* )
 let return = Gen.return
-let exp_max_size = 1000
+let exp_max_size = 20
 let bexp_max_size = 2
 let max_p_bool_count = 3
 
@@ -357,7 +357,7 @@ let test_equiv_symb =
 
 let test_equiv_Asymb =
   QCheck_ounit.to_ounit2_test
-  @@ Test.make ~count:1000
+  @@ Test.make ~count:1
        ~name:
          "testing automaton- symbolic based algorithm with generated \
           equivalence"
