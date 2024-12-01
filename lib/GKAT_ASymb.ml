@@ -254,6 +254,18 @@ module Exp = struct
     fst @@ helper exp
 end
 
+(*
+module StateHC = struct
+  type t = t_ Hashcons.hash_consed  
+  and t_ = PointedCoprod.MakePosInt.t
+  module S_node = struct
+    type t = t_
+  end
+end
+
+module State = StateHC.S_node
+*)
+
 type res = To of State.t * int (*changed from Pact*)
 type trans = State.t -> BExp.t -> res
 type be_res_map = BExp.t * res
@@ -284,20 +296,12 @@ module PAutomaton = struct
   }
 end
 
-module State = struct
-  type t = t_ Hashcons.hash_consed  
-  and t_ = PointedCoprod.MakePosInt.t
-  module T_node = struct
-    type t = t_
-  end
-end
-
-module HSet = Hashcons.Hset
 
 module StateTbl = Hashtbl.Make(struct
   type t = State.t 
   let equal s1 s2 = s1 == s2
   let hash = Hashtbl.hash
+  
 end)
 
 module StateHSet = struct
@@ -310,14 +314,13 @@ module StateHSet = struct
   let mem (state : State.t) (s : t) : bool =
     Option.is_some @@ StateTbl.find_opt s state
 
-  let add_to_fst (hset1 : t) (hset2 : State.t_ HSet.t) : unit =
-    HSet.iter (fun state -> add state hset1) hset2
+  let add_to_fst (hset1 : t) (hset2 : t) : unit =
+    StateTbl.iter (fun state _ -> add state hset1) hset2
 
   let clear = StateTbl.clear
   let length = StateTbl.length
 
 end
-
 
 module type DeadStates = sig
   val is_dead : State.t -> Automaton.t -> bool
@@ -325,7 +328,7 @@ module type DeadStates = sig
   val clear_dead : unit -> unit
 end 
 
-module DeadStateHash: DeadStates = struct
+module MakeDeadStateHash (): DeadStates = struct
   
   let dead_states : StateHSet.t = StateHSet.create 251
   let known_dead (state : State.t) : bool =
@@ -337,33 +340,35 @@ module DeadStateHash: DeadStates = struct
           (** The visited state is *known* to be dead, i.e., in `state_status_map` *)
       | Live
           (** The visited state is live, i.e., it can reach an accepting state *)
-      | Unknown of State.t_ HSet.t
+      | Unknown of StateHSet.t
           (** The visited state is unknown to be dead or live. 
             The argument is all the explored states while visiting that state. *)
 
     (** Helper to `visit`, visit all the descendants of a state, return a visit result *)
 
-    let rec visit_descendants (explored : State.t_ HSet.t) (states : State.t list)
+    let rec visit_descendants (explored : StateHSet.t) (states : State.t list)
         (auto : Automaton.t) : visitRes =
       match states with
       | [] -> Unknown explored
       | s :: rest -> (
           match visit explored s auto with
           | Live -> Live
-          | KnownDead -> visit_descendants (HSet.add s explored) rest auto
+          | KnownDead -> 
+            StateHSet.add s explored;
+            visit_descendants explored rest auto
           | Unknown unknown_states ->
-              visit_descendants
-                (HSet.union explored unknown_states)
-                rest auto)
+            StateHSet.add_to_fst explored unknown_states;
+            visit_descendants explored rest auto)
 
     (** Visit a single state *)
-    and visit (explored : State.t_ HSet.t) (state : State.t) (auto : Automaton.t) :
+    and visit (explored : StateHSet.t) (state : State.t) (auto : Automaton.t) :
         visitRes =
-      if known_dead state then KnownDead
-      else if HSet.mem state explored then Unknown explored
-      else
+      if (known_dead state) then KnownDead
+      else if (StateHSet.mem state explored) then Unknown explored
+      else (
         (* Explore the current state *)
-        let explored = HSet.add state explored in
+        StateHSet.add state explored;
+        (* Check acceptance of the state *)
         if not (BExp.is_false (auto.accept state)) then Live
         else
           (* Get the next reachable states from transitions *)
@@ -374,13 +379,13 @@ module DeadStateHash: DeadStates = struct
                 if BExp.is_false cond then None else Some next_state)
               transitions
           in
-          visit_descendants explored next_states auto
+          visit_descendants explored next_states auto)
 
     (** Check whether a state is dead.
       When it returns false, the state is necessarily live. *)
 
     let is_dead (state : State.t) (auto : Automaton.t) : bool =
-      match visit HSet.empty state auto with
+      match visit (StateHSet.create 251) state auto  with
       | Live -> false
       | KnownDead -> true
       | Unknown all_explored ->
@@ -581,6 +586,8 @@ module Derivatives = struct
     (* get union find element of automatons*)
     let get_elem1 s = StateMap.find s uf_map1 in
     let get_elem2 s = StateMap.find s uf_map2 in
+    let module DeadStateHash1 = MakeDeadStateHash () in
+    let module DeadStateHash2 = MakeDeadStateHash () in
 
     (*Main equivalent function*)
     let rec helper (todo : StatePairSet.t) : bool =
@@ -604,9 +611,9 @@ module Derivatives = struct
             (*Edited: Should not return true, should filter and continue*)
           else if
             (*checking for dead states on the fly*)
-            DeadStateHash.known_dead s1
-          then DeadStateHash.is_dead s2 auto2
-          else if DeadStateHash.known_dead s2 then DeadStateHash.is_dead s1 auto1
+            DeadStateHash1.known_dead s1
+          then DeadStateHash2.is_dead s2 auto2
+          else if DeadStateHash2.known_dead s2 then DeadStateHash1.is_dead s1 auto1
           else
             let reject1 = reject (auto1.trans s1) (auto1.accept s1) in
             let reject2 = reject (auto2.trans s2) (auto2.accept s2) in
@@ -620,14 +627,14 @@ module Derivatives = struct
             && (let assert_rej1 =
                   List.for_all
                     (fun (be, To (state, _)) ->
-                      BExp.is_false @@ BExp.b_and reject1 be|| DeadStateHash.is_dead state auto1)
+                      BExp.is_false @@ BExp.b_and reject1 be|| DeadStateHash1.is_dead state auto1)
                     auto2_transition
                 in
                 assert_rej1)
             && (let assert_rej2 =
                   List.for_all
                     (fun (be, To (state, _)) ->
-                      BExp.is_false @@ BExp.b_and reject2 be || DeadStateHash.is_dead state auto2)
+                      BExp.is_false @@ BExp.b_and reject2 be || DeadStateHash2.is_dead state auto2)
                     auto1_transition
                 in
                 assert_rej2)
@@ -646,7 +653,7 @@ module Derivatives = struct
                     (* `p` and `q` are not the same, then both need to be dead*)
                     (* else DeadExps.is_dead next_exp1 && DeadExps.is_dead next_exp2) *))
                   else
-                    DeadStateHash.is_dead s1 auto1 && DeadStateHash.is_dead s2 auto2)
+                    DeadStateHash1.is_dead s1 auto1 && DeadStateHash2.is_dead s2 auto2)
                 (Common.list_prod auto1_transition auto2_transition)
             in
             assert_trans
