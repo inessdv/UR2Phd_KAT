@@ -742,9 +742,10 @@ module Derivatives = struct
                     (* else DeadExps.is_dead next_exp1 && DeadExps.is_dead next_exp2) *))
                   else
                     let res=
-                    DeadStateHash1.is_dead next_state1 auto1
+                    DeadStateHash1.is_dead next_state1 auto1 
                     && DeadStateHash2.is_dead next_state2 auto2 in print_endline(string_of_bool res);res)
                 (Common.list_prod auto1_transition auto2_transition)
+                (*If two states are not dead, but the don't have the same P_act, does it make the two expression not equivalent?*)
             in
             print_endline
             "assertion3 for: forall ψ_e ↦ (e', p) ∈ δ(e), ψ_f ↦ (f', q) ∈ δ(f) ";
