@@ -152,6 +152,7 @@ module Exp = struct
   let tbl = HashT.create 251
 
   let hashcons : t_ -> t = HashT.hashcons tbl
+  (* let p_act (p : string) : t = hashcons @@ Pact (p, Hashtbl.hash p) *)
   let p_act (p : string) : t = hashcons @@ Pact (p, Hashtbl.hash p)
   let test (b : BExp.t) : t = hashcons @@ Test b
   let skip : t = test BExp.one
@@ -270,8 +271,8 @@ type res = To of State.t * int (*changed from Pact*)
 type trans = State.t -> BExp.t -> res
 type be_res_map = BExp.t * res
 
-module Automaton = struct 
-    type t = {
+module Automaton = struct
+  type t = {
     accept : State.t -> BExp.t;
     (*  ϵ̂ *)
     (*all the atoms that the input state accepts*)
@@ -296,12 +297,11 @@ module PAutomaton = struct
   }
 end
 
+module StateTbl = Hashtbl.Make (struct
+  type t = State.t
 
-module StateTbl = Hashtbl.Make(struct
-  type t = State.t 
   let equal s1 s2 = s1 == s2
   let hash = Hashtbl.hash
-  
 end)
 
 module StateHSet = struct
@@ -319,84 +319,80 @@ module StateHSet = struct
 
   let clear = StateTbl.clear
   let length = StateTbl.length
-
 end
 
 module type DeadStates = sig
   val is_dead : State.t -> Automaton.t -> bool
   val known_dead : State.t -> bool
   val clear_dead : unit -> unit
-end 
+end
 
-module MakeDeadStateHash (): DeadStates = struct
-  
+module MakeDeadStateHash () : DeadStates = struct
   let dead_states : StateHSet.t = StateHSet.create 251
-  let known_dead (state : State.t) : bool =
-    StateHSet.mem state dead_states
+  let known_dead (state : State.t) : bool = StateHSet.mem state dead_states
   let clear_dead () = StateHSet.clear dead_states
 
-    type visitRes =
-      | KnownDead
-          (** The visited state is *known* to be dead, i.e., in `state_status_map` *)
-      | Live
-          (** The visited state is live, i.e., it can reach an accepting state *)
-      | Unknown of StateHSet.t
-          (** The visited state is unknown to be dead or live. 
+  type visitRes =
+    | KnownDead
+        (** The visited state is *known* to be dead, i.e., in `state_status_map` *)
+    | Live
+        (** The visited state is live, i.e., it can reach an accepting state *)
+    | Unknown of StateHSet.t
+        (** The visited state is unknown to be dead or live. 
             The argument is all the explored states while visiting that state. *)
 
-    (** Helper to `visit`, visit all the descendants of a state, return a visit result *)
+  (** Helper to `visit`, visit all the descendants of a state, return a visit result *)
 
-    let rec visit_descendants (explored : StateHSet.t) (states : State.t list)
-        (auto : Automaton.t) : visitRes =
-      match states with
-      | [] -> Unknown explored
-      | s :: rest -> (
-          match visit explored s auto with
-          | Live -> Live
-          | KnownDead -> 
+  let rec visit_descendants (explored : StateHSet.t) (states : State.t list)
+      (auto : Automaton.t) : visitRes =
+    match states with
+    | [] -> Unknown explored
+    | s :: rest -> (
+        match visit explored s auto with
+        | Live -> Live
+        | KnownDead ->
             StateHSet.add s explored;
             visit_descendants explored rest auto
-          | Unknown unknown_states ->
+        | Unknown unknown_states ->
             StateHSet.add_to_fst explored unknown_states;
             visit_descendants explored rest auto)
 
-    (** Visit a single state *)
-    and visit (explored : StateHSet.t) (state : State.t) (auto : Automaton.t) :
-        visitRes =
-      if (known_dead state) then KnownDead
-      else if (StateHSet.mem state explored) then Unknown explored
-      else (
-        (* Explore the current state *)
-        StateHSet.add state explored;
-        (* Check acceptance of the state *)
-        if not (BExp.is_false (auto.accept state)) then Live
-        else
-          (* Get the next reachable states from transitions *)
-          let transitions = auto.trans state in
-          let next_states =
-            List.filter_map
-              (fun (cond, To (next_state, _)) ->
-                if BExp.is_false cond then None else Some next_state)
-              transitions
-          in
-          visit_descendants explored next_states auto)
+  (** Visit a single state *)
+  and visit (explored : StateHSet.t) (state : State.t) (auto : Automaton.t) :
+      visitRes =
+    if known_dead state then KnownDead
+    else if StateHSet.mem state explored then Unknown explored
+    else (
+      (* Explore the current state *)
+      StateHSet.add state explored;
+      (* Check acceptance of the state *)
+      if not (BExp.is_false (auto.accept state)) then Live
+      else
+        (* Get the next reachable states from transitions *)
+        let transitions = auto.trans state in
+        let next_states =
+          List.filter_map
+            (fun (cond, To (next_state, _)) ->
+              if BExp.is_false cond then None else Some next_state)
+            transitions
+        in
+        visit_descendants explored next_states auto)
 
-    (** Check whether a state is dead.
+  (** Check whether a state is dead.
       When it returns false, the state is necessarily live. *)
 
-    let is_dead (state : State.t) (auto : Automaton.t) : bool =
-      match visit (StateHSet.create 251) state auto  with
-      | Live -> false
-      | KnownDead -> true
-      | Unknown all_explored ->
+  let is_dead (state : State.t) (auto : Automaton.t) : bool =
+    match visit (StateHSet.create 251) state auto with
+    | Live -> false
+    | KnownDead -> true
+    | Unknown all_explored ->
         (*ADD TO FIRST*)
         StateHSet.add_to_fst dead_states all_explored;
-          true
-  end
+        true
+end
 
 module Derivatives = struct
-
-  module StateMap = Map.Make(State)
+  module StateMap = Map.Make (State)
 
   let res_to_left (r : be_res_map list) (coprod : MakePosInt.coprodRes) :
       be_res_map list =
@@ -579,7 +575,82 @@ module Derivatives = struct
     List.for_all
       (fun (be, To (_, _)) -> BExp.is_false @@ BExp.b_and reject be)
       auto_transition
-
+      let pprint_be_res_map (be_res_map : be_res_map) =
+        let bexp, res = be_res_map in
+        let bexp_str = BExp.pprint bexp in
+        match res with
+        | To (state, int_val) ->
+            Printf.sprintf "(%s -> To(State %d, p%d))" bexp_str state int_val
+    
+      let pprint_state (state : State.t) = Printf.sprintf "State %d" state
+    
+      let pprint_transitions (trans : State.t -> be_res_map list)
+          (states : State.Set.t) =
+        State.Set.fold
+          (fun state acc ->
+            let transitions = trans state in
+            let transition_str =
+              List.map pprint_be_res_map transitions |> String.concat ", "
+            in
+            acc ^ Printf.sprintf "\n  %s: [%s]" (pprint_state state) transition_str)
+          states ""
+    
+      let pprint_automaton (automaton : Automaton.t) =
+        let accept_str =
+          State.Set.fold
+            (fun state acc ->
+              let accept_bexp = automaton.accept state in
+              acc
+              ^ Printf.sprintf "\n  %s: %s" (pprint_state state)
+                  (BExp.pprint accept_bexp))
+            automaton.states ""
+        in
+        let transitions_str = pprint_transitions automaton.trans automaton.states in
+        Printf.sprintf
+          "Automaton:\n\
+           States:\n\
+           %s\n\
+           Start State: %s\n\
+           Accept Conditions:%s\n\
+           Transitions:%s"
+          (State.Set.fold
+             (fun state acc -> acc ^ Printf.sprintf "\n  %s" (pprint_state state))
+             automaton.states "")
+          (pprint_state automaton.start)
+          accept_str transitions_str
+    
+      let pprint_pautomaton (pautomaton : PAutomaton.t) =
+        let accept_str =
+          State.Set.fold
+            (fun state acc ->
+              let accept_bexp = pautomaton.accept state in
+              acc
+              ^ Printf.sprintf "\n  %s: %s" (pprint_state state)
+                  (BExp.pprint accept_bexp))
+            pautomaton.states ""
+        in
+        let transitions_str =
+          pprint_transitions pautomaton.trans pautomaton.states
+        in
+        let p_trans_str =
+          List.map pprint_be_res_map pautomaton.p_trans |> String.concat "\n  "
+        in
+        Printf.sprintf
+          "PAutomaton:\n\
+           States:\n\
+           %s\n\
+           Accept Conditions:%s\n\
+           p_accept: %s\n\
+           Transitions:%s\n\
+           p_trans:\n\
+          \  %s"
+          (State.Set.fold
+             (fun state acc -> acc ^ Printf.sprintf "\n  %s" (pprint_state state))
+             pautomaton.states "")
+          accept_str
+          (BExp.pprint pautomaton.p_accept)
+          transitions_str p_trans_str
+    
   let equiv_help (auto1 : Automaton.t) (auto2 : Automaton.t) : bool =
     (* get union find maps for each auto*)
     let uf_map1, uf_map2 = union_find_maps auto1 auto2 in
@@ -588,7 +659,6 @@ module Derivatives = struct
     let get_elem2 s = StateMap.find s uf_map2 in
     let module DeadStateHash1 = MakeDeadStateHash () in
     let module DeadStateHash2 = MakeDeadStateHash () in
-
     (*Main equivalent function*)
     let rec helper (todo : StatePairSet.t) : bool =
       match StatePairSet.choose_opt todo with
@@ -598,6 +668,10 @@ module Derivatives = struct
              print_endline "Equiv asserted";
              print_endline ""; *)
       | Some (s1, s2) ->
+        print_endline("comparing state");
+        print_int(s1);
+        print_int(s2);
+        print_newline();
           if
             (* if they are already marked bisimilar *)
             (* print_endline
@@ -612,34 +686,48 @@ module Derivatives = struct
           else if
             (*checking for dead states on the fly*)
             DeadStateHash1.known_dead s1
-          then DeadStateHash2.is_dead s2 auto2
-          else if DeadStateHash2.known_dead s2 then DeadStateHash1.is_dead s1 auto1
+          then 
+            DeadStateHash2.is_dead s2 auto2
+          else if DeadStateHash2.known_dead s2 then
+            DeadStateHash1.is_dead s1 auto1
           else
             let reject1 = reject (auto1.trans s1) (auto1.accept s1) in
             let reject2 = reject (auto2.trans s2) (auto2.accept s2) in
             let auto1_transition = auto1.trans s1 in
             let auto2_transition = auto2.trans s2 in
-
+            print_endline(List.map pprint_be_res_map auto1_transition|> String.concat ", ");
+            print_endline(List.map pprint_be_res_map auto2_transition|> String.concat ", ");
             let epsilon_assert =
               BExp.equiv (auto1.accept s1) (auto2.accept s2)
             in
+            print_endline "Checking same espilon: ";
+            print_endline (string_of_bool epsilon_assert);
             epsilon_assert
             && (let assert_rej1 =
                   List.for_all
                     (fun (be, To (state, _)) ->
-                      BExp.is_false @@ BExp.b_and reject1 be|| DeadStateHash1.is_dead state auto1)
+                      (BExp.is_false @@ BExp.b_and reject1 be)
+                      || DeadStateHash1.is_dead state auto2)
                     auto2_transition
                 in
+                print_endline("forall ψ_f ↦ (f', q) ∈ δ(f), ( ρ(e) ∧ ψ_f = 0 || is_dead(f'))");
+          print_endline (string_of_bool assert_rej1);
                 assert_rej1)
             && (let assert_rej2 =
                   List.for_all
                     (fun (be, To (state, _)) ->
-                      BExp.is_false @@ BExp.b_and reject2 be || DeadStateHash2.is_dead state auto2)
+                      (BExp.is_false @@ BExp.b_and reject2 be)
+                      || DeadStateHash2.is_dead state auto1)
                     auto1_transition
                 in
+                print_endline
+               "assertion2 for: forall ψ_e ↦ (e', q) ∈ δ(f), ( ρ(f) ∧ ψ_f = 0 || \
+                is_dead(e')) ";
+             print_endline (string_of_bool assert_rej2); 
                 assert_rej2)
             &&
             (*if first 3 assertions are true, move to assert_trans*)
+            (* let fitered_trans1= List.filter (fun t -> t <> []) auto1_transition in  *)
             let assert_trans =
               List.for_all
                 (fun ((be1, To (next_state1, p)), (be2, To (next_state2, q))) ->
@@ -653,48 +741,69 @@ module Derivatives = struct
                     (* `p` and `q` are not the same, then both need to be dead*)
                     (* else DeadExps.is_dead next_exp1 && DeadExps.is_dead next_exp2) *))
                   else
-                    DeadStateHash1.is_dead s1 auto1 && DeadStateHash2.is_dead s2 auto2)
+                    let res=
+                    DeadStateHash1.is_dead next_state1 auto1
+                    && DeadStateHash2.is_dead next_state2 auto2 in print_endline(string_of_bool res);res)
                 (Common.list_prod auto1_transition auto2_transition)
             in
+            print_endline
+            "assertion3 for: forall ψ_e ↦ (e', p) ∈ δ(e), ψ_f ↦ (f', q) ∈ δ(f) ";
+          print_endline (string_of_bool assert_trans); 
             assert_trans
     in
     let start_pair = StatePairSet.singleton (auto1.start, auto2.start) in
     helper start_pair
 
-
-    let equiv(exp1 : Exp.t) (exp2 : Exp.t) : bool =
-      let auto1=convert(thompson_construct exp1) in 
-      let auto2=convert(thompson_construct exp2) in
-      equiv_help auto1 auto2
-
-    let example1 =
-      Exp.seq
-        (Exp.test (BExp.pBool "b1"))
-        (Exp.seq (Exp.p_act "p0")
-           (Exp.if_then_else (BExp.pBool "b2") (Exp.p_act "p0") (Exp.p_act "p0")))
   
-    (*(b1 * p0) * p0*)
-    let example2 =
-      Exp.seq
-        (Exp.seq (Exp.test (BExp.pBool "b1")) (Exp.p_act "p0"))
-        (Exp.p_act "p0")
-    let gkat_example1 =
-          Exp.seq
-            (Exp.seq (Exp.p_act "p7")
-               (Exp.if_then_else (BExp.pBool "b2") (Exp.p_act "p6")
-                  (Exp.seq
-                     (Exp.test (BExp.b_not (BExp.pBool "b2")))
-                     (Exp.test (BExp.b_not (BExp.pBool "b1"))))))
-            (Exp.test (BExp.b_not (BExp.pBool "b1")))
-      
-    let gkat_example2 = Exp.seq (Exp.p_act "p7") (Exp.p_act "p5")
+  let equiv (exp1 : Exp.t) (exp2 : Exp.t) : bool =
+    let pauto1 = thompson_construct exp1 in
+    let pauto2 = thompson_construct exp2 in
+    let auto1 = convert(pauto1) in 
+    let auto2 = convert (pauto2) in 
+    print_endline "The auto1's Pautomaton is ";
+   print_endline(pprint_pautomaton pauto1) ;
+   print_endline "The auto2's Pautomaton is ";
+   print_endline(pprint_pautomaton pauto2) ;
+   print_endline "The auto1 is ";
+   print_endline(pprint_automaton auto1) ;
+   print_endline "The auto2 is ";
+   print_endline(pprint_automaton auto2) ;
+    equiv_help auto1 auto2
 
-    (*EXP1: if b2 and b1 then p1 else p0*)
-    let ex1 = Exp.if_then_else (BExp.b_and ((BExp.pBool "b2"))((BExp.pBool "b1")))(Exp.p_act "p1") (Exp.p_act "p0")
-    (*EXP2: if ~(b2 and b1) then p0 else p1*)
-    let ex2 = Exp.if_then_else 
-        (BExp.b_not(BExp.b_and (BExp.pBool "b2")(BExp.pBool "b1")))
-        (Exp.p_act "p0")
-        (Exp.p_act "p1")
+  let example1 =
+    Exp.seq
+      (Exp.test (BExp.pBool "b1"))
+      (Exp.seq (Exp.p_act "p0")
+         (Exp.if_then_else (BExp.pBool "b2") (Exp.p_act "p0") (Exp.p_act "p0")))
 
+  (*(b1 * p0) * p0*)
+  let example2 =
+    Exp.seq
+      (Exp.seq (Exp.test (BExp.pBool "b1")) (Exp.p_act "p0"))
+      (Exp.p_act "p0")
+  let example3 = Exp.if_then_else(BExp.b_and(BExp.pBool("b1"))(BExp.pBool("b1"))) (Exp.p_act("0")) (Exp.p_act("1"))
+  let gkat_example1 =
+    Exp.seq
+      (Exp.seq (Exp.p_act "p7")
+         (Exp.if_then_else (BExp.pBool "b2") (Exp.p_act "p6")
+            (Exp.seq
+               (Exp.test (BExp.b_not (BExp.pBool "b2")))
+               (Exp.test (BExp.b_not (BExp.pBool "b1"))))))
+      (Exp.test (BExp.b_not (BExp.pBool "b1")))
+
+  let gkat_example2 = Exp.seq (Exp.p_act "p7") (Exp.p_act "p5")
+
+  (*EXP1: if b2 and b1 then p1 else p0*)
+  let ex1 =
+    Exp.if_then_else
+      (BExp.b_and (BExp.pBool "b2") (BExp.pBool "b1"))
+      (Exp.p_act "p1") (Exp.p_act "p0")
+
+  (*EXP2: if ~(b2 and b1) then p0 else p1*)
+  let ex2 =
+    Exp.if_then_else
+      (BExp.b_not (BExp.b_and (BExp.pBool "b2") (BExp.pBool "b1")))
+      (Exp.p_act "p0") (Exp.p_act "p1")
+
+  (*[(true -> To(State 1, p680650890)), (true -> To(State 1, p453441034))]*)
 end
