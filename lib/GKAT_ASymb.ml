@@ -457,7 +457,17 @@ module Derivatives = struct
         let auto1 = thompson_construct exp1 in
         let auto2 = thompson_construct exp2 in
         let coprod, all_states =
-          State.coprod_with_dom auto1.states auto2.states
+          State.coprod_with_dom auto1.states auto2.states in 
+        let update_p_trans1= (List.map
+        (fun (boolean_expression, To (state, action)) ->
+          ( BExp.b_and boolean_expression b,
+            To (state, action) ))
+        auto1.p_trans) in 
+        let update_p_trans2=(List.map
+        (fun (boolean_expression, To (state, action)) ->
+          ( BExp.b_and (boolean_expression) (BExp.b_not(b))),
+            To (state, action) )
+        auto2.p_trans)
         in
         {
           states = all_states;
@@ -470,7 +480,7 @@ module Derivatives = struct
               match coprod.from_coprod s with
               | Right state -> auto2.accept state
               | Left state -> auto1.accept state);
-          p_trans = List.append (res_to_left(auto1.p_trans)(coprod)) (res_to_right(auto2.p_trans)(coprod));
+          p_trans = List.append (res_to_left(update_p_trans1)(coprod)) (res_to_right(update_p_trans2)(coprod));
           trans =
             (fun s ->
               match coprod.from_coprod s with
@@ -735,6 +745,8 @@ module Derivatives = struct
               List.for_all
                 (fun ((be1, To (next_state1, p)), (be2, To (next_state2, q))) ->
                   (* `be1` `be2` disjoint, then skip*)
+                  print_string("the is false function return");
+                  print_endline(string_of_bool(BExp.is_false @@ BExp.b_and be1 be2));
                   (BExp.is_false @@ BExp.b_and be1 be2)
                   ||
                   (* `p` and `q` are the same, then recurse*)
@@ -746,7 +758,9 @@ module Derivatives = struct
                   else
                     let res=
                     DeadStateHash1.is_dead next_state1 auto1 
-                    && DeadStateHash2.is_dead next_state2 auto2 in print_endline(string_of_bool res);res)
+                    && DeadStateHash2.is_dead next_state2 auto2 in 
+                    print_string("checking deadstate we got");
+                    print_endline(string_of_bool res);res)
                 (Common.list_prod auto1_transition auto2_transition)
                 (*If two states are not dead, but the don't have the same P_act, does it make the two expression not equivalent?*)
             in
