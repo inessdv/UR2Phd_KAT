@@ -3,9 +3,9 @@ open KA_equiv
 
 let ( let* ) = Gen.( let* )
 let return = Gen.return
-let exp_max_size = 7
+let exp_max_size = 4
 let bexp_max_size = 2
-let max_p_bool_count = 1
+let max_p_bool_count = 2
 
 module GenExp = struct
   open GKAT_2

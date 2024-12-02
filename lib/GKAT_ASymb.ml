@@ -529,7 +529,7 @@ module Derivatives = struct
         {
           states = auto.states;
           p_accept = BExp.b_or (BExp.b_not be) auto.p_accept;
-          accept = (fun state -> BExp.b_or (BExp.b_not be) (auto.accept state));
+          accept = (fun state -> BExp.b_and (BExp.b_not be) (auto.accept state)); (*and?*)
           p_trans =
             List.map
               (fun (boolean_expression, To (state, action)) ->
