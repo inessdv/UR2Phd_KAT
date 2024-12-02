@@ -396,6 +396,7 @@ module Derivatives = struct
 
   let res_to_left (r : be_res_map list) (coprod : MakePosInt.coprodRes) :
       be_res_map list =
+      print_endline("goint to res_toleft");
     List.map
       (fun (boolean_expression, To (state, action)) ->
         (boolean_expression, To (coprod.to_left state, action)))
@@ -403,9 +404,11 @@ module Derivatives = struct
 
   let res_to_right (r : be_res_map list) (coprod : MakePosInt.coprodRes) :
       be_res_map list =
+      print_endline("goint to res_toright");
+
     List.map
       (fun (boolean_expression, To (state, action)) ->
-        (boolean_expression, To (coprod.to_right state, action)))
+        (boolean_expression, To ((coprod.to_right state), action)))
       r
 
   let reject (trans : be_res_map list) (acc : BExp.t) : BExp.t =
@@ -467,7 +470,7 @@ module Derivatives = struct
               match coprod.from_coprod s with
               | Right state -> auto2.accept state
               | Left state -> auto1.accept state);
-          p_trans = List.append auto1.p_trans auto2.p_trans;
+          p_trans = List.append (res_to_left(auto1.p_trans)(coprod)) (res_to_right(auto2.p_trans)(coprod));
           trans =
             (fun s ->
               match coprod.from_coprod s with
@@ -783,6 +786,7 @@ module Derivatives = struct
       (Exp.seq (Exp.test (BExp.pBool "b1")) (Exp.p_act "p0"))
       (Exp.p_act "p0")
   let example3 = Exp.if_then_else(BExp.b_and(BExp.pBool("b1"))(BExp.pBool("b1"))) (Exp.p_act("0")) (Exp.p_act("1"))
+  let example4= (Exp.p_act("0"))
   let gkat_example1 =
     Exp.seq
       (Exp.seq (Exp.p_act "p7")
