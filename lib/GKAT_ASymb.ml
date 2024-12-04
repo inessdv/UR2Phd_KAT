@@ -299,9 +299,8 @@ end
 
 module StateTbl = Hashtbl.Make (struct
   type t = State.t
-
   let equal s1 s2 = s1 == s2
-  let hash = Hashtbl.hash
+  let hash = Int.hash
 end)
 
 module StateHSet = struct
@@ -392,6 +391,87 @@ module MakeDeadStateHash () : DeadStates = struct
 end
 
 module Derivatives = struct
+  let pprint_be_res_map (be_res_map : be_res_map) =
+    let bexp, res = be_res_map in
+    let bexp_str = BExp.pprint bexp in
+    match res with
+    | To (state, int_val) ->
+        Printf.sprintf "(%s -> To(State %d, p%d))" bexp_str state int_val
+
+  let pprint_state (state : State.t) = Printf.sprintf "State %d" state
+  let pprint_states (states : MakePosInt.Set.t) =
+    states
+    |> MakePosInt.Set.elements
+    |> List.map pprint_state    
+    |> String.concat ", "       
+
+  let pprint_transitions (trans : State.t -> be_res_map list)
+      (states : State.Set.t) =
+    State.Set.fold
+      (fun state acc ->
+        let transitions = trans state in
+        let transition_str =
+          List.map pprint_be_res_map transitions |> String.concat ", "
+        in
+        acc ^ Printf.sprintf "\n  %s: [%s]" (pprint_state state) transition_str)
+      states ""
+
+  let pprint_automaton (automaton : Automaton.t) =
+    let accept_str =
+      State.Set.fold
+        (fun state acc ->
+          let accept_bexp = automaton.accept state in
+          acc
+          ^ Printf.sprintf "\n  %s: %s" (pprint_state state)
+              (BExp.pprint accept_bexp))
+        automaton.states ""
+    in
+    let transitions_str = pprint_transitions automaton.trans automaton.states in
+    Printf.sprintf
+      "Automaton:\n\
+       States:\n\
+       %s\n\
+       Start State: %s\n\
+       Accept Conditions:%s\n\
+       Transitions:%s"
+      (State.Set.fold
+         (fun state acc -> acc ^ Printf.sprintf "\n  %s" (pprint_state state))
+         automaton.states "")
+      (pprint_state automaton.start)
+      accept_str transitions_str
+
+  let pprint_pautomaton (pautomaton : PAutomaton.t) =
+    let accept_str =
+      State.Set.fold
+        (fun state acc ->
+          let accept_bexp = pautomaton.accept state in
+          acc
+          ^ Printf.sprintf "\n  %s: %s" (pprint_state state)
+              (BExp.pprint accept_bexp))
+        pautomaton.states ""
+    in
+    let transitions_str =
+      pprint_transitions pautomaton.trans pautomaton.states
+    in
+    let p_trans_str =
+      List.map pprint_be_res_map pautomaton.p_trans |> String.concat "\n  "
+    in
+    Printf.sprintf
+      "PAutomaton:\n\
+       States:\n\
+       %s\n\
+       Accept Conditions:%s\n\
+       p_accept: %s\n\
+       Transitions:%s\n\
+       p_trans:\n\
+      \  %s"
+      (State.Set.fold
+         (fun state acc -> acc ^ Printf.sprintf "\n  %s" (pprint_state state))
+         pautomaton.states "")
+      accept_str
+      (BExp.pprint pautomaton.p_accept)
+      transitions_str p_trans_str
+
   module StateMap = Map.Make (State)
 
   let res_to_left (r : be_res_map list) (coprod : MakePosInt.coprodRes) :
@@ -424,7 +504,7 @@ module Derivatives = struct
      | And (i, b) -> satisfy at i && satisfy at b
      | Not b -> not (satisfy at b)
   *)
-
+    
   let rec thompson_construct (exp : Exp.t) : PAutomaton.t =
     match exp.node with
     | Test b ->
@@ -455,7 +535,9 @@ module Derivatives = struct
         }
     | If (b, exp1, exp2) ->
         let auto1 = thompson_construct exp1 in
+        print_endline("P auto for exp1 in if "^pprint_pautomaton auto1);
         let auto2 = thompson_construct exp2 in
+        print_endline("P auto for exp2 in if "^pprint_pautomaton auto2);
         let coprod, all_states =
           State.coprod_with_dom auto1.states auto2.states in 
         let update_p_trans1= (List.map
@@ -588,81 +670,7 @@ module Derivatives = struct
     List.for_all
       (fun (be, To (_, _)) -> BExp.is_false @@ BExp.b_and reject be)
       auto_transition
-      let pprint_be_res_map (be_res_map : be_res_map) =
-        let bexp, res = be_res_map in
-        let bexp_str = BExp.pprint bexp in
-        match res with
-        | To (state, int_val) ->
-            Printf.sprintf "(%s -> To(State %d, p%d))" bexp_str state int_val
-    
-      let pprint_state (state : State.t) = Printf.sprintf "State %d" state
-    
-      let pprint_transitions (trans : State.t -> be_res_map list)
-          (states : State.Set.t) =
-        State.Set.fold
-          (fun state acc ->
-            let transitions = trans state in
-            let transition_str =
-              List.map pprint_be_res_map transitions |> String.concat ", "
-            in
-            acc ^ Printf.sprintf "\n  %s: [%s]" (pprint_state state) transition_str)
-          states ""
-    
-      let pprint_automaton (automaton : Automaton.t) =
-        let accept_str =
-          State.Set.fold
-            (fun state acc ->
-              let accept_bexp = automaton.accept state in
-              acc
-              ^ Printf.sprintf "\n  %s: %s" (pprint_state state)
-                  (BExp.pprint accept_bexp))
-            automaton.states ""
-        in
-        let transitions_str = pprint_transitions automaton.trans automaton.states in
-        Printf.sprintf
-          "Automaton:\n\
-           States:\n\
-           %s\n\
-           Start State: %s\n\
-           Accept Conditions:%s\n\
-           Transitions:%s"
-          (State.Set.fold
-             (fun state acc -> acc ^ Printf.sprintf "\n  %s" (pprint_state state))
-             automaton.states "")
-          (pprint_state automaton.start)
-          accept_str transitions_str
-    
-      let pprint_pautomaton (pautomaton : PAutomaton.t) =
-        let accept_str =
-          State.Set.fold
-            (fun state acc ->
-              let accept_bexp = pautomaton.accept state in
-              acc
-              ^ Printf.sprintf "\n  %s: %s" (pprint_state state)
-                  (BExp.pprint accept_bexp))
-            pautomaton.states ""
-        in
-        let transitions_str =
-          pprint_transitions pautomaton.trans pautomaton.states
-        in
-        let p_trans_str =
-          List.map pprint_be_res_map pautomaton.p_trans |> String.concat "\n  "
-        in
-        Printf.sprintf
-          "PAutomaton:\n\
-           States:\n\
-           %s\n\
-           Accept Conditions:%s\n\
-           p_accept: %s\n\
-           Transitions:%s\n\
-           p_trans:\n\
-          \  %s"
-          (State.Set.fold
-             (fun state acc -> acc ^ Printf.sprintf "\n  %s" (pprint_state state))
-             pautomaton.states "")
-          accept_str
-          (BExp.pprint pautomaton.p_accept)
-          transitions_str p_trans_str
+
     
   let equiv_help (auto1 : Automaton.t) (auto2 : Automaton.t) : bool =
     (* get union find maps for each auto*)
@@ -756,7 +764,7 @@ module Derivatives = struct
                     (* `p` and `q` are not the same, then both need to be dead*)
                     (* else DeadExps.is_dead next_exp1 && DeadExps.is_dead next_exp2) *))
                   else
-                    let res=
+                    let res =
                     DeadStateHash1.is_dead next_state1 auto1 
                     && DeadStateHash2.is_dead next_state2 auto2 in 
                     print_string("checking deadstate we got");
@@ -817,6 +825,17 @@ module Derivatives = struct
     Exp.if_then_else
       (BExp.b_and (BExp.pBool "b2") (BExp.pBool "b1"))
       (Exp.p_act "p1") (Exp.p_act "p0")
+  
+      let ex =
+        Exp.if_then_else
+          ((BExp.pBool "b2"))
+          (Exp.p_act "p1") (Exp.p_act "p0")
+  (*Transitions:
+  State 1: []
+  State 2: []
+  State 3: [(true -> To(State 1, p256314363)), (true -> To(State 1, p804939374))]
+  *)
+  
 
   (*EXP2: if ~(b2 and b1) then p0 else p1*)
   let ex2 =
@@ -825,4 +844,6 @@ module Derivatives = struct
       (Exp.p_act "p0") (Exp.p_act "p1")
 
   (*[(true -> To(State 1, p680650890)), (true -> To(State 1, p453441034))]*)
+
+  let testwhile = Exp.while_do (BExp.b_and (BExp.pBool "b2") (BExp.pBool "b1")) (Exp.p_act "p1")
 end
