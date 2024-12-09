@@ -437,7 +437,7 @@ module Derivatives (S:Solver) = struct
   let b_equiv (b1 : BExp.t) (b2 : BExp.t) : bool = S.equiv b1.node b2.node
   let pprint_be_res_map (be_res_map : be_res_map) =
     let bexp, res = be_res_map in
-    let bexp_str = BExp.pprint bexp in
+    let bexp_str = BExp.pprint bexp.node in
     match res with
     | To (state, int_val) ->
         Printf.sprintf "(%s -> To(State %d, p%d))" bexp_str state int_val
@@ -467,7 +467,7 @@ module Derivatives (S:Solver) = struct
           let accept_bexp = automaton.accept state in
           acc
           ^ Printf.sprintf "\n  %s: %s" (pprint_state state)
-              (BExp.pprint accept_bexp))
+              (BExp.pprint accept_bexp.node))
         automaton.states ""
     in
     let transitions_str = pprint_transitions automaton.trans automaton.states in
@@ -491,7 +491,7 @@ module Derivatives (S:Solver) = struct
           let accept_bexp = pautomaton.accept state in
           acc
           ^ Printf.sprintf "\n  %s: %s" (pprint_state state)
-              (BExp.pprint accept_bexp))
+              (BExp.pprint accept_bexp.node))
         pautomaton.states ""
     in
     let transitions_str =
@@ -513,7 +513,7 @@ module Derivatives (S:Solver) = struct
          (fun state acc -> acc ^ Printf.sprintf "\n  %s" (pprint_state state))
          pautomaton.states "")
       accept_str
-      (BExp.pprint pautomaton.p_accept)
+      (BExp.pprint pautomaton.p_accept.node)
       transitions_str p_trans_str
 
   module StateMap = Map.Make (State)
