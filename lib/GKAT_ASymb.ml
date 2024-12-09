@@ -367,7 +367,6 @@ end
 
 module MakeDeadStateHash (S:Solver) : DeadStates = struct
   let b_is_false (b : BExp.t) : bool = S.is_false b.node
-  let b_equiv (b1 : BExp.t) (b2 : BExp.t) : bool = S.equiv b1.node b2.node
 
   let dead_states : StateHSet.t = StateHSet.create 251
   let known_dead (state : State.t) : bool = StateHSet.mem state dead_states
@@ -870,7 +869,7 @@ module Derivatives (S:Solver) = struct
       (BExp.b_and (BExp.pBool 2) (BExp.pBool 1))
       (Exp.p_act "p1") (Exp.p_act "p0")
   
-      let ex =
+  let ex =
         Exp.if_then_else
           ((BExp.pBool 2))
           (Exp.p_act "p1") (Exp.p_act "p0")
