@@ -388,8 +388,9 @@ let test_Z3symb_vs_aut =
          = GKAT_Aut.equiv e1 e2)
 
 let test_equiv_Asymb =
+  let module Z3_asymb = GKAT_ASymb.Derivatives(GKAT_ASymb.Z3_solver) in
   QCheck_ounit.to_ounit2_test
-  @@ Test.make ~count:1
+  @@ Test.make ~count:5
        ~name:
          "testing automaton- symbolic based algorithm with generated \
           equivalence"
@@ -398,7 +399,7 @@ let test_equiv_Asymb =
          ^ GKAT_2.Print2.pprint e2)
        GenExp.gen_eq_exp
        (fun (e1, e2) ->
-         GKAT_ASymb.Derivatives.equiv (from_gkat_to_hashcon2 e1)
+        Z3_asymb.equiv (from_gkat_to_hashcon2 e1)
            (from_gkat_to_hashcon2 e2))
 
 (***Symb vs Aut with MLBDD as solver***)
@@ -415,7 +416,7 @@ let test_MLBDDsymb_vs_aut =
           (GenExp.exp_sized bexp_max_size exp_max_size)
           (GenExp.exp_sized bexp_max_size exp_max_size))
        (fun (e1, e2) ->
-        GKAT_Symb.Derivatives.equiv (from_gkat_to_hashcon e1)
+        MLBDD_Deriv.equiv (from_gkat_to_hashcon e1)
            (from_gkat_to_hashcon e2)
          = GKAT_Aut.equiv e1 e2)
 

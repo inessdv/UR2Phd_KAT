@@ -873,11 +873,6 @@ module Derivatives (S:Solver) = struct
         Exp.if_then_else
           ((BExp.pBool 2))
           (Exp.p_act "p1") (Exp.p_act "p0")
-  (*Transitions:
-  State 1: []
-  State 2: []
-  State 3: [(true -> To(State 1, p256314363)), (true -> To(State 1, p804939374))]
-  *)
   
 
   (*EXP2: if ~(b2 and b1) then p0 else p1*)
@@ -886,7 +881,19 @@ module Derivatives (S:Solver) = struct
       (BExp.b_not (BExp.b_and (BExp.pBool 2) (BExp.pBool 1)))
       (Exp.p_act "p0") (Exp.p_act "p1")
 
-  (*[(true -> To(State 1, p680650890)), (true -> To(State 1, p453441034))]*)
-
+  
   let testwhile = Exp.while_do (BExp.b_and (BExp.pBool 2) (BExp.pBool 1)) (Exp.p_act "p1")
+
+  (*for manual test purposes of :  
+  EXP1: while b1 do (if b2 then b1 else 1) done 
+  and 
+  EXP2: while b1 do (b2 * b1) done
+  *)
+
+  (*EXP1: while b1 do (if b2 then b1 else 1) done *)
+  let counter_ex1 = Exp.while_do (BExp.pBool 1) (Exp.if_then_else (BExp.pBool 2) (Exp.test (BExp.pBool 1)) (Exp.test BExp.one))
+
+  (*EXP2: while b1 do (b2 * b1) done*)
+  let counter_ex2 = Exp.while_do (BExp.pBool 1) (Exp.test (BExp.b_and (BExp.pBool 2) (BExp.pBool 1)))
+  
 end
