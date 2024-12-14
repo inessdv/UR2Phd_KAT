@@ -655,7 +655,7 @@ module Derivatives (S:Solver) = struct
         let auto = thompson_construct exp in
         {
           states = auto.states;
-          p_accept = (BExp.b_not be);
+          p_accept = BExp.b_not be;(*BExp.b_or (BExp.b_not be) auto.p_accept;*)
           accept = (fun state -> BExp.b_and (BExp.b_not be) (auto.accept state)); (*and?*)
           p_trans =
             List.map
