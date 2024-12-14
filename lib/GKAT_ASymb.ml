@@ -616,8 +616,10 @@ module Derivatives (S:Solver) = struct
         let auto1 = thompson_construct exp1 in
         let auto2 = thompson_construct exp2 in
         let coprod, all_states =
-          State.coprod_with_dom auto1.states auto2.states
-        in
+          State.coprod_with_dom auto1.states auto2.states in 
+        let updatedPtrans1=res_to_left auto1.p_trans coprod in 
+        let updatedPtrans2=res_to_right auto2.p_trans coprod 
+      in 
         {
           states = all_states;
           p_accept = BExp.b_and auto1.p_accept auto2.p_accept;
@@ -628,12 +630,12 @@ module Derivatives (S:Solver) = struct
               | Left state -> BExp.b_and (auto1.accept state) auto2.p_accept);
           (*?*)
           p_trans =
-            List.append auto1.p_trans
+            List.append (updatedPtrans1)
               (List.map
                  (fun (boolean_expression, To (state, action)) ->
                    ( BExp.b_and boolean_expression auto1.p_accept,
                      To (state, action) ))
-                 auto2.p_trans);
+                     updatedPtrans2);
           trans =
             (fun s ->
               match coprod.from_coprod s with
@@ -653,7 +655,7 @@ module Derivatives (S:Solver) = struct
         let auto = thompson_construct exp in
         {
           states = auto.states;
-          p_accept = BExp.b_or (BExp.b_not be) auto.p_accept;
+          p_accept = (BExp.b_not be);
           accept = (fun state -> BExp.b_and (BExp.b_not be) (auto.accept state)); (*and?*)
           p_trans =
             List.map
