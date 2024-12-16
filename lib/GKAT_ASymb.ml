@@ -519,7 +519,6 @@ module Derivatives (S:Solver) = struct
 
   let res_to_left (r : be_res_map list) (coprod : MakePosInt.coprodRes) :
       be_res_map list =
-      print_endline("goint to res_toleft");
     List.map
       (fun (boolean_expression, To (state, action)) ->
         (boolean_expression, To (coprod.to_left state, action)))
@@ -527,7 +526,6 @@ module Derivatives (S:Solver) = struct
 
   let res_to_right (r : be_res_map list) (coprod : MakePosInt.coprodRes) :
       be_res_map list =
-      print_endline("goint to res_toright");
 
     List.map
       (fun (boolean_expression, To (state, action)) ->
@@ -588,7 +586,7 @@ module Derivatives (S:Solver) = struct
           ( BExp.b_and boolean_expression b,
             To (state, action) ))
         auto1.p_trans) in 
-        let update_p_trans2=(List.map
+        let update_p_trans2 = (List.map
         (fun (boolean_expression, To (state, action)) ->
           ( BExp.b_and (boolean_expression) (BExp.b_not(b))),
             To (state, action) )
@@ -617,8 +615,8 @@ module Derivatives (S:Solver) = struct
         let auto2 = thompson_construct exp2 in
         let coprod, all_states =
           State.coprod_with_dom auto1.states auto2.states in 
-        let updatedPtrans1=res_to_left auto1.p_trans coprod in 
-        let updatedPtrans2=res_to_right auto2.p_trans coprod 
+        let updatedPtrans1 = res_to_left auto1.p_trans coprod in 
+        let updatedPtrans2 = res_to_right auto2.p_trans coprod 
       in 
         {
           states = all_states;
@@ -827,6 +825,10 @@ module Derivatives (S:Solver) = struct
 
   
   let equiv (exp1 : Exp.t) (exp2 : Exp.t) : bool =
+    print_endline "EXP1 is: ";
+    print_endline(Exp.pprint exp1);
+    print_endline "EXP2 is: ";
+    print_endline(Exp.pprint exp2);
     let pauto1 = thompson_construct exp1 in
     let pauto2 = thompson_construct exp2 in
     let auto1 = convert(pauto1) in 
@@ -897,5 +899,8 @@ module Derivatives (S:Solver) = struct
 
   (*EXP2: while b1 do (b2 * b1) done*)
   let counter_ex2 = Exp.while_do (BExp.pBool 1) (Exp.test (BExp.b_and (BExp.pBool 2) (BExp.pBool 1)))
+
+  let seq_1 = Exp.seq (Exp.seq (Exp.test BExp.one) (Exp.p_act "p2")) (Exp.seq (Exp.seq (Exp.test (BExp.b_and (BExp.pBool 1) (BExp.pBool 1))) (Exp.p_act "p1")) (Exp.p_act "p0"))
   
+  let seq_2 = Exp.seq (Exp.p_act "p2") (Exp.seq (Exp.seq (Exp.test (BExp.b_and (BExp.pBool 1) (BExp.pBool 1))) (Exp.p_act "p1")) (Exp.p_act "p0"))
 end

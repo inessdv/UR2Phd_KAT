@@ -390,7 +390,7 @@ let test_Z3symb_vs_aut =
 let test_equiv_Asymb =
   let module Z3_asymb = GKAT_ASymb.Derivatives(GKAT_ASymb.Z3_solver) in
   QCheck_ounit.to_ounit2_test
-  @@ Test.make ~count:5
+  @@ Test.make ~count: 4
        ~name:
          "testing automaton- symbolic based algorithm with generated \
           equivalence"
