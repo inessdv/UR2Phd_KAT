@@ -153,7 +153,7 @@ sequencing `e1; e2`:
 S = S1 + S2; 
 ϵ* = ϵ*1 ∧ ϵ*2
 δ* = δ*1 ∪       # transition by e1
-    {ϵ*1 ∧ ψ ↦ (s', p) ∣ ϕ ↦ (s', p) ∈ δ*2}   # accepted by e1, then transition by e2
+    {ϵ*1 ∧ ϕ ↦ (s', p) ∣ ϕ ↦ (s', p) ∈ δ*2}   # accepted by e1, then transition by e2
 ϵ̂(s) = if s ∈ S1 then ϵ̂1(s) ∧ ϵ2* else ϵ̂2(s) 
 δ̂(s) = if s ∈ S1 then 
     δ̂1(s) ∪ {ϵ̂1(s) ∧ ϕ ↦ (s', p) ∣ ϕ ↦ (s', p) ∈ δ2*}
