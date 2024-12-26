@@ -645,26 +645,25 @@ module Derivatives (S : Solver) = struct
                    ^ " is from the right, preserve transition"); *)
                   res_to_right (auto2.trans state) coprod
               | Left state ->
-                  (* print_endline
-                    ("sequencing " ^ Exp.pprint exp1 ^ " with "
-                   ^ Exp.pprint exp2 ^ ", state " ^ State.pprint s
-                   ^ " is from the left, computing transition"); *)
                   List.append
                     (res_to_left (auto1.trans state) coprod)
                     (res_to_right
                        (List.map
-                          (fun (boolean_expression, To (state, action)) ->
+                          (fun (boolean_expression, To (res_state, action)) ->
                             (* print_endline
                               ("sequencing " ^ Exp.pprint exp1 ^ " with "
-                             ^ Exp.pprint exp2 ^ ", starting transition of auto2 "
+                             ^ Exp.pprint exp2
+                             ^ ", forming transition of state "
+                             ^ State.pprint s
+                             ^ " on the left.\nStarting transition of auto2 "
                               ^ pprint_be_res_map
                                   (boolean_expression, To (state, action))
                               ^ ", combined with accept condition "
-                              ^ (BExp.pprint (auto1.accept state).node)
-                              ^ " of state " ^ State.pprint s
-                              ^ " in auto1: "^pprint_pautomaton auto1); *)
+                              ^ BExp.pprint (auto1.accept state).node
+                              ^ " of state " ^ State.pprint state
+                              ^ " in auto1: " ^ pprint_pautomaton auto1); *)
                             ( BExp.b_and boolean_expression (auto1.accept state),
-                              To (state, action) ))
+                              To (coprod.to_left res_state, action) ))
                           auto2.p_trans)
                        coprod));
         }
