@@ -14,7 +14,7 @@ module GenExp = struct
   let ( let* ) = Gen.( let* )
 
   let p_bool : bExp Gen.t =
-    Gen.int_range 1 max_p_bool_count >|= fun n -> PBool ("b" ^ string_of_int n)
+    Gen.int_range 1 max_p_bool_count >|= fun n -> PBool n
 
   let b_exp size : bExp Gen.t =
     Gen.fix
@@ -288,6 +288,11 @@ let rec from_gkat_to_hashcon (exp1 : GKAT_2.gkat) : GKAT_Symb.Exp.t =
   | While (be, e) ->
       GKAT_Symb.Exp.while_do (from_be_to_hashcons be) (from_gkat_to_hashcon e)
 
+
+module MLBDDSolver = GKAT_Symb.Mlbdd_solver()
+module SymbDerivWithMLBDD = GKAT_Symb.Derivatives(MLBDDSolver)
+let symb_equiv_mlbdd = SymbDerivWithMLBDD.equiv
+
 let bench_rand_exp_symb =
   Test.make ~count:bench_count
     ~name:"benchmarking symbolic algorithm with generated equivalence"
@@ -322,7 +327,7 @@ let bench_rand_exp_symb =
       let start_time = Sys.time () in
       print_endline
         ("result: " ^ string_of_bool
-        @@ GKAT_Symb.Derivatives.equiv e1_hashcons e2_hashcons);
+        @@ symb_equiv_mlbdd e1_hashcons e2_hashcons);
       print_endline
         ("Execution time: " ^ string_of_float (Sys.time () -. start_time) ^ "s");
       print_newline ();
@@ -357,7 +362,7 @@ let bench_equiv_symb =
         ^ "; while's: " ^ string_of_int
         @@ GKAT_Symb.Exp.num_while e2_hashcons);
       let start_time = Sys.time () in
-      let equiv_res = GKAT_Symb.Derivatives.equiv e1_hashcons e2_hashcons in
+      let equiv_res = symb_equiv_mlbdd e1_hashcons e2_hashcons in
       print_endline
         ("Execution time: " ^ string_of_float (Sys.time () -. start_time) ^ "s");
       print_newline ();
