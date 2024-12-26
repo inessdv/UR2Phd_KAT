@@ -536,7 +536,7 @@ module Derivatives (S : Solver) = struct
 
   let rec thompson_construct (exp : Exp.t) : PAutomaton.t =
     (* print_endline
-      ("performing thompson's construction for expression " ^ Exp.pprint exp); *)
+       ("performing thompson's construction for expression " ^ Exp.pprint exp); *)
     match exp.node with
     | Test b ->
         {
@@ -609,9 +609,11 @@ module Derivatives (S : Solver) = struct
         let auto1 = thompson_construct exp1 in
         let auto2 = thompson_construct exp2 in
         (* print_endline
-          ("sequencing " ^ Exp.pprint exp1 ^ " and " ^ Exp.pprint exp2);
-        print_endline ("auto1: "^pprint_pautomaton auto1);
-        print_endline ("auto2: "^pprint_pautomaton auto2); *)
+          ("sequencing " ^ Exp.pprint exp1 ^ " with " ^ Exp.pprint exp2
+         ^ ", auto for exp1: " ^ pprint_pautomaton auto1);
+        print_endline
+          ("sequencing " ^ Exp.pprint exp1 ^ " with " ^ Exp.pprint exp2
+         ^ ", auto for exp2: " ^ pprint_pautomaton auto2); *)
         let coprod, all_states =
           State.coprod_with_dom auto1.states auto2.states
         in
@@ -638,12 +640,14 @@ module Derivatives (S : Solver) = struct
               match coprod.from_coprod s with
               | Right state ->
                   (* print_endline
-                    ("state " ^ State.pprint s
+                    ("sequencing " ^ Exp.pprint exp1 ^ " with "
+                   ^ Exp.pprint exp2 ^ ", state " ^ State.pprint s
                    ^ " is from the right, preserve transition"); *)
                   res_to_right (auto2.trans state) coprod
               | Left state ->
                   (* print_endline
-                    ("state " ^ State.pprint s
+                    ("sequencing " ^ Exp.pprint exp1 ^ " with "
+                   ^ Exp.pprint exp2 ^ ", state " ^ State.pprint s
                    ^ " is from the left, computing transition"); *)
                   List.append
                     (res_to_left (auto1.trans state) coprod)
@@ -651,11 +655,14 @@ module Derivatives (S : Solver) = struct
                        (List.map
                           (fun (boolean_expression, To (state, action)) ->
                             (* print_endline
-                              ("starting transition of auto2 "
+                              ("sequencing " ^ Exp.pprint exp1 ^ " with "
+                             ^ Exp.pprint exp2 ^ ", starting transition of auto2 "
                               ^ pprint_be_res_map
                                   (boolean_expression, To (state, action))
-                              ^ ", combined with accept condition " ^ BExp.pprint
-                              @@ (auto1.accept state).node); *)
+                              ^ ", combined with accept condition "
+                              ^ (BExp.pprint (auto1.accept state).node)
+                              ^ " of state " ^ State.pprint s
+                              ^ " in auto1: "^pprint_pautomaton auto1); *)
                             ( BExp.b_and boolean_expression (auto1.accept state),
                               To (state, action) ))
                           auto2.p_trans)
