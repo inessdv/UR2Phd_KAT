@@ -10,18 +10,12 @@ module BExp = struct
   (** The type for a hashconsed boolean expression *)
 
   (* The internal type of the boolean expression*)
-  and t_ =
-    | Zero
-    | One
-    | PBool of int
-    | Or of t * t
-    | And of t * t
-    | Not of t
+  and t_ = Zero | One | PBool of int | Or of t * t | And of t * t | Not of t
 
   module T_node = struct
     type t = t_node
 
-    let equal (t1) (t2) =
+    let equal t1 t2 =
       match (t1, t2) with
       | Zero, Zero -> true
       | One, One -> true
@@ -31,34 +25,30 @@ module BExp = struct
       | Not x1, Not x2 -> x1 == x2
       | _ -> false
 
-      let hash (t) =
-        match t with
-        | Zero -> Hashtbl.hash `Zero
-        | One -> Hashtbl.hash `One
-        | PBool i -> Hashtbl.hash (`PBool i)
-        | Or (x, y) -> Hashtbl.hash (`Or (x.hkey, y.hkey))
-        | And (x, y) -> Hashtbl.hash (`And (x.hkey, y.hkey))
-        | Not x -> Hashtbl.hash (`Not x.hkey)
+    let hash t =
+      match t with
+      | Zero -> Hashtbl.hash `Zero
+      | One -> Hashtbl.hash `One
+      | PBool i -> Hashtbl.hash (`PBool i)
+      | Or (x, y) -> Hashtbl.hash (`Or (x.hkey, y.hkey))
+      | And (x, y) -> Hashtbl.hash (`And (x.hkey, y.hkey))
+      | Not x -> Hashtbl.hash (`Not x.hkey)
   end
 
-  module HashT = Hashcons.Make(T_node)
+  module HashT = Hashcons.Make (T_node)
 
   (** table used for hash consing 
     notice because of hash consing, we can build *)
-    let tbl = HashT.create 251
+  let tbl = HashT.create 251
 
-    (*let empty_ctx = S.mk_context*)
-    let hashcons = HashT.hashcons tbl
-    let zero : t = hashcons @@ Zero
-    let one : t = hashcons @@ One
+  (*let empty_ctx = S.mk_context*)
+  let hashcons = HashT.hashcons tbl
+  let zero : t = hashcons @@ Zero
+  let one : t = hashcons @@ One
+  let pBool (num : int) : t = hashcons @@ PBool (Hashtbl.hash num)
 
-    let pBool (num : int) : t =
-      hashcons @@ PBool (Hashtbl.hash num)
-
-    let b_not (b1 : t) : t =
-        if b1 == one then zero
-        else if b1 == zero then one
-        else hashcons @@ Not b1
+  let b_not (b1 : t) : t =
+    if b1 == one then zero else if b1 == zero then one else hashcons @@ Not b1
 
   let b_or (b1 : t) (b2 : t) : t =
     if b1 == one then one
@@ -67,7 +57,7 @@ module BExp = struct
     else if b2 == zero then b1
     else if b1 == b2 then b1
     else if b1 == b_not b2 then one
-    else hashcons @@ Or(b1, b2)
+    else hashcons @@ Or (b1, b2)
 
   let b_and (b1 : t) (b2 : t) : t =
     if b1 == one then b2
@@ -77,33 +67,33 @@ module BExp = struct
     else if b1 == b2 then b1
     else if b1 == b_not b2 then zero
     else hashcons @@ And (b1, b2)
-    let rec pprint_bexp_with_p (bexp : t_) =
-      match bexp with
-      | Zero -> ("0", 0)
-      | One -> ("1", 0)
-      | PBool b -> ("b"^(string_of_int b), 0)
-      | Or (b1, b2) ->
+
+  let rec pprint_bexp_with_p (bexp : t_) =
+    match bexp with
+    | Zero -> ("0", 0)
+    | One -> ("1", 0)
+    | PBool b -> ("b" ^ string_of_int b, 0)
+    | Or (b1, b2) ->
         let str1, prec1 = pprint_bexp_with_p b1.node in
         let str2, prec2 = pprint_bexp_with_p b2.node in
         let str1' = if prec1 > 2 then "(" ^ str1 ^ ")" else str1 in
         let str2' = if prec2 > 2 then "(" ^ str2 ^ ")" else str2 in
         (str1' ^ " or " ^ str2', 3)
-      | And (b1, b2) ->
+    | And (b1, b2) ->
         let str1, prec1 = pprint_bexp_with_p b1.node in
         let str2, prec2 = pprint_bexp_with_p b2.node in
         let str1' = if prec1 > 2 then "(" ^ str1 ^ ")" else str1 in
         let str2' = if prec2 > 2 then "(" ^ str2 ^ ")" else str2 in
         (str1' ^ " and " ^ str2', 3)
-      | Not b ->
+    | Not b ->
         let str, prec = pprint_bexp_with_p b.node in
-  
-        if prec > 0 then ("~(" ^ str ^ ")", 1) else ("~" ^ str, 1)
-      
-      (* Print bexp without precedence number *)
-      let pprint (bexp : t_) =
-      let str, _ = pprint_bexp_with_p bexp in
-      str
 
+        if prec > 0 then ("~(" ^ str ^ ")", 1) else ("~" ^ str, 1)
+
+  (* Print bexp without precedence number *)
+  let pprint (bexp : t_) =
+    let str, _ = pprint_bexp_with_p bexp in
+    str
 end
 
 module Exp = struct
@@ -145,6 +135,7 @@ module Exp = struct
   let tbl = HashT.create 251
 
   let hashcons : t_ -> t = HashT.hashcons tbl
+
   (* let p_act (p : string) : t = hashcons @@ Pact (p, Hashtbl.hash p) *)
   let p_act (p : string) : t = hashcons @@ Pact (p, Hashtbl.hash p)
   let test (b : BExp.t) : t = hashcons @@ Test b
@@ -218,91 +209,89 @@ module Exp = struct
     | If (_, e1, e2) -> num_while e1 + num_while e2
     | Test _ -> 0
     | While (_, e1) -> 1 + num_while e1
-  
-    let pprint (exp : t) =
-      let rec helper (exp : t) : string * int =
-        match exp.node with
-        | Pact (p, _) -> (p, 0)
-        | Seq (e1, e2) ->
-            let s1, p1 = helper e1 in
-            let s2, p2 = helper e2 in
-            let s1' = if p1 < 2 then s1 else "(" ^ s1 ^ ")" in
-            let s2' = if p2 < 2 then s2 else "(" ^ s2 ^ ")" in
-            (s1' ^ " ; " ^ s2', 2)
-        | If (b, e1, e2) ->
-            let bs = BExp.pprint b.node in
-            let s1, p1 = helper e1 in
-            let s2, p2 = helper e2 in
-            let s1' = if p1 <= 3 then s1 else "(" ^ s1 ^ ")" in
-            let s2' = if p2 < 3 then s2 else "(" ^ s2 ^ ")" in
-            ("if " ^ bs ^ " then " ^ s1' ^ " else " ^ s2', 3)
-        | Test b ->
-            let bs = BExp.pprint b.node in
-            (bs, 1)
-        | While (b, e) ->
-            let bs = BExp.pprint b.node in
-            let s, p = helper e in
-            let s' = if p <= 1 then s else "(" ^ s ^ ")" in
-            ("while " ^ bs ^ " do " ^ s' ^ " done", 1)
-      in
-      fst @@ helper exp
 
+  let pprint (exp : t) =
+    let rec helper (exp : t) : string * int =
+      match exp.node with
+      | Pact (p, _) -> (p, 0)
+      | Seq (e1, e2) ->
+          let s1, p1 = helper e1 in
+          let s2, p2 = helper e2 in
+          let s1' = if p1 < 2 then s1 else "(" ^ s1 ^ ")" in
+          let s2' = if p2 < 2 then s2 else "(" ^ s2 ^ ")" in
+          (s1' ^ " ; " ^ s2', 2)
+      | If (b, e1, e2) ->
+          let bs = BExp.pprint b.node in
+          let s1, p1 = helper e1 in
+          let s2, p2 = helper e2 in
+          let s1' = if p1 <= 3 then s1 else "(" ^ s1 ^ ")" in
+          let s2' = if p2 < 3 then s2 else "(" ^ s2 ^ ")" in
+          ("if " ^ bs ^ " then " ^ s1' ^ " else " ^ s2', 3)
+      | Test b ->
+          let bs = BExp.pprint b.node in
+          (bs, 1)
+      | While (b, e) ->
+          let bs = BExp.pprint b.node in
+          let s, p = helper e in
+          let s' = if p <= 1 then s else "(" ^ s ^ ")" in
+          ("while " ^ bs ^ " do " ^ s' ^ " done", 1)
+    in
+    fst @@ helper exp
 end
-
 
 (***** Solver functor *****)
 module type Solver = sig
   (*functor for solvers*)
-  val is_false: BExp.t_ -> bool
-  val equiv: BExp.t_ -> BExp.t_ -> bool
-
+  val is_false : BExp.t_ -> bool
+  val equiv : BExp.t_ -> BExp.t_ -> bool
 end
 
-
-module Z3_solver: Solver = struct
-
+module Z3_solver : Solver = struct
   let ctx = Z3.mk_context []
-  let rec to_solver (b: BExp.t_): Z3.Expr.expr = 
+
+  let rec to_solver (b : BExp.t_) : Z3.Expr.expr =
     match b with
     | Zero -> Z3.Boolean.mk_false ctx
     | One -> Z3.Boolean.mk_true ctx
-    | PBool b -> let s_num = string_of_int b in
-        Z3.Boolean.mk_const_s ctx ("b"^s_num)
-    | Or (b1,b2) -> Z3.Boolean.mk_or ctx [ (to_solver b1.node); (to_solver b2.node) ]
-    | And (b1,b2) -> Z3.Boolean.mk_and ctx [ (to_solver b1.node); (to_solver b2.node) ]
+    | PBool b ->
+        let s_num = string_of_int b in
+        Z3.Boolean.mk_const_s ctx ("b" ^ s_num)
+    | Or (b1, b2) ->
+        Z3.Boolean.mk_or ctx [ to_solver b1.node; to_solver b2.node ]
+    | And (b1, b2) ->
+        Z3.Boolean.mk_and ctx [ to_solver b1.node; to_solver b2.node ]
     | Not b1 -> Z3.Boolean.mk_not ctx (to_solver b1.node)
 
-  let is_false (b1: BExp.t_): bool =
-    match Z3.Solver.check (Z3.Solver.mk_solver ctx None) [ to_solver b1] with
-  | Z3.Solver.UNSATISFIABLE -> true
-  | _ -> false
-
-  let equiv (b1: BExp.t_) (b2: BExp.t_) : bool =
-    let iff_exp = Z3.Boolean.mk_iff ctx (to_solver b1) (to_solver b2) in
-    let not_iff_exp = Z3.Boolean.mk_not ctx iff_exp in 
-    (* if ¬ (b1 ↔ b2) is unsatisfiable, then b1 ↔ b2 is a tautology,
-      thus b1 and b2 are semantically equivalent.*)
-    match Z3.Solver.check (Z3.Solver.mk_solver ctx None) [ not_iff_exp ] with
+  let is_false (b1 : BExp.t_) : bool =
+    match Z3.Solver.check (Z3.Solver.mk_solver ctx None) [ to_solver b1 ] with
     | Z3.Solver.UNSATISFIABLE -> true
     | _ -> false
 
+  let equiv (b1 : BExp.t_) (b2 : BExp.t_) : bool =
+    let iff_exp = Z3.Boolean.mk_iff ctx (to_solver b1) (to_solver b2) in
+    let not_iff_exp = Z3.Boolean.mk_not ctx iff_exp in
+    (* if ¬ (b1 ↔ b2) is unsatisfiable, then b1 ↔ b2 is a tautology,
+       thus b1 and b2 are semantically equivalent.*)
+    match Z3.Solver.check (Z3.Solver.mk_solver ctx None) [ not_iff_exp ] with
+    | Z3.Solver.UNSATISFIABLE -> true
+    | _ -> false
 end
 
-module Mlbdd_solver(): Solver = struct
+module Mlbdd_solver () : Solver = struct
   let ctx = MLBDD.init ()
-  let rec to_solver (b: BExp.t_): MLBDD.t =
+
+  let rec to_solver (b : BExp.t_) : MLBDD.t =
     match b with
     | Zero -> MLBDD.dfalse ctx
     | One -> MLBDD.dtrue ctx
     | PBool b1 -> MLBDD.ithvar ctx b1
-    | Or (b1,b2) -> MLBDD.dor (to_solver b1.node) (to_solver b2.node)
-    | And (b1,b2) -> MLBDD.dand (to_solver b1.node) (to_solver b2.node)
+    | Or (b1, b2) -> MLBDD.dor (to_solver b1.node) (to_solver b2.node)
+    | And (b1, b2) -> MLBDD.dand (to_solver b1.node) (to_solver b2.node)
     | Not b1 -> MLBDD.dnot (to_solver b1.node)
 
-  let is_false (b1: BExp.t_): bool =
-    MLBDD.is_false (to_solver b1)
+  let is_false (b1 : BExp.t_) : bool = MLBDD.is_false (to_solver b1)
 
-  let equiv (b1: BExp.t_) (b2: BExp.t_) : bool =
+  let equiv (b1 : BExp.t_) (b2 : BExp.t_) : bool =
     MLBDD.equal (to_solver b1) (to_solver b2)
 end
 
@@ -338,6 +327,7 @@ end
 
 module StateTbl = Hashtbl.Make (struct
   type t = State.t
+
   let equal s1 s2 = s1 == s2
   let hash = Int.hash
 end)
@@ -365,9 +355,8 @@ module type DeadStates = sig
   val clear_dead : unit -> unit
 end
 
-module MakeDeadStateHash (S:Solver) : DeadStates = struct
+module MakeDeadStateHash (S : Solver) : DeadStates = struct
   let b_is_false (b : BExp.t) : bool = S.is_false b.node
-
   let dead_states : StateHSet.t = StateHSet.create 251
   let known_dead (state : State.t) : bool = StateHSet.mem state dead_states
   let clear_dead () = StateHSet.clear dead_states
@@ -431,9 +420,10 @@ module MakeDeadStateHash (S:Solver) : DeadStates = struct
         true
 end
 
-module Derivatives (S:Solver) = struct
+module Derivatives (S : Solver) = struct
   let b_is_false (b : BExp.t) : bool = S.is_false b.node
   let b_equiv (b1 : BExp.t) (b2 : BExp.t) : bool = S.equiv b1.node b2.node
+
   let pprint_be_res_map (be_res_map : be_res_map) =
     let bexp, res = be_res_map in
     let bexp_str = BExp.pprint bexp.node in
@@ -442,11 +432,10 @@ module Derivatives (S:Solver) = struct
         Printf.sprintf "(%s -> To(State %d, p%d))" bexp_str state int_val
 
   let pprint_state (state : State.t) = Printf.sprintf "State %d" state
+
   let pprint_states (states : MakePosInt.Set.t) =
-    states
-    |> MakePosInt.Set.elements
-    |> List.map pprint_state    
-    |> String.concat ", "       
+    states |> MakePosInt.Set.elements |> List.map pprint_state
+    |> String.concat ", "
 
   let pprint_transitions (trans : State.t -> be_res_map list)
       (states : State.Set.t) =
@@ -526,10 +515,9 @@ module Derivatives (S:Solver) = struct
 
   let res_to_right (r : be_res_map list) (coprod : MakePosInt.coprodRes) :
       be_res_map list =
-
     List.map
       (fun (boolean_expression, To (state, action)) ->
-        (boolean_expression, To ((coprod.to_right state), action)))
+        (boolean_expression, To (coprod.to_right state, action)))
       r
 
   let reject (trans : be_res_map list) (acc : BExp.t) : BExp.t =
@@ -545,8 +533,10 @@ module Derivatives (S:Solver) = struct
      | And (i, b) -> satisfy at i && satisfy at b
      | Not b -> not (satisfy at b)
   *)
-    
+
   let rec thompson_construct (exp : Exp.t) : PAutomaton.t =
+    (* print_endline
+      ("performing thompson's construction for expression " ^ Exp.pprint exp); *)
     match exp.node with
     | Test b ->
         {
@@ -576,21 +566,23 @@ module Derivatives (S:Solver) = struct
         }
     | If (b, exp1, exp2) ->
         let auto1 = thompson_construct exp1 in
-        print_endline("P auto for exp1 in if "^pprint_pautomaton auto1);
+        print_endline ("P auto for exp1 in if " ^ pprint_pautomaton auto1);
         let auto2 = thompson_construct exp2 in
-        print_endline("P auto for exp2 in if "^pprint_pautomaton auto2);
+        print_endline ("P auto for exp2 in if " ^ pprint_pautomaton auto2);
         let coprod, all_states =
-          State.coprod_with_dom auto1.states auto2.states in 
-        let update_p_trans1= (List.map
-        (fun (boolean_expression, To (state, action)) ->
-          ( BExp.b_and boolean_expression b,
-            To (state, action) ))
-        auto1.p_trans) in 
-        let update_p_trans2 = (List.map
-        (fun (boolean_expression, To (state, action)) ->
-          ( BExp.b_and (boolean_expression) (BExp.b_not(b))),
-            To (state, action) )
-        auto2.p_trans)
+          State.coprod_with_dom auto1.states auto2.states
+        in
+        let update_p_trans1 =
+          List.map
+            (fun (boolean_expression, To (state, action)) ->
+              (BExp.b_and boolean_expression b, To (state, action)))
+            auto1.p_trans
+        in
+        let update_p_trans2 =
+          List.map
+            (fun (boolean_expression, To (state, action)) ->
+              (BExp.b_and boolean_expression (BExp.b_not b), To (state, action)))
+            auto2.p_trans
         in
         {
           states = all_states;
@@ -603,7 +595,10 @@ module Derivatives (S:Solver) = struct
               match coprod.from_coprod s with
               | Right state -> auto2.accept state
               | Left state -> auto1.accept state);
-          p_trans = List.append (res_to_left(update_p_trans1)(coprod)) (res_to_right(update_p_trans2)(coprod));
+          p_trans =
+            List.append
+              (res_to_left update_p_trans1 coprod)
+              (res_to_right update_p_trans2 coprod);
           trans =
             (fun s ->
               match coprod.from_coprod s with
@@ -613,11 +608,15 @@ module Derivatives (S:Solver) = struct
     | Seq (exp1, exp2) ->
         let auto1 = thompson_construct exp1 in
         let auto2 = thompson_construct exp2 in
+        (* print_endline
+          ("sequencing " ^ Exp.pprint exp1 ^ " and " ^ Exp.pprint exp2);
+        print_endline ("auto1: "^pprint_pautomaton auto1);
+        print_endline ("auto2: "^pprint_pautomaton auto2); *)
         let coprod, all_states =
-          State.coprod_with_dom auto1.states auto2.states in 
-        let updatedPtrans1 = res_to_left auto1.p_trans coprod in 
-        let updatedPtrans2 = res_to_right auto2.p_trans coprod 
-      in 
+          State.coprod_with_dom auto1.states auto2.states
+        in
+        let updatedPtrans1 = res_to_left auto1.p_trans coprod in
+        let updatedPtrans2 = res_to_right auto2.p_trans coprod in
         {
           states = all_states;
           p_accept = BExp.b_and auto1.p_accept auto2.p_accept;
@@ -628,22 +627,35 @@ module Derivatives (S:Solver) = struct
               | Left state -> BExp.b_and (auto1.accept state) auto2.p_accept);
           (*?*)
           p_trans =
-            List.append (updatedPtrans1)
+            List.append updatedPtrans1
               (List.map
                  (fun (boolean_expression, To (state, action)) ->
                    ( BExp.b_and boolean_expression auto1.p_accept,
                      To (state, action) ))
-                     updatedPtrans2);
+                 updatedPtrans2);
           trans =
             (fun s ->
               match coprod.from_coprod s with
-              | Right state -> res_to_right (auto2.trans state) coprod
+              | Right state ->
+                  (* print_endline
+                    ("state " ^ State.pprint s
+                   ^ " is from the right, preserve transition"); *)
+                  res_to_right (auto2.trans state) coprod
               | Left state ->
+                  (* print_endline
+                    ("state " ^ State.pprint s
+                   ^ " is from the left, computing transition"); *)
                   List.append
                     (res_to_left (auto1.trans state) coprod)
                     (res_to_right
                        (List.map
                           (fun (boolean_expression, To (state, action)) ->
+                            (* print_endline
+                              ("starting transition of auto2 "
+                              ^ pprint_be_res_map
+                                  (boolean_expression, To (state, action))
+                              ^ ", combined with accept condition " ^ BExp.pprint
+                              @@ (auto1.accept state).node); *)
                             ( BExp.b_and boolean_expression (auto1.accept state),
                               To (state, action) ))
                           auto2.p_trans)
@@ -653,8 +665,10 @@ module Derivatives (S:Solver) = struct
         let auto = thompson_construct exp in
         {
           states = auto.states;
-          p_accept = BExp.b_not be;(*BExp.b_or (BExp.b_not be) auto.p_accept;*)
-          accept = (fun state -> BExp.b_and (BExp.b_not be) (auto.accept state)); (*and?*)
+          p_accept = BExp.b_not be;
+          (*BExp.b_or (BExp.b_not be) auto.p_accept;*)
+          accept = (fun state -> BExp.b_and (BExp.b_not be) (auto.accept state));
+          (*and?*)
           p_trans =
             List.map
               (fun (boolean_expression, To (state, action)) ->
@@ -714,7 +728,6 @@ module Derivatives (S:Solver) = struct
       (fun (be, To (_, _)) -> b_is_false @@ BExp.b_and reject be)
       auto_transition
 
-    
   let equiv_help (auto1 : Automaton.t) (auto2 : Automaton.t) : bool =
     (* get union find maps for each auto*)
     let uf_map1, uf_map2 = union_find_maps auto1 auto2 in
@@ -732,10 +745,10 @@ module Derivatives (S:Solver) = struct
              print_endline "Equiv asserted";
              print_endline ""; *)
       | Some (s1, s2) ->
-        print_endline("comparing state");
-        print_int(s1);
-        print_int(s2);
-        print_newline();
+          print_endline "comparing state";
+          print_int s1;
+          print_int s2;
+          print_newline ();
           if
             (* if they are already marked bisimilar *)
             (* print_endline
@@ -750,8 +763,7 @@ module Derivatives (S:Solver) = struct
           else if
             (*checking for dead states on the fly*)
             DeadStateHash1.known_dead s1
-          then 
-            DeadStateHash2.is_dead s2 auto2
+          then DeadStateHash2.is_dead s2 auto2
           else if DeadStateHash2.known_dead s2 then
             DeadStateHash1.is_dead s1 auto1
           else
@@ -759,11 +771,11 @@ module Derivatives (S:Solver) = struct
             let reject2 = reject (auto2.trans s2) (auto2.accept s2) in
             let auto1_transition = auto1.trans s1 in
             let auto2_transition = auto2.trans s2 in
-            print_endline(List.map pprint_be_res_map auto1_transition|> String.concat ", ");
-            print_endline(List.map pprint_be_res_map auto2_transition|> String.concat ", ");
-            let epsilon_assert =
-              b_equiv (auto1.accept s1) (auto2.accept s2)
-            in
+            print_endline
+              (List.map pprint_be_res_map auto1_transition |> String.concat ", ");
+            print_endline
+              (List.map pprint_be_res_map auto2_transition |> String.concat ", ");
+            let epsilon_assert = b_equiv (auto1.accept s1) (auto2.accept s2) in
             print_endline "Checking same espilon: ";
             print_endline (string_of_bool epsilon_assert);
             epsilon_assert
@@ -774,8 +786,10 @@ module Derivatives (S:Solver) = struct
                       || DeadStateHash1.is_dead state auto2)
                     auto2_transition
                 in
-                print_endline("forall ψ_f ↦ (f', q) ∈ δ(f), ( ρ(e) ∧ ψ_f = 0 || is_dead(f'))");
-          print_endline (string_of_bool assert_rej1);
+                print_endline
+                  "forall ψ_f ↦ (f', q) ∈ δ(f), ( ρ(e) ∧ ψ_f = 0 || \
+                   is_dead(f'))";
+                print_endline (string_of_bool assert_rej1);
                 assert_rej1)
             && (let assert_rej2 =
                   List.for_all
@@ -785,9 +799,9 @@ module Derivatives (S:Solver) = struct
                     auto1_transition
                 in
                 print_endline
-               "assertion2 for: forall ψ_e ↦ (e', q) ∈ δ(f), ( ρ(f) ∧ ψ_f = 0 || \
-                is_dead(e')) ";
-             print_endline (string_of_bool assert_rej2); 
+                  "assertion2 for: forall ψ_e ↦ (e', q) ∈ δ(f), ( ρ(f) ∧ ψ_f = \
+                   0 || is_dead(e')) ";
+                print_endline (string_of_bool assert_rej2);
                 assert_rej2)
             &&
             (*if first 3 assertions are true, move to assert_trans*)
@@ -796,8 +810,9 @@ module Derivatives (S:Solver) = struct
               List.for_all
                 (fun ((be1, To (next_state1, p)), (be2, To (next_state2, q))) ->
                   (* `be1` `be2` disjoint, then skip*)
-                  print_string("the is false function return");
-                  print_endline(string_of_bool(b_is_false @@ BExp.b_and be1 be2));
+                  print_string "the is false function return";
+                  print_endline
+                    (string_of_bool (b_is_false @@ BExp.b_and be1 be2));
                   (b_is_false @@ BExp.b_and be1 be2)
                   ||
                   (* `p` and `q` are the same, then recurse*)
@@ -808,39 +823,41 @@ module Derivatives (S:Solver) = struct
                     (* else DeadExps.is_dead next_exp1 && DeadExps.is_dead next_exp2) *))
                   else
                     let res =
-                    DeadStateHash1.is_dead next_state1 auto1 
-                    && DeadStateHash2.is_dead next_state2 auto2 in 
-                    print_string("checking deadstate we got");
-                    print_endline(string_of_bool res);res)
+                      DeadStateHash1.is_dead next_state1 auto1
+                      && DeadStateHash2.is_dead next_state2 auto2
+                    in
+                    print_string "checking deadstate we got";
+                    print_endline (string_of_bool res);
+                    res)
                 (Common.list_prod auto1_transition auto2_transition)
-                (*If two states are not dead, but the don't have the same P_act, does it make the two expression not equivalent?*)
+              (*If two states are not dead, but the don't have the same P_act, does it make the two expression not equivalent?*)
             in
             print_endline
-            "assertion3 for: forall ψ_e ↦ (e', p) ∈ δ(e), ψ_f ↦ (f', q) ∈ δ(f) ";
-          print_endline (string_of_bool assert_trans); 
+              "assertion3 for: forall ψ_e ↦ (e', p) ∈ δ(e), ψ_f ↦ (f', q) ∈ \
+               δ(f) ";
+            print_endline (string_of_bool assert_trans);
             assert_trans
     in
     let start_pair = StatePairSet.singleton (auto1.start, auto2.start) in
     helper start_pair
 
-  
   let equiv (exp1 : Exp.t) (exp2 : Exp.t) : bool =
     print_endline "EXP1 is: ";
-    print_endline(Exp.pprint exp1);
+    print_endline (Exp.pprint exp1);
     print_endline "EXP2 is: ";
-    print_endline(Exp.pprint exp2);
+    print_endline (Exp.pprint exp2);
     let pauto1 = thompson_construct exp1 in
     let pauto2 = thompson_construct exp2 in
-    let auto1 = convert(pauto1) in 
-    let auto2 = convert (pauto2) in 
+    let auto1 = convert pauto1 in
+    let auto2 = convert pauto2 in
     print_endline "The auto1's Pautomaton is ";
-   print_endline(pprint_pautomaton pauto1) ;
-   print_endline "The auto2's Pautomaton is ";
-   print_endline(pprint_pautomaton pauto2) ;
-   print_endline "The auto1 is ";
-   print_endline(pprint_automaton auto1) ;
-   print_endline "The auto2 is ";
-   print_endline(pprint_automaton auto2) ;
+    print_endline (pprint_pautomaton pauto1);
+    print_endline "The auto2's Pautomaton is ";
+    print_endline (pprint_pautomaton pauto2);
+    print_endline "The auto1 is ";
+    print_endline (pprint_automaton auto1);
+    print_endline "The auto2 is ";
+    print_endline (pprint_automaton auto2);
     equiv_help auto1 auto2
 
   let example1 =
@@ -854,8 +871,14 @@ module Derivatives (S:Solver) = struct
     Exp.seq
       (Exp.seq (Exp.test (BExp.pBool 1)) (Exp.p_act "p0"))
       (Exp.p_act "p0")
-  let example3 = Exp.if_then_else(BExp.b_and(BExp.pBool(1))(BExp.pBool(1))) (Exp.p_act("0")) (Exp.p_act("1"))
-  let example4= (Exp.p_act("0"))
+
+  let example3 =
+    Exp.if_then_else
+      (BExp.b_and (BExp.pBool 1) (BExp.pBool 1))
+      (Exp.p_act "0") (Exp.p_act "1")
+
+  let example4 = Exp.p_act "0"
+
   let gkat_example1 =
     Exp.seq
       (Exp.seq (Exp.p_act "p7")
@@ -872,12 +895,8 @@ module Derivatives (S:Solver) = struct
     Exp.if_then_else
       (BExp.b_and (BExp.pBool 2) (BExp.pBool 1))
       (Exp.p_act "p1") (Exp.p_act "p0")
-  
-  let ex =
-        Exp.if_then_else
-          ((BExp.pBool 2))
-          (Exp.p_act "p1") (Exp.p_act "p0")
-  
+
+  let ex = Exp.if_then_else (BExp.pBool 2) (Exp.p_act "p1") (Exp.p_act "p0")
 
   (*EXP2: if ~(b2 and b1) then p0 else p1*)
   let ex2 =
@@ -885,22 +904,41 @@ module Derivatives (S:Solver) = struct
       (BExp.b_not (BExp.b_and (BExp.pBool 2) (BExp.pBool 1)))
       (Exp.p_act "p0") (Exp.p_act "p1")
 
-  
-  let testwhile = Exp.while_do (BExp.b_and (BExp.pBool 2) (BExp.pBool 1)) (Exp.p_act "p1")
+  let testwhile =
+    Exp.while_do (BExp.b_and (BExp.pBool 2) (BExp.pBool 1)) (Exp.p_act "p1")
 
-  (*for manual test purposes of :  
-  EXP1: while b1 do (if b2 then b1 else 1) done 
-  and 
-  EXP2: while b1 do (b2 * b1) done
+  (*for manual test purposes of :
+    EXP1: while b1 do (if b2 then b1 else 1) done
+    and
+    EXP2: while b1 do (b2 * b1) done
   *)
 
   (*EXP1: while b1 do (if b2 then b1 else 1) done *)
-  let counter_ex1 = Exp.while_do (BExp.pBool 1) (Exp.if_then_else (BExp.pBool 2) (Exp.test (BExp.pBool 1)) (Exp.test BExp.one))
+  let counter_ex1 =
+    Exp.while_do (BExp.pBool 1)
+      (Exp.if_then_else (BExp.pBool 2)
+         (Exp.test (BExp.pBool 1))
+         (Exp.test BExp.one))
 
   (*EXP2: while b1 do (b2 * b1) done*)
-  let counter_ex2 = Exp.while_do (BExp.pBool 1) (Exp.test (BExp.b_and (BExp.pBool 2) (BExp.pBool 1)))
+  let counter_ex2 =
+    Exp.while_do (BExp.pBool 1)
+      (Exp.test (BExp.b_and (BExp.pBool 2) (BExp.pBool 1)))
 
-  let seq_1 = Exp.seq (Exp.seq (Exp.test BExp.one) (Exp.p_act "p2")) (Exp.seq (Exp.seq (Exp.test (BExp.b_and (BExp.pBool 1) (BExp.pBool 1))) (Exp.p_act "p1")) (Exp.p_act "p0"))
-  
-  let seq_2 = Exp.seq (Exp.p_act "p2") (Exp.seq (Exp.seq (Exp.test (BExp.b_and (BExp.pBool 1) (BExp.pBool 1))) (Exp.p_act "p1")) (Exp.p_act "p0"))
+  let seq_1 =
+    Exp.seq
+      (Exp.seq (Exp.test BExp.one) (Exp.p_act "p2"))
+      (Exp.seq
+         (Exp.seq
+            (Exp.test (BExp.b_and (BExp.pBool 1) (BExp.pBool 1)))
+            (Exp.p_act "p1"))
+         (Exp.p_act "p0"))
+
+  let seq_2 =
+    Exp.seq (Exp.p_act "p2")
+      (Exp.seq
+         (Exp.seq
+            (Exp.test (BExp.b_and (BExp.pBool 1) (BExp.pBool 1)))
+            (Exp.p_act "p1"))
+         (Exp.p_act "p0"))
 end
