@@ -166,7 +166,7 @@ S = S1
 ϵ* = ¬ b 
 δ* = {b ∧ ϕ ↦ (s', p) ∣ ϕ ↦ (s', p) ∈ δ1*}
 ϵ̂(s) = ¬ b ∧ ϵ̂1(s)
-δ̂(s) = {b ∧ ϵ̂1(s) ∧ ϕ ↦ (s', p) ∣ ϕ ↦ (s', p) ∈ δ1*(s)} ∪ δ̂1(s)
+δ̂(s) = {b ∧ ϵ̂1(s) ∧ ϕ ↦ (s', p) ∣ ϕ ↦ (s', p) ∈ δ1*} ∪ δ̂1(s)
 ```
 
 **Notation:** we can use the backward diamond notation to represent "guard" on the transition condition:
